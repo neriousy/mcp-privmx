@@ -1,0 +1,20 @@
+---
+title: Getting Started
+---
+
+
+
+## PrivMX Bridge
+
+Server-side software that intermediates in the transfer of encrypted data and notifications between Endpoints and stores encrypted data for Threads, Stores, and Inboxes.
+
+- PrivMX Bridge is a **Zero-Knowledge software** – it has no possibility of reading (decrypting) data it transmits and stores.
+
+- PrivMX Bridge organizes the structure of the developer's applications (**Solutions**) by offering a universal mechanism of independent access groups called **Contexts**. Each Context is a set of containers (Threads, Stores, Inboxes created by Endpoints) together with a list of users that have rights to create and access them. Each Solution can contain any number of freely configurable Contexts.
+
+- **User’s registration in PrivMX Bridge Contexts requires providing only user’s public key and any textual `userId` assigned by the application.** As a result, PrivMX communication channels can be easily used in existing applications, with no necessary changes to the authorization system currently in use. To learn more about private and public keys, browse our [dedicated section](../start/generating-keys).
+
+- In short: the user's access to a Context and the containers included is granted after the Bridge (using a registered public key) successfully verifies the user's signature sent by PrivMX Endpoint (signature made on the client-side with the valid, corresponding private key).
+
+- Bridge offers an [API](https://bridge.privmx.dev/) and a system of developer keys, so that Solution and Context objects can be managed by developers.
+

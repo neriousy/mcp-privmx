@@ -1,0 +1,302 @@
+---
+title: Working with Inboxes
+---
+
+      Tabs, Tab} from "fumadocs-ui/components/tabs"
+
+Inboxes provide a secure way to receive entries from both internal and external sources.
+
+- Entries can contain binary data and files.
+- Each [Context](../architecture#contexts) can contain any number of Inboxes with unique identifiers (`inboxId`) used to distinguish them.
+- Everyone with access to `inboxID`, `solutionID`, and Bridge URL can send an entry, but only the users who are added to given Inbox can read them.
+
+## Permissions
+
+The user list in Inbox is designed to be flexible, accommodating a wide range of use cases.
+
+Inboxes differentiate three types of users: Regular Users, Managers, and External Users. The table below shows what actions can be performed by each type of users:
+
+| **Activity**       | **User** | **Manager** | **External** |
+|--------------------|----------|-------------|--------------|
+| Submitting entries | yes      | yes         | yes          |
+| Fetching entries   | yes      | yes         | no           |
+| Deleting entries   | no       | yes         | no           |
+| Editing Inbox      | no       | yes         | no           |
+
+The values above are the default policy values defined by PrivMX. To read more about Policies and learn how to modify them, go to [Policies](../concepts/policies).
+
+## Initial Assumptions
+The initial assumptions for all the code examples below are as follows:
+
+:::info
+
+Replace placeholder values such as `BRIDGE_URL`, `SOLUTION_ID`, `CONTEXT_ID`
+with those corresponding to your PrivMX Bridge instance.\
+\
+The private keys here are for demonstration purposes only.
+Normally, they should be kept separately by each user and stored in a safe place,
+or generated from a password (see the [`derivePrivateKey()`](../../reference/endpoint/crypto/crypto-api#deriveprivatekey) method in Crypto API)
+
+:::
+
+<Tabs items={["JavaScript"]}>
+<Tab>
+
+```js
+const BRIDGE_URL = "http://localhost:9111";
+const SOLUTION_ID = "YOUR_SOLUTION_ID";
+const CONTEXT_ID = "YOUR_CONTEXT_ID";
+
+const USER1_ID = "user_1";
+const USER1_PUBLIC_KEY = "PUBLIC_KEY_1";
+const USER1_PRIV = "PRIVATE_KEY_1";
+
+const USER2_ID = "user_2";
+const USER2_PUBLIC_KEY = "PUBLIC_KEY_2";
+
+const USER3_ID = "user_3";
+const USER3_PUBLIC_KEY = "PUBLIC_KEY_3";
+
+//helper functions for encoding and decoding strings
+function uint8ToStr(arr) {
+    return (new TextDecoder()).decode(arr);
+}
+
+function strToUint8(text) {
+    return (new TextEncoder()).encode(text);
+}
+
+// Initialize Endpoint and its Wasm assets
+await Endpoint.setup("/public");
+
+// initialize Endpoint connection, Threads API, Store API
+const connection = await Endpoint.connect(USER1_PRIV, SOLUTION_ID, BRIDGE_URL);
+const threadApi = await Endpoint.createThreadApi(connection);
+const storeApi = await Endpoint.createStoreApi(connection);
+
+// Inbox API require Thread API and Store API instance
+const inboxApi = await Endpoint.createInboxApi(connection,threadApi,storeApi);
+```
+</Tab>
+
+</Tabs>
+
+
+## Creating Inbox
+
+To create an Inbox, you need to name it and provide a list of **public key - userID** pairs.
+Due to the fact that each Inbox is inside a Context, all the public keys have to be registered inside the given Context.
+You can do it using Bridge API [`context/addUserToContext`](https://bridge.privmx.dev/#context-addusertocontext) method.
+
+While creating an Inbox, you can also provide additional information:
+
+- `publicMeta` contains additional info about the Inbox. It is not encrypted before sending to PrivMX Bridge.
+    Inbox API provides methods for accessing this field as `publicView`. For more information about Inbox `publicView` and
+    its common use cases go to [Using Public View](#using-public-view).
+
+- `privateMeta` this field will be encrypted by PrivMX Endpoint before sending to PrivMX Bridge.
+    It's meant to store additional sensitive information about the Inbox. `privateMeta` is accessible only for users registered to the given Inbox.
+
+- `filesConfig` you can specify up front file requirements for each entry submitted to the Inbox.
+    This config includes min and max count of files in an entry, their max size, but also max size of whole upload.
+
+- `policy` determines what actions will be available to specific users. For more information and use cases, go to [Policies](../concepts/policies).
+
+Public and private metadata is sent in binary format.
+
+After creating an Inbox, all the users with management rights will be able to edit it. Skip to [Modifying Inboxes](#modifying-inboxes) for more info.
+
+The examples below demonstrate how to create Inboxes:
+
+<Tabs   items={["JavaScript"]}>
+<Tab>
+Create a new Inbox with access for `user_1` as a manager and `user_2` as  a regular user.
+You can include the name of the Inbox within the `privateMeta` object. This metadata is encrypted before being sent to PrivMX Bridge, ensuring its confidentiality.
+
+```js
+const managers = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY}
+];
+
+const users = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY},
+    {userId: USER2_ID, pubKey: USER2_PUBLIC_KEY}
+];
+
+const storeId = await inboxApi.createInbox(
+    CONTEXT_ID,
+    users,
+    managers,
+    this.strToUint8("some store's public meta-data"),
+    this.strToUint8(JSON.stringify({
+        name: "some_store"
+    }))
+);
+```
+</Tab>
+
+</Tabs>
+
+<Callout>
+Managers declared while creating the Inbox, also have to be included in the regular user list.
+</Callout>
+
+## Listing Inboxes
+
+Your application may include multiple Inboxes, each associated with different Contexts.
+You can retrieve a **list of all Inboxes within a given Context.**
+This list, alongside the metadata you sent while creating the Inbox, will include useful metadata about the Inbox, such as the creation date,
+last file upload date, user list, and information about the last modification.
+
+PrivMX Endpoint **takes care of decrypting received data**, which means you only have to take care of decoding them from
+binary format.
+
+Here's an example of how to download the last 30 Inboxes created within a Context:
+
+<Tabs   items={["JavaScript"]}>
+
+<Tab >
+```js
+const query: Types.PagingQuery = {skip: 0, limit: 30, sortOrder: "desc"};
+
+const result = await inboxApi.listInboxes(CONTEXT_ID, query);
+for (const inbox of result.readItems) {
+    console.log("Inbox ID: ", store.storeId);
+
+    // Decode the data back into a string and parse its content
+    const privateMeta = JSON.parse(uint8ToStr(inbox.privateMeta))
+    console.log(privateMeta)
+}
+```
+
+</Tab>
+</Tabs>
+
+To limit collecting too much data when downloading Inboxes, specify the page index (starting from 0) and the number of items to be included on each page.
+
+
+## Modifying Inboxes
+
+Depending on your project's specification, it may be necessary to modify an Inbox.
+It could be, for example, changing the name or adding/removing users.
+Each user with management rights is able to modify Inboxes, delete them as a whole or only particular entries.
+
+Updating an Inbox means overwriting it with the provided data.
+To successfully update an Inbox, you must specify its current `version`.
+The `version` field is mandatory to handle multiple updates on the server, and it is incremented by 1 with each update.
+
+Below there is an example of modifying an Inbox:
+
+<Tabs groupId="lang" items={["JavaScript"]}>
+
+
+<Tab>
+```js
+// Add a new user to the existing ones in the Inbox
+const newUsersList = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY},
+    {userId: USER2_ID, pubKey: USER2_PUBLIC_KEY},
+    {userId: USER3_ID, pubKey: USER3_PUBLIC_KEY}
+];
+
+const inbox = await inboxApi.getInbox(inboxId);
+
+// Edit the Inbox name
+const privateMeta = JSON.parse(uint8ToStr(inbox.privateMeta));
+privateMeta.name = "New Inbox Name";
+
+await inboxApi.updateInbox(
+    inboxId,
+    newUsersList,
+    managers,
+    inbox.publicMeta,
+    strToUint8(JSON.stringify(privateMeta)),
+    inbox.version,
+    false,                                   // force
+    false                                    // forceGenerateNewKey
+);
+```
+</Tab>
+
+
+</Tabs>
+
+Three additional options are available when changing the list of users inside an Inbox:
+- `force` - applies an update, without checking the current version.
+- `forceGenerateNewKey` - re-encrypts entries in the Inbox. It's useful when a user is removed, and you want to prevent them from accessing the Inbox.
+- `policy` - you can also pass a new policy object as the last optional argument.
+
+
+## Using Public View
+
+You can fetch Inbox public view using `getInboxPublicView`.
+Public view contains the [`publicMeta`](#creating-inbox) field from Inbox.
+
+:::info
+
+Keep in mind that every user with access to Inbox ID can get its public view.
+
+:::
+
+In Inboxes, `publicMeta` can store information about the required structure of an entry.
+
+For example, while creating an Inbox, you could save the required fields:
+
+```json publicMeta
+{
+    "fields": [
+      {
+        "type": "text",
+        "question": "Your Name"},
+      {
+        "type": "select",
+        "question": "Favorite Language",
+        "options": ["JavaScript","Java","Swift","C#"]
+      }
+    ]
+}
+```
+
+Then, you can dynamically create a form based on this schema:
+
+<Tabs groupId="lang" items={["JavaScript"]} >
+    <Tab>
+        ```js
+        const publicView = await inboxApi.getInboxPublicView(INBOX_ID)
+        const publicMeta = JSON.parse(uint8ToStr(publicView.publicMeta)
+        ```
+        In React, for example, you could map each of the fields to its input types:
+
+        ```jsx
+        //rest of your component
+
+        <form>
+            {publicMeta.fields.map(field => {
+                switch (field.type) {
+                    case "text":
+                        return (
+                            <>
+                            <label>{field.question}</label>
+                            <input type={"text"} name={field.question} />
+                            </>
+                        )
+                    case "select":
+                        return (
+                            <>
+                            <label>{field.question}</label>
+                            <select name={field.question}>
+                                {field.options.map(option => (
+                                    <option value={option}>{option}</option>
+                                ))}
+                            </select>
+                            </>
+                        )
+                    default:
+                        return <></>
+                }
+            })}
+        </form>
+        ```
+    </Tab>
+</Tabs>
+

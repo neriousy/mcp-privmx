@@ -1,0 +1,50 @@
+---
+title: Versioning
+---
+## A.B.C-rcX versioning
+
+Each version of the project is marked with semantic numbering. Here are the detailed rules:
+
+### New features
+
+Changes in `A` and `B` numbers introduce new features:
+
+• `A` (major): changes in the event of major updates or the introduction of incompatible features.
+
+• `B` (minor): changes in the event of minor updates, which are **in most cases** compatible with previous versions.
+
+### Consistency of numbering
+
+The main library and all the wrappers use the same `A` and `B` versioning.
+
+### Updates within the version:
+
+• `C` changes consist of fixes and updates that do not introduce new features – they are only bug and optimization fixes.
+
+• `C` does not have to be synchronized between the library and the wrappers.
+
+### Release Candidate (rc)
+
+The `X` in `A.B.C-rcX` stands for the consecutive release candidates for given version.
+
+### Before official release
+
+• Before making a final release decision in the team, all the components (the library and the wrappers) are released as `A.B.C-rcX`.
+
+• At the `rc` stage, changes connected to the new API are possible and they change the `X`.
+
+### Finalizing a version
+
+When the main library and the wrappers reach full compatibility in a given version, a stable version of A.B.C is published, with all the components synchronized.
+
+### Minor changes (B)
+
+• Adding small features or items to replace older functionality bumps up the `B` number.
+
+• Replaced and changed functions will be marked as deprecated, but still work until a version with a bumped up `A` number is released.
+
+• However, we do not exclude the **possibility that compatibility will be broken** at this stage. We will inform about it in release-notes.
+
+### Major changes (A)
+
+Introducing major changes or features, requires the `A` number increase.

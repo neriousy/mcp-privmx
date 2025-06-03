@@ -1,0 +1,182 @@
+---
+title: Handling Events
+---
+
+
+
+
+The `@simplito/privmx-webendpoint/extra` package provides utilities for efficiently managing event subscriptions. These utilities simplify event handling, ensuring your application remains reactive and responsive.
+
+## EventManager Features
+With `EventManager`, you can:
+
+- Start an event loop to listen for incoming events.
+- Create scoped event managers for specific Tools (e.g., Threads, Stores, Inboxes, connections).
+- Dynamically subscribe and unsubscribe from events.
+
+
+## Usage Examples
+<Tabs groupId="tool" items={["Threads","Stores","Inboxes","Connection"]}>
+<Tab>
+The example below demonstrates how to use the `EventManager` for Thread events.
+
+```js
+import { EventManager } from '@simplito/privmx-webendpoint/extra';
+
+// Get the event queue from the endpoint
+const eventQueue = await Endpoint.getEventQueue();
+
+// Start the event loop
+const eventManager = EventManager.startEventLoop({
+    waitEvent: eventQueue.waitEvent
+});
+
+// Create a scoped event manager for thread events
+const threadEventManager = eventManager.getThreadEventManager(YOUR_THREAD_API);
+
+// Subscribe to the 'threadCreated' event
+const unsubscribeFromThreadCreated = await threadEventManager.onThreadEvent({
+    event: 'threadCreated',
+    callback: (payload) => {
+        console.log("New thread created:", payload);
+    }
+});
+
+// Subscribe to the 'threadNewMessage' event for a specific thread
+const unsubscribeFromMessageCreated = await threadEventManager.onMessageEvent(THREAD_ID, {
+    event: 'threadNewMessage',
+    callback: (payload) => {
+        console.log("New message in thread:", payload);
+    }
+});
+
+// Unsubscribe when needed
+await unsubscribeFromThreadCreated();
+await unsubscribeFromMessageCreated();
+
+// Stop the event loop when needed
+eventManager.stopEventLoop();
+```
+
+For more information regarding Thread-related events please visit [Threads docs](../start/threads/listening-for-changes).
+</Tab>
+<Tab>
+The example below demonstrates how to use the `EventManager` for Store events.
+
+```js
+import { EventManager } from '@simplito/privmx-webendpoint/extra';
+
+// Get the event queue from the endpoint
+const eventQueue = await Endpoint.getEventQueue();
+
+// Start the event loop
+const eventManager = EventManager.startEventLoop({
+    waitEvent: eventQueue.waitEvent
+});
+
+// Create a scoped event manager for store events
+const storeEventManager = eventManager.getStoreEventManager(YOUR_STORE_API);
+
+// Subscribe to the 'storeCreated' event
+const unsubscribeFromStoreCreated = await storeEventManager.onStoreEvent({
+    event: 'storeCreated',
+    callback: (payload) => {
+        console.log('New store created:', payload);
+    },
+});
+
+// Subscribe to the 'storeFileCreated' event for a specific thread
+const unsubscribeFromFileCreated = await storeEventManager.onFileEvent(STORE_ID, {
+    event: 'storeFileCreated',
+    callback: (payload) => {
+        console.log('New file in store:', payload);
+    }
+});
+
+// Unsubscribe when needed
+await unsubscribeFromStoreCreated();
+await unsubscribeFromFileCreated();
+
+// Stop the event loop when needed
+eventManager.stopEventLoop();
+```
+
+For more information regarding Store-related events please visit [Store docs](./../../stores/using-stores/05-realtime-updating.mdx).
+</Tab>
+
+<Tab>
+The example below demonstrates how to use the `EventManager` for Inbox events.
+
+
+```js
+import { EventManager } from '@simplito/privmx-webendpoint/extra';
+
+// Get the event queue from the endpoint
+const eventQueue = await Endpoint.getEventQueue();
+
+// Start the event loop
+const eventManager = EventManager.startEventLoop({
+    waitEvent: eventQueue.waitEvent
+});
+
+// Create a scoped event manager for inbox events
+const inboxEventManager = eventManager.getInboxEventManager(YOUR_INBOX_API);
+
+// Subscribe to the 'inboxCreated' event
+const unsubscribeFromInboxCreated = await inboxEventManager.onInboxEvent({
+    event: 'inboxCreated',
+    callback: (payload) => {
+        console.log('New inbox created:', payload);
+    },
+});
+
+// Subscribe to the 'storeFileCreated' event for a specific thread
+const unsubscribeFromEntryCreated = await inboxEventManager.onEntryEvent(INBOX_ID, {
+    event: 'inboxEntryCreated',
+    callback: (payload) => {
+        console.log('New entry in inbox:', payload);
+    },
+});
+
+// Unsubscribe when needed
+await unsubscribeFromInboxCreated();
+await unsubscribeFromEntryCreated();
+
+// Stop the event loop when needed
+eventManager.stopEventLoop();
+```
+</Tab>
+
+<Tab>
+The example below demonstrates how to use the `EventManager` for connection events.
+
+```js
+import { EventManager } from '@simplito/privmx-webendpoint/extra';
+
+// Get the event queue from the endpoint
+const eventQueue = await Endpoint.getEventQueue();
+
+// Start the event loop
+const eventManager = EventManager.startEventLoop({
+    waitEvent: eventQueue.waitEvent
+});
+
+// Create a scoped event manager for connections events
+const inboxEventManager = eventManager.getConnectionEventManager(await YOUR_CONNECTION.getConnectionId());
+
+// Subscribe to the 'inboxCreated' event
+const unsubscribeFromDisconnectedEvent = await inboxEventManager.onConnectionEvent({
+    event: 'libDisconnected',
+    callback: (payload) => {
+        console.log('Disconnected:', payload);
+    },
+});
+
+// Unsubscribe when needed
+await unsubscribeFromDisconnectedEvent();
+
+// Stop the event loop when needed
+eventManager.stopEventLoop();
+```
+</Tab>
+</Tabs>

@@ -1,0 +1,58 @@
+---
+title: Messages
+description: Sending messages in Threads.
+---
+
+
+:::info
+
+Sample code on this page is based on the **[initial assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+## Messages Inside Threads
+
+Messages inside Threads are sent in binary format. Before sending a message, you need to decide on the message format.
+
+For more information about the Threads architecture and best practices for sending messages, visit the
+[Threads Documentation](../start/threads/overview).
+
+## Sending Messages
+
+Sending a simple message to the given Thread:
+
+```cpp
+// ...
+
+// send messages to the Thread represented by its threadId
+threadApi.sendMessage(
+    threadId, 
+    core::Buffer::from("some public meta-data"), 
+    core::Buffer::from("some private meta-data"), 
+    core::Buffer::from("serialized message data")
+);
+
+// ...
+```
+
+## Get the Thread's Messages
+
+To get a list of messages inside a Thread, use `getMessages` method. Because data inside messages is in `core::Buffer`
+you have to deserialize it to human-readable string.
+**PrivMX Endpoint library takes care of encrypting your data before sending it to PrivMX Bridge.**
+
+Reading the messages of the Thread (limited to the 100 newest entries as described by the `defaultListQuery` object):
+
+```cpp
+// ...
+
+auto messages = threadApi.listMessages(threadId, defaultListQuery);
+for (auto msg: messages.readItems) {
+    std::cout << "message: " << msg.data.stdString()
+        << " / public meta: " << msg.publicMeta.stdString() 
+        << " / private meta: " << msg.privateMeta.stdString() 
+        << std::endl;
+}
+
+// ...
+```

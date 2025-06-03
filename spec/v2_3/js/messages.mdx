@@ -1,0 +1,98 @@
+---
+title: Messages
+description: Sending messages in Threads.
+---
+
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](../js/first-app#initial-assumptions)** mentioned in [First App](../js/first-app).
+
+:::
+
+## Messages Inside Threads
+
+Messages inside Threads are sent in binary format. Before sending a message, you need to decide on the message format and choose
+the appropriate data serialization method.
+
+For more information about the Threads architecture and best practices for sending messages, visit the
+[Threads Documentation](../start/threads/overview).
+
+## Serialization of Data
+
+To send a message you have to use the Endpoint's `sendMessage` method. This method accepts arguments in `Uint8Array`, here are some of
+the ways you can serialize your JavaScript objects:
+
+## Sending Messages
+
+<Tabs groupId="variant" items={["basic","markdown"]}>
+<Tab>
+Example of sending a message in Plain Text:
+
+```ts
+const message = 'Message text';
+ 
+const encoder = new TextEncoder();
+
+await threadApi.sendMessage(
+    threadId, 
+    serializeObject("some public meta-data"), 
+    serializeObject("some private meta-data"), 
+    serializeObject(message)
+);
+```
+</Tab>
+
+<Tab value='markdown' label='Richtext'>
+
+Your app may require sending messages in more complex formats like Markdown or HTML. Because messages in Threads
+don't have a specified format, you can take any output from your text editor, serialize, and send it.
+
+The example below uses `type` field in `publicMeta` to distinguish between different types of messages.
+
+```ts
+const messageObject = {
+    //output from the chosen WYSIWYG editor
+    //or your own object definition 
+};
+
+const privateMeta = {
+    type: 'markdown'
+};
+
+const publicMeta = {
+    tag: 'tag'
+};
+
+await threadApi.sendMessage(
+    threadId, 
+    serializeObject(publicMeta), 
+    serializeObject(privateMeta),
+    serializeObject(messageObject)
+);
+```
+</Tab>
+</Tabs>
+
+## Receiving Messages
+
+To get a list of messages inside a Thread, use `getMessages` method. Because data inside messages is in Uint8Array
+you have to deserialize it to human-readable string.
+**Endpoint takes care of encrypting your data before sending it to PrivMX Bridge.**
+
+```js
+const defaultListQuery = {skip: 0, limit: 100, sortOrder: "desc"};
+
+const messages = await threadApi.listMessages(threadId, defaultListQuery);
+const decodedMessages = messages.readItems.map(x =>
+   {
+      return {
+        publicMeta: deserializedObject(x.publicMeta),
+        privateMeta: deserializedObject(x.privateMeta),
+        data: deserializedObject(x.data)
+      }
+   }
+)
+console.log("messages", messages);
+console.log("messages in human-readable format", decodedMessages);
+```

@@ -1,0 +1,205 @@
+---
+title: Hosting Assets
+---
+
+# Hosting PrivMX Web Endpoint Assets
+
+To ensure the proper functionality and security of our library, it is essential to configure your server with specific HTTP headers on **the page containing the scripts** and **the scripts themselves** (e.g., those located in `public/privmx-assets/`).
+
+Set the following headers:
+
+- `Cross-Origin-Embedder-Policy: require-corp`
+- `Cross-Origin-Opener-Policy: same-origin`
+
+These headers are crucial for maintaining a secure execution environment, as they help prevent potential cross-origin attacks and ensure that resources are only shared with origins that comply with the same security policies. Implementing these headers will enable seamless integration and optimal performance of our library in your application.
+
+### Setting Up Headers in Different Environments
+
+<Tabs items={["Vite","Next.js","Express","Nginx","Apache","Webpack"]}>
+<Tab>
+
+#### Vite
+
+To configure these headers in a Vite project for specific routes (such as the page containing the scripts and the scripts themselves), you need to set up a middleware in the Vite configuration file:
+
+```js
+// vite.config.js
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    {
+      name: 'configure-response-headers',
+      configureServer: server => {
+        server.middlewares.use((req, res, next) => {
+          // Apply headers only to relevant paths
+          if (req.url.startsWith('/privmx-assets') || req.url === '/YOUR_SUBPAGE') {
+            res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+            res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+          }
+          next();
+        });
+      },
+    },
+  ],
+});
+
+```
+
+</Tab>
+<Tab>
+
+#### Next.js
+In a Next.js project, you can set these headers specifically for the page containing the scripts and the script files (e.g., public/privmx-assets/) in the next.config.js file:
+```js
+// next.config.mjs
+const nextConfig = {
+  // ..rest of the configuration
+  headers: async () => {
+    return [
+      {
+        source: '/your-page', // Page containing the scripts
+        headers: [
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+        ],
+      },
+      {
+        source: '/privmx-assets/(.*)', // Script files
+        headers: [
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+        ],
+      },
+    ];
+  },
+};
+
+
+```
+
+</Tab>
+<Tab>
+
+#### Express
+For an Express.js server, you can set these headers in your middleware:
+
+```js
+const express = require('express');
+const app = express();
+
+app.use('/privmx-assets', (req, res, next) => {
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  next();
+});
+
+app.use('/your-page', (req, res, next) => {
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  next();
+});
+
+// your other middleware and routes
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
+
+```
+
+</Tab>
+<Tab>
+
+#### Nginx
+To set these headers only for the page containing the scripts and the script files, you need to modify your Nginx configuration file:
+```
+# /etc/nginx/nginx.conf or /etc/nginx/sites-available/your-site
+server {
+  listen 80;
+  server_name your-site.com;
+
+  location /your-page {
+    add_header Cross-Origin-Embedder-Policy require-corp;
+    add_header Cross-Origin-Opener-Policy same-origin;
+  }
+
+  location /privmx-assets/ {
+    add_header Cross-Origin-Embedder-Policy require-corp;
+    add_header Cross-Origin-Opener-Policy same-origin;
+  }
+}
+
+
+```
+
+</Tab>
+<Tab>
+#### Apache
+To configure these headers only for the page containing the scripts and the script files, add the following directives to your .htaccess file or your site's configuration file:
+
+```
+# .htaccess or httpd.conf
+<IfModule mod_headers.c>
+  <FilesMatch "^/your-page$">
+    Header set Cross-Origin-Embedder-Policy "require-corp"
+    Header set Cross-Origin-Opener-Policy "same-origin"
+  </FilesMatch>
+
+  <Directory "public/privmx-assets/">
+    Header set Cross-Origin-Embedder-Policy "require-corp"
+    Header set Cross-Origin-Opener-Policy "same-origin"
+  </Directory>
+</IfModule>
+```
+</Tab>
+
+<Tab>
+
+#### Webpack Dev Server
+
+Below you will find an example configuration file for Webpack with a fully setup Webpack's Development Server:
+
+```js
+// webpack.config.cjs
+const path = require('path');
+const webpack = require('webpack');
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const host = process.env.HOST || 'localhost';
+module.exports = {
+  devServer: {
+    static: [{
+      directory: path.join(__dirname, 'public'),
+      publicPath: '/public'
+    }],
+    compress: true,
+    liveReload: false,
+    host,
+    port: 4001,
+    headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
+
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+      "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
+    }
+  }
+};
+
+```
+
+</Tab>
+</Tabs>

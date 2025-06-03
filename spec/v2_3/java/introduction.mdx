@@ -1,0 +1,59 @@
+---
+title: Overview
+description: This part of the documentation describes our solutions to simplify working with Privmx Endpoint C++ library inside Java Virtual Machines.
+---
+
+## Libraries
+
+### Privmx Endpoint Java Extra
+
+PrivMX Endpoint Java Extra is the basic **recommended library** for using the platform in most cases.
+It contains all the logic that makes using our libraries simple and secure.
+It can be used on Java Virtual Machines (JVM).
+
+This library implements:
+
+- Enums and static fields to reduce errors while using the methods.
+- [`PrivmxEndpoint`](../reference/privmx-endpoint-java-extra/core/privmx-endpoint) for managing connection and registering callbacks on any events.
+- [`PrivmxEndpointContainer`](../reference/privmx-endpoint-java-extra/core/privmx-endpoint-container) for managing global session with implemented event loop.
+- Classes to simplify reading/writing to files using byte arrays and InputStream/OutputStream.
+
+[Go to Reference](../reference/privmx-endpoint-java-extra/core/basic-privmx-endpoint) for a detailed description of each class
+or see the source code on [GitHub](https://github.com/simplito/privmx-endpoint-java/tree/main/privmx-endpoint-extra).
+
+### Privmx Endpoint Java Android
+
+PrivMX Endpoint Java Android is an extension of `Privmx Endpoint Java Extra` with logic specifically for **Android**.
+
+This library implements:
+
+- [`PrivmxEndpointService`](../reference/privmx-endpoint-java-android/core/privmx-endpoint-service) - an Android Service that manages PrivMX Endpoint Java Extra library and handles app lifecycle changes.
+- [`PrivmxEndpointBaseActivity`](../reference/privmx-endpoint-java-android/core/privmx-endpoint-base-activity) - Android Activity that configures and binds to [`PrivmxEndpointService`](../reference/privmx-endpoint-java-android/core/privmx-endpoint-service).
+
+[Go to Reference](../reference/privmx-endpoint-java-android/core/privmx-endpoint-base-activity) for a detailed description of each class
+or see the source code on [GitHub](https://github.com/simplito/privmx-endpoint-java/tree/main/privmx-endpoint-android).
+
+### Privmx Endpoint Java
+
+PrivMX Endpoint Java is the minimal wrapper library, crucial for the platform's functioning. It declares native functions in Java using JNI.
+Since it's the most minimal library available, it gives you the most freedom with adjusting the platform to your requirements.
+It can be used on Java Virtual Machines (JVM).
+
+This library implements models, exception catching, and the following modules:
+- `CryptoApi` - Cryptographic methods used to encrypt/decrypt and sign your data or generate keys to work with Privmx Bridge.
+- `Connection` - Methods for managing connection with Privmx Bridge.
+- `ThreadApi` - Methods for managing Threads and sending/reading messages.
+- `StoreApi` - Methods for managing Stores and sending/reading files.
+- `InboxApi` - Methods for managing Inboxes and entries.
+
+[Go to Reference](../reference/privmx-endpoint-java/core/backend-requester) for a detailed description of each class
+or see the source code on [GitHub](https://github.com/simplito/privmx-endpoint-java/tree/main/privmx-endpoint).
+
+
+## Gradle Plugins
+
+### Privmx Endpoint Install Native
+
+Privmx Endpoint Install Native is a gradle plugin that automates the process of downloading and installing native libraries into your project.
+
+[Read more about the plugin.](./plugin-configuration)

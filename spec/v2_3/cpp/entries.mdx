@@ -1,0 +1,117 @@
+---
+title: Entries
+---
+
+All the data sent by someone to an Inbox is called an Entry.
+In Threads and Stores, a user must be assigned to the container to send data. In Inboxes, however, 
+anyone who has Inbox ID can send a reply (assuming they have the Bridge URL and Solution ID).
+
+:::info
+
+Sample code on this page is based on the same **[assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+## Public Access to an Inbox
+
+PrivMX Endpoint client provides different ways to connect to a Bridge instance.
+
+When using "public" connection (`connectPublic(...)`) you don't have to pass a private key. A random private key will be generated for each connection.
+**The public connection provides only the methods related to sending Inbox entries and retrieving public metadata** related to the Inbox.
+
+
+### Connect to the Public Inbox API
+```cpp
+// ...
+
+auto publicConnection {core::Connection::connectPublic(SOLUTION_ID, BRIDGE_URL)};
+auto threadPubApi {thread::ThreadApi::create(publicConnection)};
+auto storePubApi {store::StoreApi::create(publicConnection)};
+auto inboxPubApi {inbox::InboxApi::create(publicConnection, threadPubApi, storePubApi)};
+
+// ...
+```
+
+### Reading Inbox Public View
+`getInboxPublicView(...)` gets all the data stored inside the Inbox' publicMeta.
+
+```cpp
+// ...
+
+auto publicView {inboxPubApi.getInboxPublicView(inboxId)};
+std::cout << "Public view: " << publicView.publicMeta.stdString() << std::endl;
+
+// ...
+```
+
+
+## Submitting Entries
+### Adding a Simple Entry (without Files)
+```cpp
+// ...
+	
+auto entryHandle {inboxPubApi.prepareEntry(inboxId, core::Buffer::from("sample data"))};
+inboxPubApi.sendEntry(entryHandle);
+
+// ...
+```
+
+### Adding an Entry with Files
+```cpp
+// ...
+
+std::vector<int64_t>files{};
+auto sampleData {core::Buffer::from("some file sample data")};
+auto fileHandle {inboxPubApi.createFileHandle(core::Buffer::from(""), core::Buffer::from(""), sampleData.size())};	
+files.push_back(fileHandle);
+
+auto entryHandle2 {inboxPubApi.prepareEntry(inboxId, core::Buffer::from("sample data"), files)};
+inboxPubApi.writeToFile(entryHandle2, fileHandle, sampleData);
+inboxPubApi.sendEntry(entryHandle2);
+
+// ...
+```
+
+## Fetching Entries
+
+Fetching Entries requires a secure private connection.
+```cpp
+// ...
+
+auto connection {core::Connection::connect(USER1_PRIVATE_KEY, SOLUTION_ID, BRIDGE_URL)};
+auto threadApi {thread::ThreadApi::create(connection)};
+auto storeApi {store::StoreApi::create(connection)};
+auto inboxApi {inbox::InboxApi::create(connection, threadApi, storeApi)};
+
+// ...
+```
+
+### Reading Simple Text Entries
+```cpp
+// ...
+	
+auto entriesList {inboxApi.listEntries(inboxId, defaultListQuery)};
+for (auto entry: entriesList.readItems) {
+    std::cout << "EntryId: " << entry.entryId << " / data: " << entry.data.stdString() << std::endl;
+}
+
+// ...
+```
+
+### Reading Entries Containing Files
+```cpp
+// ...
+	
+auto entriesList {inboxApi.listEntries(inboxId, defaultListQuery)};
+for (auto entry: entriesList.readItems) {
+    std::cout << "EntryId: " << entry.entryId << " / data: " << entry.data.stdString() << std::endl;
+
+    for (auto file: entry.files) {
+        auto fh {inboxApi.openFile(file.info.fileId)};
+        auto data {inboxApi.readFromFile(fh, file.size)};
+        std::cout << "File data: " << data.stdString() << std::endl;
+    }
+}
+
+// ...
+```

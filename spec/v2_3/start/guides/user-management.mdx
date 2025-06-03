@@ -1,0 +1,145 @@
+---
+title: Access Management
+---
+
+PrivMX platform offers versatile containers like Threads, Stores, and Inboxes to support secure collaboration and communication.
+Access to these containers is managed based on different user roles and the type of container setup. This ensures that only authorized participants can view and modify the content.
+Here’s a breakdown of how these elements function:
+
+- **Private Users** - Private containers are created and managed by one of the participants (not the owner).
+In this scenario, access to the container's content is controlled by the participants, not by the system owner.
+The owner can view content they’ve been granted access to by participants, but cannot modify it. The keys remain entirely with the users, ensuring a high level of privacy.
+
+- **Managed Users** - Managed containers, on the other hand, are created and managed directly by the owner, who has access to all the content within the container.
+While this setup allows the owner to monitor and modify everything that flows through the container,
+it also provides a standardized access experience common in many communication systems.
+
+In practice, these two modes allow PrivMX to balance privacy and control, enabling both highly secure user-controlled spaces and owner-managed containers suited to organizational needs.
+
+## Scenarios
+|                   | **Private Channel**                                                                                                                                                                                                                                           | **Managed Channel**                                                                                                                                                                                                                                        |
+|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Private Users** | [Full User Privacy](#full-user-privacy.mdx) - The owner can only access the content they were granted permission to by the other participants of the container. Therefore, the owner should be directly added as a participant to gain the necessary access.  | [Partially Managed Accounts](#partially-managed-accounts-and-containers ) - The owner has access to the entire content of the container. However, without the necessary private keys, they cannot make any modifications to the content.                            |
+| **Managed Users** | [Managed Users with Impersonation](#managed-accounts-with-impersonation) - The owner can access the content by using the users' private keys. This is possible because the system owner has ownership of the keys, which are stored in the management system. | [Full Access Management](#fully-managed-accounts-and-containers-with-full-access) - The owner can view and modify everything that is transmitted through the container - it's a full access mode to the container's content (which is the standard in typical communication systems). |
+
+### Potential Threats
+Each scenario introduces distinct security challenges and privacy implications:
+
+- **Full User Privacy** – ensures maximum privacy, but carries the risk of data loss if users lose access to their accounts. Additionally, there is a potential for undetected breaches if a user’s device is compromised (if the private key is stored locally). However, the keys can be deterministically generated from user-provided data as an alternative.
+- **Partially Managed Accounts** – faces risks related to insider threats and potential misuse of read-only access, as administrators may still view sensitive data under certain conditions.
+- **Managed Users with Impersonation** – introduces the risk of unauthorized access, if the owner's credentials or users' private keys are compromised. Since the users' private keys are stored by the system's owner, they could be vulnerable to breaches. It's up to the developer to secure them properly.
+- **Full Access Management** – presents a heightened risk of data manipulation, insider threats, and challenges in securely managing and storing private keys within the system.
+
+PrivMX offers flexible configurations to address diverse privacy and management needs.
+The selected scenario should align with the organization's specific security, compliance, and operational requirements.
+
+## Full User Privacy
+ Private Users - Private Containers
+
+A Private Channel is set up by one of the participants, not the system owner, and managed by the users within the container.
+The owner does not have access to the users' private keys and can only view the content if participants directly grant them access.
+
+This setup is ideal when privacy is the priority, but some oversight may occasionally be necessary.
+Any external access can be granted only by the participants who set up the container.
+
+### System Roles
+The table below outlines system roles in this scenario:
+
+| | **Application** | **Application Server** | **PrivMX Bridge**|
+| --- | :---: | :---: |:---: |
+| **Generating Users' Key Pair**               |<Icon icon="check"/> |   |   |
+| **Storing Users' Private Keys**              |<Icon icon="check"/> |   |   |
+| **Storing Users' Public Keys**               |   |<Icon icon="check"/> |   |
+| **Registering Users' Public Keys in Bridge** |   |<Icon icon="check"/> |   |
+| **Creating and managing containers**         |<Icon icon="check"/> |   |   |
+| **Managing System Owner's Public Key**       |<Icon icon="check"/>  |  |   |
+| **Storing always encrypted data**            |   |   |<Icon icon="check"/> |
+
+### Example Applications
+
+- **Research Teams**: Researchers working on sensitive projects or developing new technologies may use this setup to restrict access only to authorized team members, thereby protecting their intellectual property.
+- **Investigative Journalism**: Journalists working on sensitive material can securely communicate and store information within a container inaccessible to platform administrators, safeguarding journalistic sources and data privacy.
+
+
+## Partially Managed Accounts and Containers
+### Private Users - Managed Containers
+
+In this scenario, accounts and containers are managed in a limited way.
+Managed containers are established by the system owner, who has read-only access without the ability to modify any content, as private keys remain entirely with the users.
+
+This model prioritizes privacy, as the owner cannot interfere or alter content within the container.
+
+### System Roles
+The table below outlines system roles in this scenario:
+
+|        | **Application** | **Application Server** | **PrivMX Bridge**
+| --- | :---: | :---: | :---: |
+| **Generating Users' Key Pair**               |<Icon icon="check"/> |   |   |
+| **Storing Users' Private Keys**              |<Icon icon="check"/> |   |   |
+| **Storing Users' Public Keys**               |   |<Icon icon="check"/> |   |
+| **Registering Users' Public Keys in Bridge** |   |<Icon icon="check"/> |   |
+| **Creating and managing containers**         |   |<Icon icon="check"/> |   |
+| **Managing System Owner's Public Key**       |   |<Icon icon="check"/> |   |
+| **Storing always encrypted data**            |   |   |<Icon icon="check"/> |
+
+
+### Example Applications
+
+- **Corporate Work Environment**: In workplaces with strict compliance requirements, administrators may have read-only access to certain documents in exceptional circumstances, such as when HR personnel need to resolve conflicts or retrieve lost data.
+- **Public Institutions**: In departments that manage sensitive documents, administrators can have restricted access, which preserves data integrity without allowing them to modify the content.
+
+
+## Managed Accounts with Impersonation
+### Managed Users - Private Containers
+
+In this model, private containers are still set up by a participant, but the system owner has access to private keys and can utilize these to access content.
+This access allows administrators to "impersonate" users when necessary, to access information stored in these containers.
+It is suited to environments that require stricter oversight, but do not necessitate regular content modification.
+
+Such a setup requires the system owner to generate and store all Private Keys in a safe place and use them only in extreme situations.
+Since the users still create their containers, only impersonation (using participant's Private Key) can grant full access to the container content.
+
+### System Roles
+The table below outlines system roles in this scenario:
+
+|        | **Application** | **Application Server** | **PrivMX Bridge**
+| --- | :---: | :---: | :---: |
+| **Generating Users' Key Pair**               |   |<Icon icon="check"/> |   |
+| **Storing Users' Private Keys**              |   |<Icon icon="check"/> |   |
+| **Storing Users' Public Keys**               |   |<Icon icon="check"/> |   |
+| **Registering Users' Public Keys in Bridge** |   |<Icon icon="check"/> |   |
+| **Creating and managing containers**         |   |<Icon icon="check"/> |   |
+| **Managing System Owner's Public Key**       |<Icon icon="check"/>  |  |   |
+| **Storing always encrypted data**            |   |   |<Icon icon="check"/> |
+
+
+### Example Applications
+
+- **Data Management in Healthcare**: Hospitals may require administrators to access patient records or test results during emergencies, where key management enables rapid access without direct user involvement.
+- **Compliance in Financial Systems**: Financial institutions may need administrators to monitor client resources to comply with regulatory standards, ensuring the information remains auditable.
+
+
+## Fully Managed Accounts and Containers with Full Access
+### Managed Users - Managed Containers
+
+In this scenario, both accounts and containers are fully managed by the system owner, granting them full access to all content.
+They can view and modify any data within the container, as private keys are stored and controlled by the system owner.
+This model is typically used in cases requiring comprehensive control over data for security, compliance, or operational efficiency.
+
+### System Roles
+The table below outlines system roles in this scenario:
+
+|        | **Application** | **Application Server** | **PrivMX Bridge**
+| --- | :---: | :---: | :---: |
+| **Generating Users' Key Pair**               |   |<Icon icon="check"/> |   |
+| **Storing Users' Key Pair**                  |   |<Icon icon="check"/> |   |
+| **Storing Users' Public Keys**               |   |<Icon icon="check"/> |   |
+| **Registering Users' Public Keys in Bridge** |   |<Icon icon="check"/> |   |
+| **Creating and managing containers**         |   |<Icon icon="check"/> |   |
+| **Managing System Owner's Public Key**       |   |<Icon icon="check"/> |   |
+| **Storing always encrypted data**            |   |   |<Icon icon="check"/> |
+
+### Example Applications
+
+- **Hospital Data Management**: Full access allows administrators and authorized staff to easily share and update patient records as needed. This facilitates prompt decision-making and coordination between specialists.
+- **Financial Regulatory Compliance**: Financial services often require extensive monitoring and control over sensitive documents, enabling administrators to oversee client interactions and document transactions to meet regulatory standards.

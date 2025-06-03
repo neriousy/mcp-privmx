@@ -1,0 +1,140 @@
+---
+title: Listening for Changes
+---
+
+
+Listening for events related new messages and updating your app's state accordingly will allow you to build e.g., instant messaging features.
+
+## Types of Events
+The lists below outline all the event types available in Threads and messages in PrivMX.
+
+Thread events: 
+- `threadCreated` - triggers when a new Thread is created in your Context
+- `threadDeleted` - triggers when a Thread is deleted from your Context
+- `threadUpdated` - triggers when a Thread is updated
+- `threadStatsChanged` - triggers when a message is sent to a thread or a message has been deleted
+
+Message events: 
+- `threadNewMessage` - triggers a message was sent to a Thread
+- `threadDeletedMessage`  triggers when a message was deleted from a Thread
+- `threadMessageUpdated` - triggers when a message was updated
+
+## Handling Thread and Message Events
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](./managing#initial-assumptions)**.
+
+:::
+
+Before receiving Events, your application has to start an event loop and subscribe to a specific channel.
+Afterwards you can setup a listener.
+
+Here is an example how to do it in your own project:
+
+<Tabs groupId="lang" items={['cpp','js','java','kotlin','swift']}>
+
+<Tab value="cpp" label="C++">
+
+```cpp
+// handle events
+core::EventQueue eventQueue {core::EventQueue::getInstance()};
+std::thread t([&](){
+    while(true) {
+        core::EventHolder event = eventQueue.waitEvent();
+        std::cout << "onEvent: " << event.type() << std::endl;
+        std::cout << event.toJSON() << std::endl;
+    }
+});
+t.detach();
+
+// subscribe for threads general events
+threadsApi.subscribeForThreadEvents();
+
+// subscribe for particular thread events
+threadsApi.subscribeForMessageEvents(threadId);
+```
+</Tab>
+
+<Tab value="js" label="JavaScript">
+
+```js
+// Getting the Event Queue
+const eventQueue = await EndpointFactory.getEventQueue();
+
+// Simple function to listen for events in a loop
+function listenForEvents(eventsQueue) {
+    eventsQueue.waitEvent().then(event => {
+        console.log("onEvent", event);
+        listenForEvents(eventsQueue);
+    });
+}
+// Start listening to events
+listenForEvents(eventQueue);
+```
+
+</Tab>
+<Tab value="java" label="Java">
+
+```java
+String callbacksID = "CALLBACK_ID";
+String threadID = "THREAD_ID";
+// Starting the Event Loop
+endpointContainer.startListening();
+
+// Handling Thread events
+endpointSession.registerCallback(
+    callbacksID,
+    EventType.ThreadCreatedEvent,
+    newThread -> {
+        System.out.println(newThread.threadId);
+    }
+);
+
+//Handling message Events
+endpointSession.registerCallback(
+    callbacksID,
+    EventType.ThreadNewMessageEvent(threadID),
+    newMessage -> {
+        System.out.println(newMessage.info.messageId);
+    }
+);
+```
+</Tab>
+<Tab value="kotlin" label="Kotlin">
+
+```kotlin
+val callbacksID = "CALLBACK_ID"
+val threadID = "THREAD_ID"
+// Starting the Event Loop
+endpointContainer.startListening()
+
+// Handling Thread events
+endpointSession.registerCallback(
+    callbacksID,
+    EventType.ThreadCreatedEvent
+){ newThread ->
+    println(newThread.threadId)
+}
+
+//Handling message Events
+endpointSession.registerCallback(
+    callbacksID,
+    EventType.ThreadNewMessageEvent(threadID)
+){ newMessage ->
+    println(newMessage.info?.messageId)
+}
+```
+</Tab>
+<Tab value="swift" label="Swift">
+
+```swift
+ _ = try? endpointSession?.registerCallback(
+    for: privmx.endpoint.thread.ThreadCreatedEvent.self,
+    from: .thread, identified: "SOME_UNIQUE_IDENTIFIER",
+    { eventData in
+        // some actions when new thread created
+    })
+```
+</Tab>
+</Tabs>

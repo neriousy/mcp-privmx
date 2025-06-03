@@ -1,0 +1,144 @@
+---
+title: SMS Notifications
+---
+
+PrivMX Bridge features WebSocket support.
+This allows you to receive instant notifications about changes, for example:
+* new messages in Threads
+* new files in Stores
+* new items in Inboxes
+
+A common use case is to send SMS notifications when a specific event occurs.
+The following example shows how to build an SMS notification system using [SMSAPI](https://www.smsapi.com/).
+However, you can use any other notification service provider – just remove all the references to SMSAPI and reimplement the `sendSms()` function.
+
+## Prerequisites
+
+To send SMS notifications, you need to have an [SMSAPI](https://www.smsapi.com/) account.
+You also need a running PrivMX Bridge instance. Follow the [getting started](../installation) guide to set it up.
+
+## Subscribing to Notifications
+1. Connect to your PrivMX Bridge instance using WebSockets. See [PrivMX Bridge docs](https://bridge.privmx.dev/) for more information.
+2. Use the [manager/subscribeToChannel](https://bridge.privmx.dev/#manager-subscribetochannel) method to subscribe to notification channel(s).
+3. Handle the incoming notifications and send SMS messages when needed. See [SMSAPI docs](https://www.smsapi.com/docs/?shell#2-single-sms) for more information.
+
+JavaScript example:
+```javascript
+import { SMSAPI } from "smsapi";
+import WebSocket from "ws";
+
+// Config - replace with your data
+const config = {
+    httpApiUrl: "http://localhost:9111/api",
+    wsApiUrl: "ws://localhost:9111/api",
+    apiKeyId: "YOUR_API_KEY_ID",
+    apiKeySecret: "YOUR_API_KEY_SECRET",
+    channels: ["thread", "store", "stream", "inbox"],
+    smsApi: {
+        url: "https://api.smsapi.com/sms.do",
+        oAuthToken: "YOUR_SMSAPI_OAUTH_TOKEN",
+        phoneNumber: "YOUR_SMSAPI_PHONE_NUMBER",
+        senderName: "YOUR_SMSAPI_SENDER_NAME",
+    },
+};
+
+// Auth
+const accessToken = (
+    await (
+        await fetch(config.httpApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 128,
+                method: "manager/auth",
+                params: {
+                    grantType: "api_key_credentials",
+                    apiKeyId: config.apiKeyId,
+                    apiKeySecret: config.apiKeySecret,
+                },
+            }),
+        })
+    ).json()
+).result.accessToken;
+
+// Create WebSocket
+const ws = new WebSocket(config.wsApiUrl);
+let reqId = 1;
+const reqMap = new Map();
+
+// Bind access token and subscribe to channels when WebSocket opens
+ws.onopen = async () => {
+    await request("manager/bindAccessToken", {
+        accessToken: accessToken,
+    });
+    await request("manager/subscribeToChannel", {
+        channels: config.channels,
+    });
+};
+
+// Handle incoming messages
+ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const req = reqMap.get(data.id);
+    if (req) {
+        if (data.error) {
+            req.reject(data.error);
+        } else {
+            req.resolve(data.result);
+        }
+    } else {
+        // Act on selected messages - customize as needed
+        if (
+            data.channel === "thread" &&
+            data.type === "threadNewMessage" &&
+            data.data.contextId === "66f76cdc06848d6a6494f783" &&
+            data.data.threadId === "6757b81daafe67cb6e19180e"
+        ) {
+            sendSms("New message in thread LoremIpsum");
+        }
+    }
+};
+
+// Log errors
+ws.onerror = (e) => {
+    console.error("WebSocket error:", e);
+};
+
+// WebSocket request helper
+function request(method, params) {
+    const id = reqId++;
+    ws.send(
+        JSON.stringify({
+            jsonrpc: "2.0",
+            id: id,
+            method: method,
+            params: params,
+        }),
+    );
+    return new Promise((resolve, reject) => {
+        reqMap.set(id, { resolve, reject });
+    });
+}
+
+// SMS sending function that uses SMSAPI
+const smsapi = new SMSAPI(config.smsApi.oAuthToken);
+async function sendSms(message) {
+    try {
+        const result = await smsapi.sms.sendSms(config.smsApi.phoneNumber, message);
+        console.log("sendSms result", result);
+    } catch (err) {
+        console.error("sendSms error", err);
+    }
+}
+```
+
+## Unsubscribing from Notifications
+When you no longer want to receive notifications, use the [manager/unsubscribeFromChannel](https://bridge.privmx.dev/#manager-unsubscribefromchannel) method to unsubscribe from the channel(s).
+
+JavaScript example (uses `request()` and `config` from the previous example):
+```javascript
+await request("manager/unsubscribeFromChannel", {
+    channels: config.channels,
+});
+```

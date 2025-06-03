@@ -1,0 +1,5256 @@
+{
+  "core": [
+    {
+      "title": "EntryStreamListener",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxEntryStream.EntryStreamListener",
+          "generics": [],
+          "description": "Interface for listening to state changes and exchanging data with an InboxEntryStream instance.\n \n This interface provides callbacks for various events that occur during the lifecycle of an Inbox entry stream,\n such as starting and ending file sending, requesting file chunks, handling errors, and updating the stream state.\n \n Implement this interface to monitor and interact with the entry stream.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "EntryStreamListener",
+              "snippet": "public void EntryStreamListener()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            },
+            {
+              "name": "onEndFileSending",
+              "description": "Override this method to handle when file was sent successfully.",
+              "snippet": "public void onEndFileSending(\n\tFileInfo file\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "file",
+                  "description": "information about the sent file",
+                  "type": {
+                    "name": "FileInfo",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "onError",
+              "description": "Override this method to handle event when an error occurs while creating entry.",
+              "snippet": "public void onError(\n\tThrowable throwable\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "throwable",
+                  "description": "exception that occurred while creating an entry",
+                  "type": {
+                    "name": "Throwable",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "onErrorDuringSending",
+              "description": "Override this method to handle event when an error occurs while sending files.",
+              "snippet": "public void onErrorDuringSending(\n\tFileInfo file,\n\tThrowable throwable\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "file",
+                  "description": "information about the file that caused the error",
+                  "type": {
+                    "name": "FileInfo",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "throwable",
+                  "description": "exception that occurred while sending files",
+                  "type": {
+                    "name": "Throwable",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "onFileChunkProcessed",
+              "description": "Override this method to handle event when each chunk of a file was sent successfully.",
+              "snippet": "public void onFileChunkProcessed(\n\tFileInfo file,\n\tlong processedBytes\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "file",
+                  "description": "information about the file, which chunk was processed",
+                  "type": {
+                    "name": "FileInfo",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "processedBytes",
+                  "description": "accumulated size of sent data",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "onNextChunkRequest",
+              "description": "Override this method to handle event when FileInfo#fileStream is `null`\n and the stream requests a chunk of the file to send.\n If you override this method, you should return the next chunk of the file.\n Returning `null` will cause a\n NullPointerException while sending the file and stop the InboxEntryStream instance with\n the state State#ERROR.",
+              "snippet": "public byte[] onNextChunkRequest(\n\tFileInfo file\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "file",
+                  "description": "info about the file, which chunk is requested",
+                  "type": {
+                    "name": "FileInfo",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  },
+                  "description": "next chunk of the file"
+                }
+              ]
+            },
+            {
+              "name": "onStartFileSending",
+              "description": "Override this method to handle when the process of sending file starts.",
+              "snippet": "public void onStartFileSending(\n\tFileInfo file\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "file",
+                  "description": "information about the file being sent",
+                  "type": {
+                    "name": "FileInfo",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "onUpdateState",
+              "description": "Override this method to handle event when stream state has been updated.",
+              "snippet": "public void onUpdateState(\n\tState currentState\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "currentState",
+                  "description": "current state of the stream",
+                  "type": {
+                    "name": "State",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "FileInfo",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxEntryStream.FileInfo",
+          "generics": [],
+          "description": "Represents information about a file to be sent by InboxEntryStream.",
+          "fields": [
+            {
+              "name": "fileSize",
+              "description": "The total size of the file data.",
+              "type": {
+                "name": "long",
+                "optional": false
+              },
+              "snippet": "public final long fileSize"
+            },
+            {
+              "name": "fileStream",
+              "description": "An optional InputStream providing the file data.\n If this value is `null`, the stream will call\n EntryStreamListener#onNextChunkRequest to request chunks of data\n for sending.",
+              "type": {
+                "name": "InputStream",
+                "optional": false
+              },
+              "snippet": "public final InputStream fileStream"
+            },
+            {
+              "name": "privateMeta",
+              "description": "Byte array of any arbitrary metadata that will be encrypted before sending.",
+              "type": {
+                "name": "byte[]",
+                "optional": false
+              },
+              "snippet": "public final byte[] privateMeta"
+            },
+            {
+              "name": "publicMeta",
+              "description": "Byte array of any arbitrary metadata that can be read by anyone.",
+              "type": {
+                "name": "byte[]",
+                "optional": false
+              },
+              "snippet": "public final byte[] publicMeta"
+            }
+          ],
+          "methods": [
+            {
+              "name": "FileInfo",
+              "description": "Creates instance of FileInfo.",
+              "snippet": "public void FileInfo(\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong fileSize,\n\tInputStream fileStream\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "publicMeta",
+                  "description": "byte array of any arbitrary metadata that can be read by anyone",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "byte array of any arbitrary metadata that will be encrypted before sending",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileSize",
+                  "description": "the total size of the file data",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileStream",
+                  "description": "reference to InputStream instance used as source for stream file",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "State",
+      "content": [
+        {
+          "type": "enum",
+          "name": "InboxEntryStream.State",
+          "generics": [],
+          "description": "Contains available states of InboxEntryStream.",
+          "fields": [
+            {
+              "name": "ABORTED",
+              "description": "Indicates that the InboxEntryStream was canceled.",
+              "type": {
+                "name": "State",
+                "optional": false
+              },
+              "snippet": "public static final State ABORTED"
+            },
+            {
+              "name": "ERROR",
+              "description": "Indicates that an error occurred while sending files or the Entry.",
+              "type": {
+                "name": "State",
+                "optional": false
+              },
+              "snippet": "public static final State ERROR"
+            },
+            {
+              "name": "FILES_SENT",
+              "description": "Indicates that all files have been sent successfully and the entry is ready to be sent.\n This state is set when:\n 1. The InboxEntryStream has been initialized and there are no files to send.\n 2. All files have been sent successfully.",
+              "type": {
+                "name": "State",
+                "optional": false
+              },
+              "snippet": "public static final State FILES_SENT"
+            },
+            {
+              "name": "PREPARED",
+              "description": "The initial state, indicating that InboxEntryStream is ready to send files.",
+              "type": {
+                "name": "State",
+                "optional": false
+              },
+              "snippet": "public static final State PREPARED"
+            },
+            {
+              "name": "SENT",
+              "description": "Indicates that the entry was sent successfully.",
+              "type": {
+                "name": "State",
+                "optional": false
+              },
+              "snippet": "public static final State SENT"
+            }
+          ],
+          "methods": [
+            {
+              "name": "valueOf",
+              "snippet": "public static State valueOf(\n\tString name\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "name",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "returns": [
+                {
+                  "type": {
+                    "name": "State",
+                    "optional": false
+                  }
+                }
+              ]
+            },
+            {
+              "name": "values",
+              "snippet": "public static State[] values()",
+              "methodType": "static",
+              "generic": [],
+              "params": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "State[]",
+                    "optional": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ItemPolicyValues",
+      "content": [
+        {
+          "type": "class",
+          "name": "ItemPolicyValues",
+          "generics": [],
+          "description": "Provides a set of predefined values for configuring item policies within a Container.",
+          "fields": [
+            {
+              "name": "ALL",
+              "description": "Allows all Context users to perform actions on item.",
+              "type": {
+                "name": "ItemPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyValue ALL"
+            },
+            {
+              "name": "DEFAULT",
+              "description": "Uses the default value provided by the Bridge.",
+              "type": {
+                "name": "ItemPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyValue DEFAULT"
+            },
+            {
+              "name": "INHERIT",
+              "description": "Uses the value inherited from the Context.",
+              "type": {
+                "name": "ItemPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyValue INHERIT"
+            },
+            {
+              "name": "ITEM_OWNER",
+              "description": "Allows the item\u0027s owner to perform actions on item.",
+              "type": {
+                "name": "ItemPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyComplexValue ITEM_OWNER"
+            },
+            {
+              "name": "MANAGER",
+              "description": "Allows the container\u0027s managers to perform actions on item.",
+              "type": {
+                "name": "ItemPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyComplexValue MANAGER"
+            },
+            {
+              "name": "NONE",
+              "description": "Prevents actions from being performed on item.",
+              "type": {
+                "name": "ItemPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyValue NONE"
+            },
+            {
+              "name": "OWNER",
+              "description": "Allows the container\u0027s owner to perform actions on item.",
+              "type": {
+                "name": "ItemPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyComplexValue OWNER"
+            },
+            {
+              "name": "USER",
+              "description": "Allows all the container\u0027s users to perform actions on item.",
+              "type": {
+                "name": "ItemPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ItemPolicyComplexValue USER"
+            }
+          ],
+          "methods": [
+            {
+              "name": "ItemPolicyValues",
+              "snippet": "public void ItemPolicyValues()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ItemPolicyBuilder",
+      "content": [
+        {
+          "type": "class",
+          "name": "ItemPolicyBuilder",
+          "generics": [],
+          "description": "Builder for creating instances of ItemPolicy.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ItemPolicyBuilder",
+              "description": "Creates instance of ItemPolicyBuilder initialized with Bridge\u0027s default policy values.",
+              "snippet": "public void ItemPolicyBuilder()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "ItemPolicyBuilder",
+              "description": "Creates instance of ItemPolicyBuilder\n from existing ItemPolicy instance.",
+              "snippet": "public void ItemPolicyBuilder(\n\tItemPolicy itemPolicy\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "itemPolicy",
+                  "description": "the existing ItemPolicy instance to copy values from.",
+                  "type": {
+                    "name": "ItemPolicy",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "build",
+              "description": "Creates ItemPolicy from current state.",
+              "snippet": "public ItemPolicy build()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicy",
+                    "optional": false
+                  },
+                  "description": "new ItemPolicy instance created from this builder policies."
+                }
+              ]
+            },
+            {
+              "name": "setCreate",
+              "description": "Sets ItemPolicy#create policy value.",
+              "snippet": "public ItemPolicyBuilder setCreate(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setDelete",
+              "description": "Sets ItemPolicy#delete policy value.",
+              "snippet": "public ItemPolicyBuilder setDelete(\n\tItemPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ItemPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setGet",
+              "description": "Sets ItemPolicy#get policy value.",
+              "snippet": "public ItemPolicyBuilder setGet(\n\tItemPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ItemPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setListAll",
+              "description": "Sets ItemPolicy#listAll policy value.",
+              "snippet": "public ItemPolicyBuilder setListAll(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setListMy",
+              "description": "Sets ItemPolicy#listMy policy value.",
+              "snippet": "public ItemPolicyBuilder setListMy(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setUpdate",
+              "description": "Sets ItemPolicy#update policy value.",
+              "snippet": "public ItemPolicyBuilder setUpdate(\n\tItemPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ItemPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ItemPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ContainerPolicyBuilder",
+      "content": [
+        {
+          "type": "class",
+          "name": "ContainerPolicyBuilder",
+          "generics": [],
+          "description": "Builder for creating instances of ContainerPolicyWithoutItem and ContainerPolicy.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ContainerPolicyBuilder",
+              "description": "Creates instance of ContainerPolicyBuilder initialized with Bridge\u0027s default policy values.",
+              "snippet": "public void ContainerPolicyBuilder()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "ContainerPolicyBuilder",
+              "description": "Creates instance of ContainerPolicyBuilder\n initialized with policy values from existing ContainerPolicy instance.",
+              "snippet": "public void ContainerPolicyBuilder(\n\tContainerPolicy containerPolicy\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "containerPolicy",
+                  "description": "the existing ContainerPolicy instance to copy values from.",
+                  "type": {
+                    "name": "ContainerPolicy",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "ContainerPolicyBuilder",
+              "description": "Creates instance of ContainerPolicyBuilder\n initialized with policy values from existing ContainerPolicyWithoutItem instance.",
+              "snippet": "public void ContainerPolicyBuilder(\n\tContainerPolicyWithoutItem containerPolicyWithoutItem\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "containerPolicyWithoutItem",
+                  "description": "the existing ContainerPolicyWithoutItem instance to copy values from.",
+                  "type": {
+                    "name": "ContainerPolicyWithoutItem",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "build",
+              "description": "Creates ContainerPolicy from current state.",
+              "snippet": "public ContainerPolicy build()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicy",
+                    "optional": false
+                  },
+                  "description": "new ContainerPolicy instance created from this builder policies."
+                }
+              ]
+            },
+            {
+              "name": "buildWithoutItem",
+              "description": "Creates ContainerPolicyWithoutItem from current state.",
+              "snippet": "public ContainerPolicyWithoutItem buildWithoutItem()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyWithoutItem",
+                    "optional": false
+                  },
+                  "description": "new ContainerPolicyWithoutItem instance created from this builder policies."
+                }
+              ]
+            },
+            {
+              "name": "setDelete",
+              "description": "Sets ContainerPolicyWithoutItem#delete policy value.",
+              "snippet": "public ContainerPolicyBuilder setDelete(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setGet",
+              "description": "Sets ContainerPolicyWithoutItem#get policy value.",
+              "snippet": "public ContainerPolicyBuilder setGet(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setItem",
+              "description": "Sets ContainerPolicy#item items policy value.",
+              "snippet": "public ContainerPolicyBuilder setItem(\n\tItemPolicy item\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "item",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ItemPolicy",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setOwnerCanBeRemovedFromManagers",
+              "description": "Sets ContainerPolicyWithoutItem#ownerCanBeRemovedFromManagers policy value.",
+              "snippet": "public ContainerPolicyBuilder setOwnerCanBeRemovedFromManagers(\n\tSpecialPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "SpecialPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setUpdate",
+              "description": "Sets ContainerPolicyWithoutItem#update policy value.",
+              "snippet": "public ContainerPolicyBuilder setUpdate(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setUpdatePolicy",
+              "description": "Sets ContainerPolicyWithoutItem#updatePolicy policy value.",
+              "snippet": "public ContainerPolicyBuilder setUpdatePolicy(\n\tContainerPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "ContainerPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            },
+            {
+              "name": "setUpdaterCanBeRemovedFromManagers",
+              "description": "Sets ContainerPolicyWithoutItem#updaterCanBeRemovedFromManagers policy value.",
+              "snippet": "public ContainerPolicyBuilder setUpdaterCanBeRemovedFromManagers(\n\tSpecialPolicyValue policyValue\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policyValue",
+                  "description": "policy value to set",
+                  "type": {
+                    "name": "SpecialPolicyValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyBuilder",
+                    "optional": false
+                  },
+                  "description": "ContainerPolicyBuilder instance to allow for method chaining."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ContainerPolicyComplexValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "ContainerPolicyComplexValue",
+          "generics": [],
+          "description": "Represents a complex value for Container policies, allowing logical combinations with other ContainerPolicyComplexValue instances.\n These complex values enable the creation of fine-grained access control rules by combining multiple policy criteria using logical operators.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ContainerPolicyComplexValue",
+              "description": "Creates instance of ContainerPolicyComplexValue.",
+              "snippet": " void ContainerPolicyComplexValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "AND",
+              "description": "Combines this policy with another policy using the logical AND operator.",
+              "snippet": "public ContainerPolicyComplexValue AND(\n\tContainerPolicyComplexValue policy\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policy",
+                  "description": "the policy to combine with this policy using AND.",
+                  "type": {
+                    "name": "ContainerPolicyComplexValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyComplexValue",
+                    "optional": false
+                  },
+                  "description": "A new ContainerPolicyComplexValue representing the combined policy."
+                }
+              ]
+            },
+            {
+              "name": "OR",
+              "description": "Combines this policy with another policy using the logical OR operator.",
+              "snippet": "public ContainerPolicyComplexValue OR(\n\tContainerPolicyComplexValue policy\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policy",
+                  "description": "the policy to combine with this policy using OR.",
+                  "type": {
+                    "name": "ContainerPolicyComplexValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ContainerPolicyComplexValue",
+                    "optional": false
+                  },
+                  "description": "A new ContainerPolicyComplexValue representing the combined policy."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "PolicyValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "PolicyValue",
+          "generics": [],
+          "description": "Base class for all policies values.",
+          "fields": [
+            {
+              "name": "value",
+              "description": "Raw policy value.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public final String value"
+            }
+          ],
+          "methods": [
+            {
+              "name": "PolicyValue",
+              "description": "Creates instance of PolicyValue.",
+              "snippet": " void PolicyValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ItemPolicyComplexValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "ItemPolicyComplexValue",
+          "generics": [],
+          "description": "Represents a complex value for Container item policies, allowing logical combinations with other ItemPolicyComplexValue instances.\n These complex values enable the creation of fine-grained access control rules by combining multiple policy criteria using logical operators.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ItemPolicyComplexValue",
+              "description": "Creates instance of ItemPolicyComplexValue",
+              "snippet": " void ItemPolicyComplexValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "AND",
+              "description": "Combines this policy with another policy using the logical AND operator.",
+              "snippet": "public ItemPolicyComplexValue AND(\n\tItemPolicyComplexValue policy\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policy",
+                  "description": "the policy to combine with this policy using AND.",
+                  "type": {
+                    "name": "ItemPolicyComplexValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyComplexValue",
+                    "optional": false
+                  },
+                  "description": "A new ItemPolicyComplexValue representing the combined policy."
+                }
+              ]
+            },
+            {
+              "name": "OR",
+              "description": "Combines this policy with another policy using the logical OR operator.",
+              "snippet": "public ItemPolicyComplexValue OR(\n\tItemPolicyComplexValue policy\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "policy",
+                  "description": "the policy to combine with this policy using OR.",
+                  "type": {
+                    "name": "ItemPolicyComplexValue",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "ItemPolicyComplexValue",
+                    "optional": false
+                  },
+                  "description": "A new ItemPolicyComplexValue representing the combined policy."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ContainerPolicyValues",
+      "content": [
+        {
+          "type": "class",
+          "name": "ContainerPolicyValues",
+          "generics": [],
+          "description": "Provides a set of predefined values for configuring container policies.",
+          "fields": [
+            {
+              "name": "ALL",
+              "description": "Allows all Context users to perform actions on container.",
+              "type": {
+                "name": "ContainerPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyValue ALL"
+            },
+            {
+              "name": "DEFAULT",
+              "description": "Uses the default value provided by the Bridge.",
+              "type": {
+                "name": "ContainerPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyValue DEFAULT"
+            },
+            {
+              "name": "INHERIT",
+              "description": "Uses the value inherited from the Context.",
+              "type": {
+                "name": "ContainerPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyValue INHERIT"
+            },
+            {
+              "name": "MANAGER",
+              "description": "Allows the container\u0027s managers to perform actions on container.",
+              "type": {
+                "name": "ContainerPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyComplexValue MANAGER"
+            },
+            {
+              "name": "NONE",
+              "description": "Prevents actions from being performed on container.",
+              "type": {
+                "name": "ContainerPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyValue NONE"
+            },
+            {
+              "name": "OWNER",
+              "description": "Allows the container\u0027s owner to perform actions on container.",
+              "type": {
+                "name": "ContainerPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyComplexValue OWNER"
+            },
+            {
+              "name": "USER",
+              "description": "Allows the container\u0027s users to perform actions on container.",
+              "type": {
+                "name": "ContainerPolicyComplexValue",
+                "optional": false
+              },
+              "snippet": "public static final ContainerPolicyComplexValue USER"
+            }
+          ],
+          "methods": [
+            {
+              "name": "ContainerPolicyValues",
+              "snippet": "public void ContainerPolicyValues()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "SpecialPolicyValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "SpecialPolicyValue",
+          "generics": [],
+          "description": "Contains special policies values.",
+          "fields": [
+            {
+              "name": "DEFAULT",
+              "description": "Uses the default value provided by the Bridge.",
+              "type": {
+                "name": "SpecialPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final SpecialPolicyValue DEFAULT"
+            },
+            {
+              "name": "INHERIT",
+              "description": "Uses the inherited value.",
+              "type": {
+                "name": "SpecialPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final SpecialPolicyValue INHERIT"
+            },
+            {
+              "name": "NO",
+              "description": "Denies to perform an action.",
+              "type": {
+                "name": "SpecialPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final SpecialPolicyValue NO"
+            },
+            {
+              "name": "YES",
+              "description": "Allows to perform an action.",
+              "type": {
+                "name": "SpecialPolicyValue",
+                "optional": false
+              },
+              "snippet": "public static final SpecialPolicyValue YES"
+            }
+          ],
+          "methods": [
+            {
+              "name": "SpecialPolicyValue",
+              "description": "Creates instance of SpecialPolicyValue.",
+              "snippet": " void SpecialPolicyValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ItemPolicyValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "ItemPolicyValue",
+          "generics": [],
+          "description": "Contains value for Container\u0027s item policies.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ItemPolicyValue",
+              "description": "Creates instance of ItemPolicyValue.",
+              "snippet": " void ItemPolicyValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ContainerPolicyValue",
+      "content": [
+        {
+          "type": "class",
+          "name": "ContainerPolicyValue",
+          "generics": [],
+          "description": "Contains value for Container policies.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "ContainerPolicyValue",
+              "description": "Creates instance of ContainerPolicyValue.",
+              "snippet": " void ContainerPolicyValue(\n\tString value\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "value",
+                  "description": "raw policy value",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Modules",
+      "content": [
+        {
+          "type": "enum",
+          "name": "Modules",
+          "generics": [],
+          "description": "Available modules for PrivMX Endpoint.",
+          "fields": [
+            {
+              "name": "INBOX",
+              "description": "Inbox module case.",
+              "type": {
+                "name": "Modules",
+                "optional": false
+              },
+              "snippet": "public static final Modules INBOX"
+            },
+            {
+              "name": "STORE",
+              "description": "Store module case.",
+              "type": {
+                "name": "Modules",
+                "optional": false
+              },
+              "snippet": "public static final Modules STORE"
+            },
+            {
+              "name": "THREAD",
+              "description": "Thread module case.",
+              "type": {
+                "name": "Modules",
+                "optional": false
+              },
+              "snippet": "public static final Modules THREAD"
+            }
+          ],
+          "methods": [
+            {
+              "name": "valueOf",
+              "snippet": "public static Modules valueOf(\n\tString name\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "name",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Modules",
+                    "optional": false
+                  }
+                }
+              ]
+            },
+            {
+              "name": "values",
+              "snippet": "public static Modules[] values()",
+              "methodType": "static",
+              "generic": [],
+              "params": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Modules[]",
+                    "optional": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "SortOrder",
+      "content": [
+        {
+          "type": "class",
+          "name": "SortOrder",
+          "generics": [],
+          "description": "Constant values for sort order to use in PrivmxEndpoint lists methods.",
+          "fields": [
+            {
+              "name": "ASC",
+              "description": "Value for ascending sort order.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public static final String ASC\u003d \"asc\""
+            },
+            {
+              "name": "DESC",
+              "description": "Value for descending sort order.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public static final String DESC\u003d \"desc\""
+            }
+          ],
+          "methods": []
+        }
+      ]
+    },
+    {
+      "title": "PrivmxEndpoint",
+      "content": [
+        {
+          "type": "class",
+          "name": "PrivmxEndpoint",
+          "generics": [],
+          "description": "Extends BasicPrivmxEndpoint with event callbacks dispatcher.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "PrivmxEndpoint",
+              "description": "Calls BasicPrivmxEndpoint#BasicPrivmxEndpoint(Set, String, String, String).",
+              "snippet": "public void PrivmxEndpoint(\n\tSet\u003cModules\u003e enableModule,\n\tString userPrivateKey,\n\tString solutionId,\n\tString bridgeUrl\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "enableModule",
+                  "description": "set of modules to initialize; should contain Modules#THREAD\n to enable Thread module or Modules#STORE to enable Store module",
+                  "type": {
+                    "name": "Set\u003cModules\u003e",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "userPrivateKey",
+                  "description": "user private key used to authorize; generated from:\n CryptoApi#generatePrivateKey or\n CryptoApi#derivePrivateKey",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "solutionId",
+                  "description": "`SolutionId` of the current project",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "bridgeUrl",
+                  "description": "Bridge\u0027s Endpoint URL",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "thrown if there is an exception during init modules",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "thrown if there is a problem during login",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "thrown if there is an unknown problem during login",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "handleEvent",
+              "description": "Handles event and invokes all related callbacks. It should only be called by event loops.",
+              "snippet": "public void handleEvent(\n\tEvent\u003c?\u003e event\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "event",
+                  "description": "event to handle",
+                  "type": {
+                    "name": "Event\u003c?\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "registerCallback",
+              "description": "Registers callbacks with the specified type.",
+              "snippet": "public final \u003cT\u003e void registerCallback(\n\tObject context,\n\tEventType\u003cT\u003e eventType,\n\tEventCallback\u003cT\u003e callback\n)",
+              "methodType": "method",
+              "generic": [
+                {
+                  "definition": "T extends Object"
+                }
+              ],
+              "params": [
+                {
+                  "name": "context",
+                  "description": "an object that identifies callbacks in the list",
+                  "type": {
+                    "name": "Object",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "eventType",
+                  "description": "type of event to listen to",
+                  "type": {
+                    "name": "EventType\u003cT\u003e",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "callback",
+                  "description": "a block of code to execute when event was handled",
+                  "type": {
+                    "name": "EventCallback\u003cT\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "thrown when method encounters an exception during subscribing on channel.",
+                  "type": {
+                    "name": "RuntimeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "unregisterAll",
+              "description": "Unregisters all callbacks registered by #registerCallback(Object, EventType, EventCallback).",
+              "snippet": "public void unregisterAll()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "unregisterCallbacks",
+              "description": "Unregisters all callbacks registered by #registerCallback(Object, EventType, EventCallback) and identified with given Context.",
+              "snippet": "public void unregisterCallbacks(\n\tObject context\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "context",
+                  "description": "an object that identifies callbacks in the list.",
+                  "type": {
+                    "name": "Object",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "BasicPrivmxEndpoint",
+      "content": [
+        {
+          "type": "class",
+          "name": "BasicPrivmxEndpoint",
+          "generics": [],
+          "description": "A collection of all PrivMX Endpoint modules. It represents a single connection to PrivMX Bridge.",
+          "fields": [
+            {
+              "name": "connection",
+              "description": "Reference to Connection module.",
+              "type": {
+                "name": "Connection",
+                "optional": false
+              },
+              "snippet": "public final Connection connection"
+            },
+            {
+              "name": "inboxApi",
+              "description": "Reference to Inbox module.",
+              "type": {
+                "name": "InboxApi",
+                "optional": false
+              },
+              "snippet": "public final InboxApi inboxApi"
+            },
+            {
+              "name": "storeApi",
+              "description": "Reference to Store module.",
+              "type": {
+                "name": "StoreApi",
+                "optional": false
+              },
+              "snippet": "public final StoreApi storeApi"
+            },
+            {
+              "name": "threadApi",
+              "description": "Reference to Thread module.",
+              "type": {
+                "name": "ThreadApi",
+                "optional": false
+              },
+              "snippet": "public final ThreadApi threadApi"
+            }
+          ],
+          "methods": [
+            {
+              "name": "BasicPrivmxEndpoint",
+              "description": "Initializes modules and connects to PrivMX Bridge server using given parameters.",
+              "snippet": "public void BasicPrivmxEndpoint(\n\tSet\u003cModules\u003e enableModule,\n\tString userPrivateKey,\n\tString solutionId,\n\tString bridgeUrl\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "enableModule",
+                  "description": "set of modules to initialize; should contain Modules#THREAD\n to enable Thread module or Modules#STORE to enable Store module",
+                  "type": {
+                    "name": "Set\u003cModules\u003e",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "userPrivateKey",
+                  "description": "user private key used to authorize; generated from:\n CryptoApi#generatePrivateKey or\n CryptoApi#derivePrivateKey",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "solutionId",
+                  "description": "`SolutionId` of the current project",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "bridgeUrl",
+                  "description": "Bridge\u0027s Endpoint URL",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "thrown if there is an exception during init modules",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "thrown if there is a problem during login",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "thrown if there is an unknown problem during login",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "close",
+              "description": "Disconnects from PrivMX Bridge and frees memory.",
+              "snippet": "public void close()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when instance is currently closed",
+                  "type": {
+                    "name": "Exception",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "PrivmxEndpointContainer",
+      "content": [
+        {
+          "type": "class",
+          "name": "PrivmxEndpointContainer",
+          "generics": [],
+          "description": "Manages certificates, Platform sessions, and active connections.\n Implements event loop that can be started using #startListening().\n Contains instance of CryptoApi.",
+          "fields": [
+            {
+              "name": "cryptoApi",
+              "description": "Instance of CryptoApi.",
+              "type": {
+                "name": "CryptoApi",
+                "optional": false
+              },
+              "snippet": "public final CryptoApi cryptoApi"
+            }
+          ],
+          "methods": [
+            {
+              "name": "PrivmxEndpointContainer",
+              "description": "Creates instance of `PrivmxEndpointContainer`.",
+              "snippet": "public void PrivmxEndpointContainer()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "close",
+              "description": "Closes event loop.",
+              "snippet": "public void close()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "Exception",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "connect",
+              "description": "Creates a new connection.",
+              "snippet": "public PrivmxEndpoint connect(\n\tSet\u003cModules\u003e enableModule,\n\tString userPrivateKey,\n\tString solutionId,\n\tString bridgeUrl\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "enableModule",
+                  "description": "set of modules to initialize",
+                  "type": {
+                    "name": "Set\u003cModules\u003e",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "userPrivateKey",
+                  "description": "user private key used to authorize; generated from:\n CryptoApi#generatePrivateKey or\n CryptoApi#derivePrivateKey",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "solutionId",
+                  "description": "`SolutionId` of the current project",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "bridgeUrl",
+                  "description": "Bridge\u0027s Endpoint URL",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is a problem during login",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown problem during login",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "PrivmxEndpoint",
+                    "optional": false
+                  },
+                  "description": "Created connection"
+                }
+              ]
+            },
+            {
+              "name": "disconnect",
+              "description": "Disconnects connection matching given `connectionId` and removes it from the container.\n This method is recommended for disconnecting connections by their ID from the container.",
+              "snippet": "public void disconnect(\n\tLong connectionId\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "connectionId",
+                  "description": "ID of the connection",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "disconnectAll",
+              "description": "Disconnects all connections and removes them from the container.",
+              "snippet": "public void disconnectAll()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "getEndpoint",
+              "description": "Returns connection matching given `connectionId`.",
+              "snippet": "public PrivmxEndpoint getEndpoint(\n\tLong connectionId\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "connectionId",
+                  "description": "Id of connection",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "PrivmxEndpoint",
+                    "optional": false
+                  },
+                  "description": "Active connection"
+                }
+              ]
+            },
+            {
+              "name": "getEndpointIDs",
+              "description": "Returns set of all active connection\u0027s IDs.",
+              "snippet": "public Set\u003cLong\u003e getEndpointIDs()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Set\u003cLong\u003e",
+                    "optional": false
+                  },
+                  "description": "set of all active connection\u0027s IDs"
+                }
+              ]
+            },
+            {
+              "name": "initialized",
+              "description": "Returns initialization state.",
+              "snippet": "public boolean initialized()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "boolean",
+                    "optional": false
+                  },
+                  "description": "`true` if path to certificate is set successfully"
+                }
+              ]
+            },
+            {
+              "name": "setCertsPath",
+              "description": "Sets path to the certificate used to create a secure connection to PrivMX Bridge.\n It checks whether a .pem file with certificate exists in `certsPath` and uses it if it does.",
+              "snippet": "public void setCertsPath(\n\tString certsPath\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "certsPath",
+                  "description": "path to file with .pem certificate",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "IllegalArgumentException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while setting `certsPath`",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error during set `certsPath`",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "startListening",
+              "description": "Starts event handling Thread.",
+              "snippet": "public void startListening()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "stopListening",
+              "description": "Stops event loop.",
+              "snippet": "public void stopListening()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "EventDispatcher",
+      "content": [
+        {
+          "type": "class",
+          "name": "EventDispatcher",
+          "generics": [],
+          "description": "Implements a list of registered event callbacks.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "EventDispatcher",
+              "description": "Creates instance of `EventDispatcher`.",
+              "snippet": "public void EventDispatcher(\n\tEventCallback\u003cString\u003e onRemoveEntryKey\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "onRemoveEntryKey",
+                  "description": "callback triggered when all events\n from channel entry have been removed\n (it can also unsubscribe from the channel)",
+                  "type": {
+                    "name": "EventCallback\u003cString\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "emit",
+              "description": "Emits specified event. It should only be called by event loops.",
+              "snippet": "public \u003cT\u003e void emit(\n\tEvent\u003cT\u003e event\n)",
+              "methodType": "method",
+              "generic": [
+                {
+                  "definition": "T extends Object"
+                }
+              ],
+              "params": [
+                {
+                  "name": "event",
+                  "description": "event data to emit",
+                  "type": {
+                    "name": "Event\u003cT\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "register",
+              "description": "Registers new event callback.",
+              "snippet": "public boolean register(\n\tString channel,\n\tString type,\n\tObject context,\n\tEventCallback\u003c?\u003e callback\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "channel",
+                  "description": "channel of registered event",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "type",
+                  "description": "type of registered event",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "context",
+                  "description": "ID of registered callback",
+                  "type": {
+                    "name": "Object",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "callback",
+                  "description": "block of code to call when the specified event has been caught",
+                  "type": {
+                    "name": "EventCallback\u003c?\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "boolean",
+                    "optional": false
+                  },
+                  "description": "`true` if the channel is not already subscribed"
+                }
+              ]
+            },
+            {
+              "name": "unbind",
+              "description": "Removes all callbacks registered by #register(String, String, Object, EventCallback). It\u0027s identified by given Context.",
+              "snippet": "public void unbind(\n\tObject context\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "context",
+                  "description": "callback identifier",
+                  "type": {
+                    "name": "Object",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "unbindAll",
+              "description": "Removes all callbacks.",
+              "snippet": "public void unbindAll()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "EventCallback",
+      "content": [
+        {
+          "type": "class",
+          "name": "EventCallback",
+          "generics": [
+            {
+              "definition": "T extends Object"
+            }
+          ],
+          "description": "Represents a callback for catching events data.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "call",
+              "description": "Called to pass data from a caught event.",
+              "snippet": "public abstract void call(\n\tT event\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "event",
+                  "description": "caught event data",
+                  "type": {
+                    "name": "T",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "EventType",
+      "content": [
+        {
+          "type": "class",
+          "name": "EventType",
+          "generics": [
+            {
+              "definition": "T extends Object"
+            }
+          ],
+          "description": "Defines the structure to register PrivMX Bridge event callbacks using PrivmxEndpoint#registerCallback(Object, EventType, EventCallback).",
+          "fields": [
+            {
+              "name": "ConnectedEvent",
+              "description": "Predefined event type that captures successful platform connection events.",
+              "type": {
+                "name": "EventType\u003cVoid\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cVoid\u003e ConnectedEvent"
+            },
+            {
+              "name": "DisconnectedEvent",
+              "description": "Predefined event type to catch disconnection events.",
+              "type": {
+                "name": "EventType\u003cVoid\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cVoid\u003e DisconnectedEvent"
+            },
+            {
+              "name": "InboxCreatedEvent",
+              "description": "Predefined event type to catch created Inbox events.",
+              "type": {
+                "name": "EventType\u003cInbox\u003e",
+                "optional": false
+              },
+              "snippet": "public static EventType\u003cInbox\u003e InboxCreatedEvent"
+            },
+            {
+              "name": "InboxDeletedEvent",
+              "description": "Predefined event type to catch deleted Inbox events.",
+              "type": {
+                "name": "EventType\u003cInboxDeletedEventData\u003e",
+                "optional": false
+              },
+              "snippet": "public static EventType\u003cInboxDeletedEventData\u003e InboxDeletedEvent"
+            },
+            {
+              "name": "InboxUpdatedEvent",
+              "description": "Predefined event type to catch update Inbox events.",
+              "type": {
+                "name": "EventType\u003cInbox\u003e",
+                "optional": false
+              },
+              "snippet": "public static EventType\u003cInbox\u003e InboxUpdatedEvent"
+            },
+            {
+              "name": "LibBreakEvent",
+              "description": "Predefined event type to catch special events.\n This type could be used to emit/handle events with custom implementations (e.g. to break event loops).",
+              "type": {
+                "name": "EventType\u003cVoid\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cVoid\u003e LibBreakEvent"
+            },
+            {
+              "name": "StoreCreatedEvent",
+              "description": "Predefined event type to catch created Store events.",
+              "type": {
+                "name": "EventType\u003cStore\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cStore\u003e StoreCreatedEvent"
+            },
+            {
+              "name": "StoreDeletedEvent",
+              "description": "Predefined event type to catch deleted Store stats events.",
+              "type": {
+                "name": "EventType\u003cStoreDeletedEventData\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cStoreDeletedEventData\u003e StoreDeletedEvent"
+            },
+            {
+              "name": "StoreStatsChangedEvent",
+              "description": "Predefined event type to catch updated Store stats events.",
+              "type": {
+                "name": "EventType\u003cStoreStatsChangedEventData\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cStoreStatsChangedEventData\u003e StoreStatsChangedEvent"
+            },
+            {
+              "name": "StoreUpdatedEvent",
+              "description": "Predefined event type to catch updated Store events.",
+              "type": {
+                "name": "EventType\u003cStore\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cStore\u003e StoreUpdatedEvent"
+            },
+            {
+              "name": "ThreadCreatedEvent",
+              "description": "Predefined event type to catch created Thread events.",
+              "type": {
+                "name": "EventType\u003cThread\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cThread\u003e ThreadCreatedEvent"
+            },
+            {
+              "name": "ThreadDeletedEvent",
+              "description": "Predefined event type to catch deleted Thread events.",
+              "type": {
+                "name": "EventType\u003cThreadDeletedEventData\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cThreadDeletedEventData\u003e ThreadDeletedEvent"
+            },
+            {
+              "name": "ThreadStatsChangedEvent",
+              "description": "Predefined event type to catch updated Thread stats events.",
+              "type": {
+                "name": "EventType\u003cThreadStatsEventData\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cThreadStatsEventData\u003e ThreadStatsChangedEvent"
+            },
+            {
+              "name": "ThreadUpdatedEvent",
+              "description": "Predefined event type to catch updated Thread events.",
+              "type": {
+                "name": "EventType\u003cThread\u003e",
+                "optional": false
+              },
+              "snippet": "public static final EventType\u003cThread\u003e ThreadUpdatedEvent"
+            },
+            {
+              "name": "channel",
+              "description": "Channel of this event type.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public final String channel"
+            },
+            {
+              "name": "eventResultClass",
+              "description": "Type of event data.",
+              "type": {
+                "name": "Class\u003cT\u003e",
+                "optional": false
+              },
+              "snippet": "public final Class\u003cT\u003e eventResultClass"
+            },
+            {
+              "name": "eventType",
+              "description": "This event type as a string.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public final String eventType"
+            }
+          ],
+          "methods": [
+            {
+              "name": "InboxEntryCreatedEvent",
+              "description": "Returns instance to register on created entry Events.",
+              "snippet": "public static EventType\u003cInboxEntry\u003e InboxEntryCreatedEvent(\n\tString inboxId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cInboxEntry\u003e",
+                    "optional": false
+                  },
+                  "description": "predefined event type to catch created entries in matching Inbox events"
+                }
+              ]
+            },
+            {
+              "name": "InboxEntryDeletedEvent",
+              "description": "Returns instance to register on deleting entries Events.",
+              "snippet": "public static EventType\u003cInboxEntryDeletedEventData\u003e InboxEntryDeletedEvent(\n\tString inboxId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cInboxEntryDeletedEventData\u003e",
+                    "optional": false
+                  },
+                  "description": "predefined event type to catch deleted entries in matching Inbox events"
+                }
+              ]
+            },
+            {
+              "name": "StoreFileCreatedEvent",
+              "description": "Returns instance to register on created file Events.",
+              "snippet": "public static EventType\u003cFile\u003e StoreFileCreatedEvent(\n\tString storeId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "storeId",
+                  "description": "ID of the store to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cFile\u003e",
+                    "optional": false
+                  },
+                  "description": "Predefined event type to catch new files in matching Store events"
+                }
+              ]
+            },
+            {
+              "name": "StoreFileDeletedEvent",
+              "description": "Returns instance to register on deleted file Events.",
+              "snippet": "public static EventType\u003cStoreFileDeletedEventData\u003e StoreFileDeletedEvent(\n\tString storeId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "storeId",
+                  "description": "ID of the Store to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cStoreFileDeletedEventData\u003e",
+                    "optional": false
+                  },
+                  "description": "Predefined event type to catch deleted files in matching Store events"
+                }
+              ]
+            },
+            {
+              "name": "StoreFileUpdatedEvent",
+              "description": "Returns instance to register on file update Events.",
+              "snippet": "public static EventType\u003cFile\u003e StoreFileUpdatedEvent(\n\tString storeId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "storeId",
+                  "description": "ID of the Store to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cFile\u003e",
+                    "optional": false
+                  },
+                  "description": "Predefined event type to catch updated files in matching Store events"
+                }
+              ]
+            },
+            {
+              "name": "ThreadMessageDeletedEvent",
+              "description": "Returns instance to register on deleted message Events.",
+              "snippet": "public static EventType\u003cThreadDeletedMessageEventData\u003e ThreadMessageDeletedEvent(\n\tString threadId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "threadId",
+                  "description": "ID of the Thread to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cThreadDeletedMessageEventData\u003e",
+                    "optional": false
+                  },
+                  "description": "Predefined event type to catch deleted messages in matching Thread events"
+                }
+              ]
+            },
+            {
+              "name": "ThreadMessageUpdatedEvent",
+              "description": "Returns instance to register on message update Events.",
+              "snippet": "public static EventType\u003cMessage\u003e ThreadMessageUpdatedEvent(\n\tString threadId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "threadId",
+                  "description": "ID of the Thread to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cMessage\u003e",
+                    "optional": false
+                  },
+                  "description": "predefined event type to catch message updates in matching Thread events"
+                }
+              ]
+            },
+            {
+              "name": "ThreadNewMessageEvent",
+              "description": "Returns instance to register on new message Events.",
+              "snippet": "public static EventType\u003cMessage\u003e ThreadNewMessageEvent(\n\tString threadId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "threadId",
+                  "description": "ID of the Thread to observe",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "",
+                  "type": {
+                    "name": "NullPointerException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "EventType\u003cMessage\u003e",
+                    "optional": false
+                  },
+                  "description": "Predefined event type to catch new messages in matching Thread events"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Controller",
+      "content": [
+        {
+          "type": "class",
+          "name": "StoreFileStream.Controller",
+          "generics": [],
+          "description": "Manages sending/reading files using InputStream/OutputStream.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "Controller",
+              "description": "Creates instance of Controller.",
+              "snippet": "public void Controller()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "isStopped",
+              "description": "Returns information whether the stream should be stopped.",
+              "snippet": "public final boolean isStopped()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "boolean",
+                    "optional": false
+                  },
+                  "description": "`true` if controller is set to stop"
+                }
+              ]
+            },
+            {
+              "name": "onChunkProcessed",
+              "description": "Override this method to handle event when each chunk was sent successfully.",
+              "snippet": "public void onChunkProcessed(\n\tLong processedBytes\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "processedBytes",
+                  "description": "full size of current sent/read data",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "stop",
+              "description": "Stops reading/writing file after processing the current chunk.",
+              "snippet": "public final void stop()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ProgressListener",
+      "content": [
+        {
+          "type": "class",
+          "name": "StoreFileStream.ProgressListener",
+          "generics": [],
+          "description": "Interface to listen to progress of sending/reading files.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "onChunkProcessed",
+              "description": "A callback called after each successful read/write operation.",
+              "snippet": "public abstract void onChunkProcessed(\n\tLong processedBytes\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "processedBytes",
+                  "description": "full size of current sent/read data",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "version": "2.2.0",
+    "package": "privmx-endpoint-java-extra",
+    "lang": "java",
+    "name": "PrivMX Endpoint Java Extra"
+  },
+  "store": [
+    {
+      "title": "StoreFileStream",
+      "content": [
+        {
+          "type": "class",
+          "name": "StoreFileStream",
+          "generics": [],
+          "description": "Base class for Store file streams. Implements progress listeners.",
+          "fields": [
+            {
+              "name": "OPTIMAL_SEND_SIZE",
+              "description": "Constant value with optimal size of reading/sending data.",
+              "type": {
+                "name": "long",
+                "optional": false
+              },
+              "snippet": "public static final long OPTIMAL_SEND_SIZE\u003d 131072"
+            },
+            {
+              "name": "handle",
+              "description": "Reference to file handle.",
+              "type": {
+                "name": "Long",
+                "optional": false
+              },
+              "snippet": "protected final Long handle"
+            },
+            {
+              "name": "storeApi",
+              "description": "Reference to StoreApi.",
+              "type": {
+                "name": "StoreApi",
+                "optional": false
+              },
+              "snippet": "protected final StoreApi storeApi"
+            }
+          ],
+          "methods": [
+            {
+              "name": "StoreFileStream",
+              "description": "Creates instance of `StoreFileStream`.",
+              "snippet": "protected void StoreFileStream(\n\tLong handle,\n\tStoreApi storeApi\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "handle",
+                  "description": "handle to Store file",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "storeApi",
+                  "description": "StoreApi instance that calls read/write methods on files",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "callChunkProcessed",
+              "description": "Increases the size of current sent/read data by chunkSize and calls ProgressListener#onChunkProcessed(Long).",
+              "snippet": "protected void callChunkProcessed(\n\tLong chunkSize\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "chunkSize",
+                  "description": "size of processed chunk",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "close",
+              "description": "Closes file handle.",
+              "snippet": "public String close()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while closing file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while closing file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the closed file"
+                }
+              ]
+            },
+            {
+              "name": "isClosed",
+              "description": "Returns information whether the instance is closed.",
+              "snippet": "public Boolean isClosed()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Boolean",
+                    "optional": false
+                  },
+                  "description": "`true` if file handle is closed"
+                }
+              ]
+            },
+            {
+              "name": "setProgressListener",
+              "description": "Sets listening for single chunk sent/read.",
+              "snippet": "public void setProgressListener(\n\tProgressListener progressListener\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "progressListener",
+                  "description": "callback triggered when chunk is sent/read",
+                  "type": {
+                    "name": "ProgressListener",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "StoreFileStreamReader",
+      "content": [
+        {
+          "type": "class",
+          "name": "StoreFileStreamReader",
+          "generics": [],
+          "description": "Manages handle for file reading.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "openFile",
+              "description": "Opens Store file.",
+              "snippet": "public static StoreFileStreamReader openFile(\n\tStoreApi api,\n\tString fileId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while opening Store file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while opening Store file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "StoreFileStreamReader",
+                    "optional": false
+                  },
+                  "description": "Instance ready to read from the Store file"
+                }
+              ]
+            },
+            {
+              "name": "openFile",
+              "description": "Opens Store file and writes it into OutputStream.",
+              "snippet": "public static String openFile(\n\tStoreApi api,\n\tString fileId,\n\tOutputStream outputStream\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "outputStream",
+                  "description": "stream to write downloaded data with optimized chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "OutputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while writing the stream",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when storeApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while opening Store file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while opening Store file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the read file"
+                }
+              ]
+            },
+            {
+              "name": "openFile",
+              "description": "Opens Store file and writes it into OutputStream.",
+              "snippet": "public static String openFile(\n\tStoreApi api,\n\tString fileId,\n\tOutputStream outputStream,\n\tController streamController\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "outputStream",
+                  "description": "stream to write downloaded data with optimized chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "OutputStream",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "streamController",
+                  "description": "controls the process of reading file",
+                  "type": {
+                    "name": "Controller",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while writing stream",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when storeApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading Store file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while reading Store file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the read file"
+                }
+              ]
+            },
+            {
+              "name": "read",
+              "description": "Reads file data and moves the cursor. If read data size is less than length, then EOF.",
+              "snippet": "public byte[] read(\n\tLong size\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "size",
+                  "description": "size of data to read (the recommended size is StoreFileStream#OPTIMAL_SEND_SIZE)",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #storeApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  },
+                  "description": "Read data"
+                }
+              ]
+            },
+            {
+              "name": "seek",
+              "description": "Moves read cursor.",
+              "snippet": "public void seek(\n\tlong position\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "position",
+                  "description": "new cursor position",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if `storeApi` is not initialized or connected",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while seeking",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while seeking",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "StoreFileStreamWriter",
+      "content": [
+        {
+          "type": "class",
+          "name": "StoreFileStreamWriter",
+          "generics": [],
+          "description": "Manages handle for file writing.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "createFile",
+              "description": "Creates a new file in given Store.",
+              "snippet": "public static StoreFileStreamWriter createFile(\n\tStoreApi api,\n\tString storeId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "storeId",
+                  "description": "ID of the Store",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "byte array of any arbitrary metadata that can be read by anyone",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "byte array of any arbitrary metadata that will be encrypted before sending",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while creating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while creating store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when storeApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "StoreFileStreamWriter",
+                    "optional": false
+                  },
+                  "description": "Instance ready to write to the created Store file"
+                }
+              ]
+            },
+            {
+              "name": "createFile",
+              "description": "Creates a new file in given Store and writes data from given InputStream.",
+              "snippet": "public static String createFile(\n\tStoreApi api,\n\tString storeId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size,\n\tInputStream inputStream\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "storeId",
+                  "description": "ID of the Store",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "byte array of any arbitrary metadata that can be read by anyone",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "byte array of any arbitrary metadata that will be encrypted before sending",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "stream with data to write to the file using optimal chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading stream or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while creating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while creating Store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when storeApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the created file"
+                }
+              ]
+            },
+            {
+              "name": "createFile",
+              "description": "Creates new file in given Store and writes data from given InputStream.",
+              "snippet": "public static String createFile(\n\tStoreApi api,\n\tString storeId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size,\n\tInputStream inputStream,\n\tController streamController\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "storeId",
+                  "description": "ID of the Store",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "byte array of any arbitrary metadata that can be read by anyone",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "byte array of any arbitrary metadata that will be encrypted before sending",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "stream with data to write to the file using optimal chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "streamController",
+                  "description": "controls the process of writing file",
+                  "type": {
+                    "name": "Controller",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading stream or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while creating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while creating Store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the created file"
+                }
+              ]
+            },
+            {
+              "name": "updateFile",
+              "description": "Updates an existing file.",
+              "snippet": "public static StoreFileStreamWriter updateFile(\n\tStoreApi api,\n\tString fileId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to update",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "new public metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "new private (encrypted) metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while updating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while updating Store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "StoreFileStreamWriter",
+                    "optional": false
+                  },
+                  "description": "StoreFileStreamWriter instance prepared for writing"
+                }
+              ]
+            },
+            {
+              "name": "updateFile",
+              "description": "Updates existing file and writes data from passed InputStream.",
+              "snippet": "public static String updateFile(\n\tStoreApi api,\n\tString fileId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size,\n\tInputStream inputStream\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to update",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "new public metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "new private (encrypted) metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "stream with data to write to the file using optimal chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading stream or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while updating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while updating Store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "Updated file ID"
+                }
+              ]
+            },
+            {
+              "name": "updateFile",
+              "description": "Updates existing file and writes data from passed InputStream.",
+              "snippet": "public static String updateFile(\n\tStoreApi api,\n\tString fileId,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size,\n\tInputStream inputStream,\n\tController streamController\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Store API",
+                  "type": {
+                    "name": "StoreApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to update",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "new public metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "new private (encrypted) metadata for the matching file",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "stream with data to write to the file using optimal chunk size StoreFileStream#OPTIMAL_SEND_SIZE",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "streamController",
+                  "description": "controls the process of writing file",
+                  "type": {
+                    "name": "Controller",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading stream or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while updating Store file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while updating Store file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `storeApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "Updated file ID"
+                }
+              ]
+            },
+            {
+              "name": "write",
+              "description": "Writes data to Store file.",
+              "snippet": "public void write(\n\tbyte[] data\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "data",
+                  "description": "data to write (the recommended size of data chunk is StoreFileStream#OPTIMAL_SEND_SIZE)",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while writing chunkwhen method encounters an exception",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while writing chunkwhen method encounters an unknown exception",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when storeApi is not initialized or there\u0027s no connectionwhen #storeApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "inbox": [
+    {
+      "title": "InboxFileStream",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxFileStream",
+          "generics": [],
+          "description": "Base class for Inbox file streams.",
+          "fields": [
+            {
+              "name": "OPTIMAL_SEND_SIZE",
+              "description": "Constant value with optimal size of reading/sending data.",
+              "type": {
+                "name": "long",
+                "optional": false
+              },
+              "snippet": "public static final long OPTIMAL_SEND_SIZE\u003d 131072"
+            },
+            {
+              "name": "handle",
+              "description": "Reference to file handle.",
+              "type": {
+                "name": "Long",
+                "optional": false
+              },
+              "snippet": "protected final Long handle"
+            },
+            {
+              "name": "inboxApi",
+              "description": "Reference to InboxApi instance.",
+              "type": {
+                "name": "InboxApi",
+                "optional": false
+              },
+              "snippet": "protected final InboxApi inboxApi"
+            }
+          ],
+          "methods": [
+            {
+              "name": "InboxFileStream",
+              "description": "Creates instance of InboxFileStream.",
+              "snippet": "protected void InboxFileStream(\n\tLong handle,\n\tInboxApi inboxApi\n)",
+              "methodType": "constructor",
+              "generic": [],
+              "params": [
+                {
+                  "name": "handle",
+                  "description": "handle to Inbox file",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inboxApi",
+                  "description": "InboxApi instance that calls read/write methods on files",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "callChunkProcessed",
+              "description": "Increases the size of current sent/read data by chunkSize and calls ProgressListener#onChunkProcessed(Long).",
+              "snippet": "protected void callChunkProcessed(\n\tLong chunkSize\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "chunkSize",
+                  "description": "size of processed chunk",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "close",
+              "description": "Closes file handle.",
+              "snippet": "public synchronized String close()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while closing file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while closing file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #inboxApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the closed file"
+                }
+              ]
+            },
+            {
+              "name": "getFileHandle",
+              "description": "Gets current file handle.",
+              "snippet": "public Long getFileHandle()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  },
+                  "description": "file handle."
+                }
+              ]
+            },
+            {
+              "name": "getProcessedBytes",
+              "description": "Gets size of sent data.",
+              "snippet": "public Long getProcessedBytes()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  },
+                  "description": "size of sent data."
+                }
+              ]
+            },
+            {
+              "name": "isClosed",
+              "description": "Returns information whether the instance is closed.",
+              "snippet": "public Boolean isClosed()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "Boolean",
+                    "optional": false
+                  },
+                  "description": "`true` if file handle is closed"
+                }
+              ]
+            },
+            {
+              "name": "setProgressListener",
+              "description": "Sets listening for single chunk sent/read.",
+              "snippet": "public void setProgressListener(\n\tProgressListener progressListener\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "progressListener",
+                  "description": "callback triggered when chunk is sent/read",
+                  "type": {
+                    "name": "ProgressListener",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "InboxFileStreamReader",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxFileStreamReader",
+          "generics": [],
+          "description": "Manages handle for file reading from Inbox.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "openFile",
+              "description": "Opens Inbox file.",
+              "snippet": "public static InboxFileStreamReader openFile(\n\tInboxApi api,\n\tString fileId\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when `inboxApi` is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while opening Inbox file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while opening Inbox file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxFileStreamReader",
+                    "optional": false
+                  },
+                  "description": "Instance ready to read from the Inbox file"
+                }
+              ]
+            },
+            {
+              "name": "openFile",
+              "description": "Opens Inbox file and writes it into OutputStream with optimized chunk size InboxFileStream#OPTIMAL_SEND_SIZE.",
+              "snippet": "public static String openFile(\n\tInboxApi api,\n\tString fileId,\n\tOutputStream outputStream\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "outputStream",
+                  "description": "stream to write downloaded data",
+                  "type": {
+                    "name": "OutputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while writing the stream",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when inboxApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while opening Inbox file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while opening Inbox file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the read file"
+                }
+              ]
+            },
+            {
+              "name": "openFile",
+              "description": "Opens Inbox file and writes it into OutputStream with optimized chunk size InboxFileStream#OPTIMAL_SEND_SIZE.",
+              "snippet": "public static String openFile(\n\tInboxApi api,\n\tString fileId,\n\tOutputStream outputStream,\n\tController streamController\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileId",
+                  "description": "ID of the file to open",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "outputStream",
+                  "description": "stream to write downloaded data",
+                  "type": {
+                    "name": "OutputStream",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "streamController",
+                  "description": "controls the process of reading file",
+                  "type": {
+                    "name": "Controller",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while writing stream",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when inboxApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while reading Inbox file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while reading Inbox file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "ID of the read file"
+                }
+              ]
+            },
+            {
+              "name": "read",
+              "description": "Reads file data and moves the cursor. If read data size is less than length, then EOF.",
+              "snippet": "public byte[] read(\n\tLong size\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "size",
+                  "description": "size of data to read (the recommended size is InboxFileStream#OPTIMAL_SEND_SIZE)",
+                  "type": {
+                    "name": "Long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #inboxApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  },
+                  "description": "Read data"
+                }
+              ]
+            },
+            {
+              "name": "seek",
+              "description": "Moves read cursor.",
+              "snippet": "public void seek(\n\tlong position\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "position",
+                  "description": "new cursor position",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if `inboxApi` is not initialized or connected",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an error while seeking",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while seeking",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "InboxFileStreamWriter",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxFileStreamWriter",
+          "generics": [],
+          "description": "Manages handle for file writing.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "createFile",
+              "description": "Creates a new file in given Inbox.",
+              "snippet": "public static InboxFileStreamWriter createFile(\n\tInboxApi api,\n\tbyte[] publicMeta,\n\tbyte[] privateMeta,\n\tlong size\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "api",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "publicMeta",
+                  "description": "byte array of any arbitrary metadata that can be read by anyone",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "privateMeta",
+                  "description": "byte array of any arbitrary metadata that will be encrypted before sending",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "size",
+                  "description": "size of data to write",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "if there is an error while creating Inbox file metadata",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if there is an unknown error while creating inbox file metadata",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when inboxApi is not initialized or there\u0027s no connection",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxFileStreamWriter",
+                    "optional": false
+                  },
+                  "description": "Instance ready to write to the created Inbox file"
+                }
+              ]
+            },
+            {
+              "name": "write",
+              "description": "Writes data to Inbox file.",
+              "snippet": "public void write(\n\tlong inboxHandle,\n\tbyte[] data\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxHandle",
+                  "description": "the handle of the Inbox to write to",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "data",
+                  "description": "data to write (the recommended size of data chunk is InboxFileStream#OPTIMAL_SEND_SIZE)",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #inboxApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "writeStream",
+              "description": "Writes data from an InputStream to an Inbox file.",
+              "snippet": "public void writeStream(\n\tlong inboxHandle,\n\tInputStream inputStream\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxHandle",
+                  "description": "the handle of an Inbox to write to",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "the InputStream to read data from",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #inboxApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when InputStream#read thrown exception or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "writeStream",
+              "description": "Writes data from an InputStream to an Inbox file.",
+              "snippet": "public void writeStream(\n\tlong inboxHandle,\n\tInputStream inputStream,\n\tController streamController\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxHandle",
+                  "description": "the handle of the Inbox to write to",
+                  "type": {
+                    "name": "long",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inputStream",
+                  "description": "the InputStream to read data from",
+                  "type": {
+                    "name": "InputStream",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "streamController",
+                  "description": "an optional controller for monitoring and controlling the write operation.",
+                  "type": {
+                    "name": "Controller",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while executing InboxApi#writeToFile",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when #inboxApi is closed",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when InputStream#read thrown exception or `this` is closed",
+                  "type": {
+                    "name": "IOException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "InboxEntryStream",
+      "content": [
+        {
+          "type": "class",
+          "name": "InboxEntryStream",
+          "generics": [],
+          "description": "Provides a streamlined process for creating and sending Inbox entries\n with optional file attachments.\n This class simplifies interacting with the Inbox API for sending entries,\n especially when dealing with multiple files. It manages the lifecycle of the entry creation\n process, including file uploads and final entry submission.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "cancel",
+              "description": "Cancels the stream and sets its state to State#ABORTED.\n If the stream is currently sending files, all pending file operations will be canceled.\n If the stream is in the process of sending the entry, this operation will not have any effect.",
+              "snippet": "public void cancel()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "prepareEntry",
+              "description": "Creates InboxEntryStream instance ready for streaming.\n This method initializes an InboxEntryStream and prepares it for sending\n an entry with the provided data. It creates an Inbox handle and sets the\n initial state of the stream to State#FILES_SENT.",
+              "snippet": "public static InboxEntryStream prepareEntry(\n\tInboxApi inboxApi,\n\tString inboxId,\n\tEntryStreamListener entryStreamListener,\n\tbyte[] data\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxApi",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "entryStreamListener",
+                  "description": "the listener for stream state changes",
+                  "type": {
+                    "name": "EntryStreamListener",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "data",
+                  "description": "entry data to send",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when IllegalStateException was thrown while creating handles for Inbox or file",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxEntryStream",
+                    "optional": false
+                  },
+                  "description": "instance of InboxEntryStream prepared for streaming"
+                }
+              ]
+            },
+            {
+              "name": "prepareEntry",
+              "description": "Creates InboxEntryStream instance ready for streaming.\n This method initializes an InboxEntryStream and prepares it for sending an entry with the\n associated files and empty data. It creates Inbox and file handles, setting the initial state of the stream\n to State#PREPARED, indicating readiness for file transfer.",
+              "snippet": "public static InboxEntryStream prepareEntry(\n\tInboxApi inboxApi,\n\tString inboxId,\n\tEntryStreamListener entryStreamListener,\n\tList\u003cFileInfo\u003e fileInfos\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxApi",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "entryStreamListener",
+                  "description": "the listener for stream state changes",
+                  "type": {
+                    "name": "EntryStreamListener",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileInfos",
+                  "description": "information about each entry\u0027s file to send",
+                  "type": {
+                    "name": "List\u003cFileInfo\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when IllegalStateException was thrown while creating handles for Inbox or file",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxEntryStream",
+                    "optional": false
+                  },
+                  "description": "instance of InboxEntryStream prepared for streaming"
+                }
+              ]
+            },
+            {
+              "name": "prepareEntry",
+              "description": "Creates an InboxEntryStream instance ready for streaming, with optional files and encryption.\n This method initializes an InboxEntryStream and prepares it for sending an entry with\n the provided data and optional associated files. It creates Inbox and file handles (if\n `fileInfos` is provided), setting the initial state of the stream to\n State#PREPARED, indicating readiness for data and file transfer.",
+              "snippet": "public static InboxEntryStream prepareEntry(\n\tInboxApi inboxApi,\n\tString inboxId,\n\tEntryStreamListener entryStreamListener,\n\tbyte[] data,\n\tList\u003cFileInfo\u003e fileInfos\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxApi",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "entryStreamListener",
+                  "description": "the listener for stream state changes",
+                  "type": {
+                    "name": "EntryStreamListener",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "data",
+                  "description": "entry data to send",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileInfos",
+                  "description": "information about each entry\u0027s file to send",
+                  "type": {
+                    "name": "List\u003cFileInfo\u003e",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when IllegalStateException was thrown while creating handles for Inbox or file",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxEntryStream",
+                    "optional": false
+                  },
+                  "description": "instance of InboxEntryStream prepared for streaming"
+                }
+              ]
+            },
+            {
+              "name": "prepareEntry",
+              "description": "Creates an InboxEntryStream instance ready for streaming, with optional files and encryption.\n This method initializes an InboxEntryStream and prepares it for sending an entry with the provided data,\n optional associated files, and optional encryption using the sender\u0027s private key. It creates an Inbox handle\n and initializes file handles for any associated files. The initial state of the stream is determined based\n on the presence of files: if no files are provided, the state is set to State#FILES_SENT. Otherwise,\n it\u0027s set to State#PREPARED, indicating readiness for file transfer.",
+              "snippet": "public static InboxEntryStream prepareEntry(\n\tInboxApi inboxApi,\n\tString inboxId,\n\tEntryStreamListener entryStreamListener,\n\tbyte[] data,\n\tList\u003cFileInfo\u003e fileInfos,\n\tString userPrivKey\n)",
+              "methodType": "static",
+              "generic": [],
+              "params": [
+                {
+                  "name": "inboxApi",
+                  "description": "reference to Inbox API",
+                  "type": {
+                    "name": "InboxApi",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "inboxId",
+                  "description": "ID of the Inbox",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "entryStreamListener",
+                  "description": "the listener for stream state changes",
+                  "type": {
+                    "name": "EntryStreamListener",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "data",
+                  "description": "entry data to send",
+                  "type": {
+                    "name": "byte[]",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "fileInfos",
+                  "description": "information about each entry\u0027s file to send",
+                  "type": {
+                    "name": "List\u003cFileInfo\u003e",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "userPrivKey",
+                  "description": "sender\u0027s private key which can be used later to encrypt data for that sender",
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while creating handles for Inbox or file",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when IllegalStateException was thrown while creating handles for Inbox or file",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "InboxEntryStream",
+                    "optional": false
+                  },
+                  "description": "instance of InboxEntryStream prepared for streaming"
+                }
+              ]
+            },
+            {
+              "name": "sendEntry",
+              "description": "Sends the entry data and closes this stream, transitioning it to the State#SENT state.\n This method should only be called after all files associated with the entry have been\n successfully sent, indicated by the stream being in the State#FILES_SENT state.",
+              "snippet": "public synchronized void sendEntry()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "when method encounters an exception while calling InboxApi#sendEntry method",
+                  "type": {
+                    "name": "PrivmxException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "when method encounters an unknown exception while calling InboxApi#sendEntry method",
+                  "type": {
+                    "name": "NativeException",
+                    "optional": false
+                  }
+                },
+                {
+                  "code": 0,
+                  "description": "if the stream is not in the State#FILES_SENT state or InboxApi#sendEntry thrown IllegalStateException",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "sendFiles",
+              "description": "Initiates the process of sending files using the provided executor.\n This method submits each file for sending to the `fileStreamExecutor`\n and wait for completion.",
+              "snippet": "public synchronized void sendFiles(\n\tExecutorService fileStreamExecutor\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "fileStreamExecutor",
+                  "description": "the executor service responsible for executing file sending tasks",
+                  "type": {
+                    "name": "ExecutorService",
+                    "optional": false
+                  }
+                }
+              ],
+              "exceptions": [
+                {
+                  "code": 0,
+                  "description": "If the stream is not in the State#PREPARED state.",
+                  "type": {
+                    "name": "IllegalStateException",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            },
+            {
+              "name": "sendFiles",
+              "description": "Sends files using a single-threaded executor (see: Executors#newSingleThreadExecutor).",
+              "snippet": "public void sendFiles()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

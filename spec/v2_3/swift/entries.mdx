@@ -1,0 +1,166 @@
+---
+title: Entries
+---
+
+All the data sent by someone to an Inbox is called an Entry.
+In Threads and Stores, a user must be assigned to the container to send data. In Inboxes, however, 
+anyone who has Inbox ID can send a reply (assuming they have the Bridge URL and Solution ID).
+
+:::info
+
+Before working with Inboxes, follow our [Getting Started Guide](./getting-started). It will show you how to set up your project to work with PrivMX Bridge.\
+\
+The sample code on this page is based on the **[initial assumptions](./getting-started#initial-assumptions)**.\
+\
+Entry's [`publicMeta` and `privateMeta`](../start/public-private-meta) fields support any kind of data formats encoded to byte arrays. Examples in this section use Swift serialization to JSON format.
+
+:::
+
+
+### Assumptions 
+In further examples, the following structures are used:
+```swift
+struct InboxPublicEntry:Codable{
+    let name: String
+    let surname: String
+    let email: String
+    let comment: String
+}
+```
+
+Having established public connection and `inboxApi`, you can send data to the Inbox:
+
+<Tabs groupId="variant" items={["Basic","With Files"]}>
+<Tab>
+```swift
+
+let inboxID = "INBOX_ID"
+
+let inboxPublicEntry = InboxPublicEntry(
+    name: "name",
+    surname: "surname",
+    email: "email",
+    comment: "comment")
+
+guard let inboxPublicEntryData = try? JSONEncoder().encode(inboxPublicEntry) else {return}
+
+guard let inboxHandle = try? publicEndpointSession?.inboxApi?.prepareEntry(in: inboxID, containing: inboxPublicEntryData, attaching: [], as: nil)  else {return}
+
+try? publicEndpointSession?.inboxApi?.sendEntry(to: inboxHandle)
+
+
+```
+</Tab>
+
+<Tab>
+<div className={'fd-steps'}>
+    <div className={'fd-step'}>
+        Create `InboxFileHandle` for each file:
+
+        ```swift
+        let inboxID = "INBOX_ID"
+
+        let fileSize:Int64 = 0 // actual file size
+        let data:Data = Data() // actual file data
+
+        guard let inboxFileHandle = try? publicEndpointSession?.inboxApi?.createFileHandle(
+        withPublicMeta: Data(),
+        withPrivateMeta: Data(),
+        forSize: fileSize) else {return}
+        ```
+    </div>
+    <div className={'fd-step'}>
+        Create `InboxHandle` with all `InboxFileHandle` for files, passed as a parameter
+
+        ```swift
+
+        guard let inboxHandle = try? publicEndpointSession?.inboxApi?.prepareEntry(
+        in: inboxID,
+        containing: inboxPublicEntryData, //as in Basic Example
+        attaching: [inboxFileHandle],
+        as: nil)  else {return}
+        ```
+    </div>
+
+    <div className={'fd-step'}>
+        Upload and close all files using `writeToFile` and `closeFile` methods from `InboxApi`:
+        ```swift
+        try? publicEndpointSession?.inboxApi?.writeToFile(inboxFileHandle, in: inboxHandle, uploading: data)
+        try? publicEndpointSession?.inboxApi?.closeFile(withHandle: inboxFileHandle)
+        ```
+    </div>
+    <div className={'fd-step'}>
+        Call `sendEntry` which starts sending `inboxPublicEntryData` data to Inbox:
+        ```swift
+        try? publicEndpointSession?.inboxApi?.sendEntry(to: inboxHandle)
+        ```
+    </div>
+</div>
+
+</Tab>
+
+</Tabs>
+
+
+## Getting Entries
+
+Created entries can be listed by non-public connections created using `PrivmxEndpoint`.
+
+
+<Tabs groupId="variant" items={["Most Recent","Oldest"]}>
+<Tab>
+Fetching the most recent Entries in given Inbox
+```swift
+let inboxID = "INBOX_ID"
+let startIndex:Int64 = 0
+let pageSize:Int64 = 100
+
+var entires = try? endpointSession?.inboxApi?.listEntries(
+    from: inboxID,
+    basedOn: privmx.endpoint.core.PagingQuery(skip: startIndex, limit: pageSize, sortOrder: .desc)
+)
+```
+</Tab>
+
+<Tab>
+Fetching the oldest Entries (by creation date) in given Inbox:
+```swift
+let inboxID = "INBOX_ID"
+let startIndex:Int64 = 0
+let pageSize:Int64 = 100
+    
+var entires = try? endpointSession?.inboxApi?.listEntries(
+    from: inboxID,
+    basedOn: privmx.endpoint.core.PagingQuery(skip: startIndex, limit: pageSize, sortOrder: .asc)
+)
+```
+</Tab>
+</Tabs>
+
+
+## Reading Entries Files
+
+Files from Entries can be read by non-public connections created using `PrivmxEndpoint` class
+
+```swift
+let inboxID = "INBOX_ID"
+let entryID = "ENTRY_ID"
+let startIndex:Int64 = 0
+let pageSize:Int64 = 100
+
+let inboxEntry = try? endpointSession?.inboxApi?.readEntry(entryID)
+
+var files =  inboxEntry?.files
+var filesContents = files.map { file in
+    try? endpointSession?.inboxApi?.openFile("\(file[0].info.fileId)")
+}?.map{ fileHandle in
+var content = Data()
+var chunk : Data
+repeat {
+    chunk = (try? endpointSession?.inboxApi?.readFromFile(withHandle: fileHandle, length: PrivMXStoreFileHandler.RecommendedChunkSize)) ?? Data()
+    content.append(chunk)
+} while chunk.count == PrivMXStoreFileHandler.RecommendedChunkSize
+return content
+}
+
+```

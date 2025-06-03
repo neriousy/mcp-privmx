@@ -1,0 +1,50 @@
+---
+title: Overview
+---
+
+Inbox is a special kind of communication tool used for **one-way communication with external users**.
+
+An authorized PrivMX user can create an Inbox, configure its snippet and place it in a desired place (like a webpage or an app). **Anonymous, unregistered users can send data to the Inbox**.
+This procedure uses Inbox Public Key, which allows to write data to an Inbox. One time access assures that the writer has no possibility of reading the data once it's sent.
+ 
+Inboxes can be organized as source-specific containers, where anonymous users from each source can **securely submit encrypted data** (messages/forms/files). 
+All the active users are notified right away when new data arrives. The data can be plain text or binary.
+
+All the data is stored in the Bridge and can be freely accessed by authorized users.
+
+## Use Cases
+
+Inboxes are ideal for creating public online forms that collect sensitive information.
+All submitted data is encrypted before transmission, using a one-time private key generated on the user’s device.
+Submitted entries are only available to users with access to the given Inbox.
+
+## Prerequisites
+
+Before working with Inboxes, you need to have a PrivMX Bridge instance.
+
+To install it, [follow our PrivMX quick start guide](../quick-start).
+
+## Architecture
+
+Inboxes are containers for anonymous submissions. Think of an Inbox as a container that allows anonymous sources to send submissions with attachments (such as a form from your company's webpage). 
+Each Inbox has its own set of permissions, managed by assigning the users’ public keys. **Only the users with assigned public keys can read data submitted to that Inbox**.
+Decryption of the data is possible only with the corresponding private keys.
+
+Inboxes use public key access for submitting any data by anonymous users. Dual-layer encryption for accessing this data, ensures that the system remains both safe and efficient. 
+
+The following diagram is a visual reference for the architecture of Inboxes:
+![privmx inboxes encryption](/img/privmx-inboxes.svg)
+
+## Encryption in Inboxes
+
+Only an end user can create an Inbox, by providing a set of public keys for the users who should have access to the Inbox.
+
+An asymmetric public key is used to write to the Inbox, which allows anonymous external users to submit Inbox entries.
+
+A key for reading the Inbox (Inbox Encryption Key) is generated always **by the Inbox author/owner** and securely stored on the server, encrypted using public keys of **users assigned to the Inbox and all its submissions**.
+This ensures that only the authorized users can access the Inbox Encryption Key. **Unencrypted keys never leave user Endpoints.**
+
+When accessing an Inbox and its submissions, the encrypted Inbox Encryption Key is securely transmitted based on the users' permissions. Only the users with proper Private Keys can decrypt Inbox Encryption Key.
+Using this key, submissions are decrypted in the Endpoint environment.
+
+This process is handled by PrivMX Endpoint library and is completely seamless for Endpoint users.

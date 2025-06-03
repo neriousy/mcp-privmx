@@ -1,0 +1,156 @@
+---
+title: Events
+---
+
+This document provides a comprehensive guide on working with events in PrivMX, covering how to set up connections and event queues, listen for specific types of events like Thread or Store actions, and understand the structure of these events.
+
+## Working with Events
+
+To start working with Events, you must:
+
+<div className={'fd-steps'}>
+   <div className={'fd-step'}>
+       Create connection to PrivMX Bridge instance.
+       <Tabs groupId={'lang'} items={["JavaScript"]}>
+           <Tab>
+               ```ts
+               const connection = await Endpoint.connect(PRIVATE_KEY,SOLUTION_ID,BRIDGE_URL)
+               ```
+           </Tab>
+       </Tabs>
+   </div>
+    <div className={'fd-step'}>
+        Create Event Queue.
+        <Tabs groupId={'lang'} items={["JavaScript"]}>
+            <Tab>
+                ```ts
+                const eventQueue = await Endpoint.getEventQueue()
+                ```
+            </Tab>
+        </Tabs>
+    </div>
+    <div className={'fd-step'}>
+        Start listening for events using `waitEvent`.
+        `EventQueue` provides `waitEvent` method that blocks main browser's thread.
+        To avoid freezing the entire app:
+
+        <Tabs groupId={'lang'} items={["JavaScript"]}>
+            <Tab>
+                ```js
+                //previous code
+                const eventQueue = await EndpointFactory.getEventQueue();
+
+                //map containing pairs of event type - list of callbacks
+                const callbacks = new Map()
+
+                //Wait event is blocking and must be executed in promise loop,
+                //to prevent blocking the main thread.
+                let listenForEventsPromise = null;
+                function listenForEvents(queue) {
+                    if (!listenForEventsPromise) {
+                        listenForEventsPromise = queue.waitEvent();
+                        listenForEventsPromise.then(result => {
+                            if(callbacks.has(result.type)){
+                                const eventCallbacks = callbacks.get(result.type)
+                                eventCallbacks.forEach((cb) => cb(result))
+                            }
+                            listenForEventsPromise = null;
+                            listenForEvents(queue);
+                        })
+                    }
+                }
+
+                listenForEvents(eventQueue);
+                ```
+            </Tab>
+        </Tabs>
+    </div>
+    <div className={'fd-step'}>
+        Subscribe to channels.
+        <Tabs groupId={'lang'} items={["JavaScript"]}>
+            <Tab>
+                ```js
+                //using connection from first step
+                const threadApi = await Endpoint.createThreadApi(connection)
+                await threadApi.subscribeForThreadEvents()
+                ```
+            </Tab>
+        </Tabs>
+    </div>
+    <div className={'fd-step'}>
+        Add callback methods. \
+        Add a list with callback methods that will be called on event with matching event type.
+        In this example it's `threadCreated`:
+        <Tabs groupId={'lang'} items={["JavaScript"]}>
+            <Tab>
+                ```js
+                //previous code
+                callbacks.set("threadCreated",[(payload) => {console.log(payload)}])
+                ```
+            </Tab>
+        </Tabs>
+    </div>
+
+</div>
+
+## Channels
+
+Before receiving Events, your application must first subscribe to a group of events. Internally those groups
+are called "Channels".
+
+Channels can be divided into two types:
+
+- **Container related**: Those channels notify about changes related to a given Container type. After subscribing to these channels, you
+  will receive events when someone creates, updates, or deletes a Container with matching type in your Solution.
+- **Item related**: Those channels are related to a specific Container. When subscribed, you will receive events related
+  to item changes in a given Container.
+
+PrivMX Endpoint provides subscribing methods for each Container.
+
+## Types of Events
+
+Every change in PrivMX corresponds to a specific event type. Event names follow common schema:
+
+Example Container events:
+
+- `Created` - triggers when a new Container is created in your Context
+- `Deleted` - triggers when a Container is deleted from your Context
+- `Updated` - triggers when a Container is updated in your Context
+- `Stats Changed` - triggers when a Container is updated in your Context
+
+Example Item events:
+
+- `Created` - triggers when an item is sent to a Container
+- `Deleted` - triggers when an item is deleted from a Container
+- `Updated` - triggers when an item is deleted from a Container
+
+### Examples
+
+- Inboxes have an `inboxEntryCreated` event triggered when an entry is sent to an Inbox.
+- Stores have a `storeCreated` event triggered when new Store is created in Context.
+
+PrivMX Endpoint provides methods in each Container's API for subscribing to these channels.
+You can refer to platform-specific documentation on how to subscribe for necessary channels.
+
+## Structure
+
+The main strength of events is that they contain data related to the occurred changes.
+Each Event related to a Container has the following format:
+
+| **Field**    | **Type** | **Description**                                                       |
+| ------------ | -------- | --------------------------------------------------------------------- |
+| channel      | `string` | Name of channel related to this event                                 |
+| connectionId | `string` | ID of one of your current connections                                 |
+| type         | `string` | Type of received event e.g., `"storeCreated"` or `"threadNewMessage"` |
+| data         | `T`      | `T` depends on `type` of event and contains new/updated data          |
+
+Because events are triggered after every change, you don't have to constantly refetch all data.
+A good practice is to fetch data on initial user entry and only modify your existing data based on received event.
+
+## Next Steps
+
+For more details, refer to each Container's specific documentation:
+
+- Threads - [Listening for Changes](../start/threads/listening-for-changes)
+- Stores - [Instant Updating](../start/stores/instant-updating)
+- Inboxes - [Inbox Updates](../start/inboxes/inbox-updates)

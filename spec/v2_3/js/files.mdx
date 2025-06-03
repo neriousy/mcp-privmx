@@ -1,0 +1,109 @@
+---
+title: Files
+description: Uploading and managing files.
+---
+
+
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](./first-app#initial-assumptions)**
+
+:::
+
+## Managing Files
+
+<Tabs items={["Uploading a simple file","Reading a file","List of Files"]}>
+
+<Tab >
+Creating files in Stores with additional metadata:
+
+```js
+// for example, let's put some extra file info in the file's private meta
+const sampleFileInfo = {
+    name: file.name,
+    mimetype: file.type
+};
+
+const sampleFileData = serializeObject("sample file data");
+
+const fileHandle = await storesApi.createFile(storeId,
+    serializeObject("file's public meta-data"),
+    serializeObject(sampleFileInfo),
+    sampleFileData.length
+);
+
+await storesApi.writeToFile(fileHandle, sampleFileData);
+const fileId = await storesApi.closeFile(fileHandle);
+```
+A detailed code sample of how to upload (stream) a large file can be found [here](../start/stores/uploading-files).
+</Tab>
+
+<Tab >
+
+```js
+// read file contents of the file added to the Store
+const fileInfo = await storesApi.getFile(fileId);
+
+const fileHandle = await storesApi.openFile(fileId);
+const data = await storesApi.readFromFile(fileHandle, fileInfo.size);
+await storesApi.closeFile(fileHandle);
+
+console.log("File meta\n public: ", deserializeObject(fileInfo.publicMeta));
+console.log("private: ", deserializeObject(fileInfo.privateMeta));
+console.log("data: ", deserializeObject(data));
+```
+</Tab>
+
+<Tab >
+Listing files in a chosen Store:
+
+```js
+const defaultListQuery = {skip: 0, limit: 100, sortOrder: "desc"};
+
+const filesList = await storeApi.listStores(
+    storeId,
+    defaultListQuery
+);
+```
+As a result you will receive an object:
+```js
+// filesList:
+{
+    readItems: [<fileObject1>, <fileObject2>,..., <fileObjectN>],
+    totalAvailable: <number_of_all_files_in_the_Store>
+}
+```
+A detailed description of the `File` object fields can be found [here](/reference/js/webendpoint/api-reference/types#file).
+
+</Tab>
+</Tabs>
+
+## Modifying Files
+
+<Tabs items={["Updating info about File","Deleting a File"]}>
+<Tab >
+```js
+// Example: let's update given file's private meta to reflect the file's name change.
+const currentFile =  storeApi.getFile(fileId);
+
+const currentFilePrivateMeta = deserializeObject(currentFile.privateMeta);
+
+const newFilePrivateMeta = {
+    name: "newFileName"
+};
+await storeApi.updateFile(
+    fileId,
+    currentFile.publicMeta,
+    serializeObject(newFilePrivateMeta),
+    currentFile.fileSize
+);
+```
+</Tab>
+
+<Tab >
+```js
+await storeApi.deleteFile(fileId);
+```
+</Tab>
+</Tabs>
