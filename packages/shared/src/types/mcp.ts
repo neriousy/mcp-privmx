@@ -82,7 +82,7 @@ export interface ChunkingStrategy {
 }
 
 export interface EmbeddingEnhancer {
-  enhance: (chunk: DocumentChunk) => DocumentChunk;
+  enhance: (chunk: DocumentChunk) => Promise<DocumentChunk>;
 }
 
 export interface ServerConfig {
@@ -133,4 +133,4 @@ export interface Workflow {
   description: string;
   steps: WorkflowStep[];
   tags: string[];
-} 
+}
