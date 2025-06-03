@@ -1,0 +1,31 @@
+{
+  "name": "@privmx/mcp-cli",
+  "version": "1.0.0",
+  "description": "CLI tool for managing PrivMX MCP Server",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "privmx-mcp": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "inquirer": "^12.1.0",
+    "@privmx/mcp-server": "workspace:*",
+    "@privmx/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/inquirer": "^9.0.7",
+    "tsx": "^4.19.2"
+  }
+} 

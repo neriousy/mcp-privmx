@@ -1,17 +1,31 @@
 {
-  "name": "mcp",
+  "name": "privmx-mcp-workspace",
   "private": true,
+  "description": "PrivMX MCP Server monorepo workspace",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "mcp-server": "pnpm --filter @privmx/mcp-server",
+    "mcp-server:dev": "pnpm --filter @privmx/mcp-server dev",
+    "mcp-server:start": "pnpm --filter @privmx/mcp-server start",
+    "cli": "pnpm --filter @privmx/mcp-cli start",
+    "cli:init": "pnpm --filter @privmx/mcp-cli start init",
+    "cli:index": "pnpm --filter @privmx/mcp-cli start index",
+    "cli:status": "pnpm --filter @privmx/mcp-cli start status",
+    "setup": "pnpm install && pnpm build"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "@typescript-eslint/eslint-plugin": "^8.19.0",
+    "@typescript-eslint/parser": "^8.19.0",
+    "eslint": "^9.18.0"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

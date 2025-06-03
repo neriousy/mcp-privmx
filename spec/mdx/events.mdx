@@ -1,0 +1,50 @@
+---
+title: Events
+description: Events allow your application to dynamically respond to changes in user context instantly. These events are automatically captured when relevant changes occur. You can subscribe to them by registering event listeners.
+---
+
+## Key Considerations
+
+Please note the following:
+
+- Events will only trigger for active connections.
+- Events are not captured unless explicitly listened for.
+- A single instance of the `eventQueue` is shared across all connections.
+
+
+
+## Quick Start Guide
+
+<div className={'fd-steps'}>
+    <div className={'fd-step'}>
+
+        ### Start listening in the loop with `listenForEvents`. \
+        The function `EventQueue.waitEvent` returns a event when one is captured.
+
+        ```js
+        const eventQueue = await EndpointFactory.getEventQueue();
+        function listenForEvents(eventsQueue) { // [!code highlight]
+        eventsQueue.waitEvent().then(event => {
+            console.log("onEvent", event);
+            listenForEvents(eventsQueue);
+        });
+    }
+        listenForEvents(eventQueue);
+        ```
+    </div>
+    <div className={'fd-step'}>
+        ### Subscribe to Tool (e.g. Thread) events:
+
+        ```js
+        await threadApi.subscribeForMessageEvents(threadID);
+        ```
+    </div>
+    <div className={'fd-step'}>
+        ### Unsubscribe, if events no longer needed:
+
+
+        ```js
+        await threadApi.unsubscribeFromMessageEvents(threadID);
+        ```
+    </div>
+</div>

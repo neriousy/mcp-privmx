@@ -1,84 +1,134 @@
-# Turborepo starter
+# PrivMX Documentation MCP Server
 
-This Turborepo starter is maintained by the Turborepo core team.
+Inteligentny serwer Model Context Protocol (MCP), który zapewnia asystentom AI semantyczny dostęp do dokumentacji PrivMX WebEndpoint poprzez embeddingi wektorowe i zaawansowane przetwarzanie dokumentów.
 
-## Using this example
+## 🎯 Co to robi
 
-Run the following command:
+Ten serwer MCP przekształca dokumentację PrivMX w bazę wiedzy dostępną dla AI, która może:
 
-```sh
-npx create-turbo@latest
-```
+- **Odpowiadać na złożone pytania** dotyczące API z dokładnymi, kontekstowymi odpowiedziami
+- **Dostarczać kompletne przykłady kodu** dla konkretnych przypadków użycia
+- **Sugerować najlepsze praktyki** i typowe wzorce
+- **Pomagać w rozwiązywaniu problemów** z szczegółowymi rozwiązaniami
+- **Prowadzić deweloperów** przez wieloetapowe przepływy pracy
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## 🏗 Architektura Monorepo
 
 ```
-cd my-turborepo
+privmx-mcp-workspace/
+├── packages/
+│   ├── shared/              # Współdzielone typy i narzędzia
+│   └── mcp-server/          # Główny serwer MCP
+├── apps/
+│   └── cli/                 # Narzędzie CLI do zarządzania
+├── spec/                    # Pliki dokumentacji źródłowej
+│   ├── out.js.json         # Strukturalna dokumentacja API
+│   └── mdx/                # Przyjazne dla człowieka tutoriale
+└── docs/                    # Dokumentacja projektu
+```
+
+## 🚀 Szybki Start
+
+### Wymagania wstępne
+- Node.js 18+
+- pnpm 9.0+
+- Klucz API OpenAI
+- Docker (opcjonalnie, dla bazy danych wektorowych)
+
+### Instalacja
+
+```bash
+# Sklonuj repozytorium
+git clone <repository-url>
+cd privmx-mcp-workspace
+
+# Zainstaluj zależności
+pnpm install
+
+# Zbuduj wszystkie pakiety
 pnpm build
+
+# Inicjalizuj konfigurację
+pnpm cli init
 ```
 
-### Develop
+### Uruchomienie serwera
 
-To develop all apps and packages, run the following command:
+```bash
+# Uruchom bazę danych wektorowych (Chroma)
+docker run -p 8000:8000 chromadb/chroma
 
+# Indeksuj dokumentację
+pnpm cli index
+
+# Uruchom serwer MCP
+pnpm mcp-server start
 ```
-cd my-turborepo
+
+## 📦 Pakiety
+
+### [@privmx/shared](./packages/shared)
+Współdzielone typy TypeScript i narzędzia używane przez wszystkie komponenty.
+
+### [@privmx/mcp-server](./packages/mcp-server)
+Główny serwer MCP implementujący:
+- Parsowanie dokumentacji JSON i MDX
+- Inteligentne dzielenie na fragmenty
+- Generowanie embeddingów OpenAI
+- Semantyczne wyszukiwanie wektorowe
+- Narzędzia protokołu MCP
+
+### [@privmx/mcp-cli](./apps/cli)
+Narzędzie wiersza poleceń do:
+- Inicjalizacji konfiguracji
+- Indeksowania dokumentacji
+- Zarządzania serwerem
+- Testowania funkcjonalności
+
+## 🛠 Rozwój
+
+```bash
+# Uruchom wszystkie pakiety w trybie dev
 pnpm dev
+
+# Uruchom testy
+pnpm test
+
+# Sprawdź typy
+pnpm check-types
+
+# Formatuj kod
+pnpm format
+
+# Sprawdź linting
+pnpm lint
 ```
 
-### Remote Caching
+## 📖 Dokumentacja
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+- [Przewodnik konfiguracji](./docs/configuration.md)
+- [Rozwój API](./docs/api-development.md)
+- [Strategie dzielenia na fragmenty](./docs/chunking-strategies.md)
+- [Integracja bazy danych wektorowych](./docs/vector-database.md)
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+## 🤝 Udział w rozwoju
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+1. Forkuj repozytorium
+2. Utwórz branch funkcji (`git checkout -b feature/amazing-feature`)
+3. Zatwierdź zmiany (`git commit -m 'Add amazing feature'`)
+4. Wypchnij do brancha (`git push origin feature/amazing-feature`)
+5. Otwórz Pull Request
 
-```
-cd my-turborepo
-npx turbo login
-```
+## 📄 Licencja
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+Ten projekt jest licencjonowany na licencji MIT - zobacz plik [LICENSE](LICENSE) dla szczegółów.
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+## 🆘 Wsparcie
 
-```
-npx turbo link
-```
+- **Dokumentacja**: [Pełna dokumentacja API](docs/)
+- **Problemy**: [GitHub Issues](https://github.com/your-org/privmx-mcp-workspace/issues)
+- **Dyskusje**: [GitHub Discussions](https://github.com/your-org/privmx-mcp-workspace/discussions)
 
-## Useful Links
+---
 
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+**Zbudowany z ❤️ dla społeczności deweloperów PrivMX**
