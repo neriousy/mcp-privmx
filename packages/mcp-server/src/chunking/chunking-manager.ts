@@ -12,6 +12,10 @@ import type {
 // import { ContentValidator } from '../parsers/content-validator.js';
 import { ChunkEnhancer } from './chunk-enhancer.js';
 import { ChunkOptimizer } from './chunk-optimizer.js';
+import { MethodLevelStrategy } from './strategies/method-level-strategy.js';
+import { ContextAwareStrategy } from './strategies/context-aware-strategy.js';
+import { HierarchicalStrategy } from './strategies/hierarchical-strategy.js';
+import { HybridStrategy } from './strategies/hybrid-strategy.js';
 
 export interface ChunkingResult {
   chunks: DocumentChunk[];
@@ -57,7 +61,7 @@ export class ChunkingManager {
     content: ParsedContent[],
     options: ChunkingOptions
   ): Promise<ChunkingResult> {
-    const startTime = Date.now();
+    const startTime = process.hrtime.bigint();
 
     try {
       // Get chunking strategy
@@ -89,7 +93,8 @@ export class ChunkingManager {
         validation = this.validateChunks(chunks);
       }
 
-      const processingTime = Date.now() - startTime;
+      const endTime = process.hrtime.bigint();
+      const processingTime = Number(endTime - startTime) / 1_000_000; // Convert nanoseconds to milliseconds
 
       return {
         chunks,
@@ -279,8 +284,11 @@ export class ChunkingManager {
    * Initialize chunking strategies
    */
   private initializeStrategies(): void {
-    // Strategies will be loaded dynamically
-    // This allows for easy strategy registration and management
+    // Register all available chunking strategies
+    this.strategies.set('method-level', new MethodLevelStrategy());
+    this.strategies.set('context-aware', new ContextAwareStrategy());
+    this.strategies.set('hierarchical', new HierarchicalStrategy());
+    this.strategies.set('hybrid', new HybridStrategy());
   }
 
   /**

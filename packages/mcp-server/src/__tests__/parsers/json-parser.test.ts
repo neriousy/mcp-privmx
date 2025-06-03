@@ -13,32 +13,53 @@ describe('JSONParser', () => {
 
   describe('Parsing JSON API Documentation', () => {
     const sampleJSON = {
-      namespaces: {
-        Core: {
-          classes: {
-            Endpoint: {
+      Core: [
+        {
+          title: 'Core API',
+          namespace: 'Core',
+          content: [
+            {
+              type: 'class',
+              name: 'Endpoint',
               description: 'Main endpoint class for PrivMX',
-              methods: {
-                setup: {
+              fields: [],
+              methods: [
+                {
+                  type: 'method',
+                  name: 'setup',
                   description: 'Setup the PrivMX library',
-                  signature:
-                    'static async setup(wasmUrl: string): Promise<void>',
-                  parameters: [
+                  snippet: 'static async setup(wasmUrl: string): Promise<void>',
+                  methodType: 'static',
+                  params: [
                     {
                       name: 'wasmUrl',
-                      type: 'string',
                       description: 'URL to WASM assets',
+                      type: {
+                        name: 'string',
+                        optional: false,
+                      },
                     },
                   ],
-                  returns: {
-                    type: 'Promise<void>',
-                    description: 'Promise that resolves when setup is complete',
-                  },
+                  returns: [
+                    {
+                      type: {
+                        name: 'Promise<void>',
+                        optional: false,
+                      },
+                      description: 'Promise that resolves when setup is complete',
+                    },
+                  ],
                 },
-              },
+              ],
             },
-          },
+          ],
         },
+      ],
+      _meta: {
+        version: '1.0.0',
+        package: 'privmx',
+        lang: 'typescript',
+        name: 'PrivMX API',
       },
     };
 
@@ -51,10 +72,10 @@ describe('JSONParser', () => {
     });
 
     it('should extract class information', async () => {
-      const result = await parser.parse(JSON.stringify(sampleJSON));
+      const result = await parser.parseSpec(JSON.stringify(sampleJSON));
 
       const endpointClass = result.find(
-        (item) => item.name === 'Endpoint' && item.metadata.type === 'class'
+        (item: any) => item.name === 'Endpoint' && item.metadata.type === 'class'
       );
 
       expect(endpointClass).toBeDefined();
@@ -63,10 +84,10 @@ describe('JSONParser', () => {
     });
 
     it('should extract method information', async () => {
-      const result = await parser.parse(JSON.stringify(sampleJSON));
+      const result = await parser.parseSpec(JSON.stringify(sampleJSON));
 
       const setupMethod = result.find(
-        (item) => item.name === 'setup' && item.metadata.type === 'method'
+        (item: any) => item.name === 'Endpoint.setup' && item.metadata.type === 'method'
       );
 
       expect(setupMethod).toBeDefined();
@@ -77,10 +98,10 @@ describe('JSONParser', () => {
     });
 
     it('should generate enhanced content', async () => {
-      const result = await parser.parse(JSON.stringify(sampleJSON));
+      const result = await parser.parseSpec(JSON.stringify(sampleJSON));
 
       const setupMethod = result.find(
-        (item) => item.name === 'setup' && item.metadata.type === 'method'
+        (item: any) => item.name === 'Endpoint.setup' && item.metadata.type === 'method'
       );
 
       expect(setupMethod?.content).toContain('Setup');
@@ -89,10 +110,10 @@ describe('JSONParser', () => {
     });
 
     it('should set importance levels correctly', async () => {
-      const result = await parser.parse(JSON.stringify(sampleJSON));
+      const result = await parser.parseSpec(JSON.stringify(sampleJSON));
 
       const setupMethod = result.find(
-        (item) => item.name === 'setup' && item.metadata.type === 'method'
+        (item: any) => item.name === 'Endpoint.setup' && item.metadata.type === 'method'
       );
 
       expect(setupMethod?.metadata.importance).toBeDefined();
@@ -102,16 +123,16 @@ describe('JSONParser', () => {
     });
 
     it('should handle empty or invalid JSON', async () => {
-      await expect(parser.parse('')).rejects.toThrow();
-      await expect(parser.parse('invalid json')).rejects.toThrow();
-      await expect(parser.parse('{}')).resolves.toBeDefined();
+      await expect(parser.parseSpec('')).rejects.toThrow();
+      await expect(parser.parseSpec('invalid json')).rejects.toThrow();
+      await expect(parser.parseSpec('{"_meta": {}}')).resolves.toBeDefined();
     });
 
     it('should generate proper tags', async () => {
-      const result = await parser.parse(JSON.stringify(sampleJSON));
+      const result = await parser.parseSpec(JSON.stringify(sampleJSON));
 
       const setupMethod = result.find(
-        (item) => item.name === 'setup' && item.metadata.type === 'method'
+        (item: any) => item.name === 'Endpoint.setup' && item.metadata.type === 'method'
       );
 
       expect(setupMethod?.metadata.tags).toBeDefined();
@@ -122,44 +143,80 @@ describe('JSONParser', () => {
 
   describe('Multiple Namespaces', () => {
     const multiNamespaceJSON = {
-      namespaces: {
-        Core: {
-          classes: {
-            Endpoint: {
+      Core: [
+        {
+          title: 'Core API',
+          namespace: 'Core',
+          content: [
+            {
+              type: 'class',
+              name: 'Endpoint',
               description: 'Core endpoint',
-              methods: {
-                setup: {
+              fields: [],
+              methods: [
+                {
+                  type: 'method',
+                  name: 'setup',
                   description: 'Setup method',
-                  signature: 'setup(): void',
+                  snippet: 'setup(): void',
+                  methodType: 'static',
+                  params: [],
+                  returns: null,
                 },
-              },
+              ],
             },
-          },
+          ],
         },
-        Threads: {
-          classes: {
-            ThreadApi: {
+      ],
+      Threads: [
+        {
+          title: 'Threads API',
+          namespace: 'Threads',
+          content: [
+            {
+              type: 'class',
+              name: 'ThreadApi',
               description: 'Thread API',
-              methods: {
-                createThread: {
+              fields: [],
+              methods: [
+                {
+                  type: 'method',
+                  name: 'createThread',
                   description: 'Create thread method',
-                  signature: 'createThread(): Promise<string>',
+                  snippet: 'createThread(): Promise<string>',
+                  methodType: 'instance',
+                  params: [],
+                  returns: [
+                    {
+                      type: {
+                        name: 'Promise<string>',
+                        optional: false,
+                      },
+                      description: 'Thread ID',
+                    },
+                  ],
                 },
-              },
+              ],
             },
-          },
+          ],
         },
+      ],
+      _meta: {
+        version: '1.0.0',
+        package: 'privmx',
+        lang: 'typescript',
+        name: 'PrivMX API',
       },
     };
 
     it('should parse multiple namespaces', async () => {
-      const result = await parser.parse(JSON.stringify(multiNamespaceJSON));
+      const result = await parser.parseSpec(JSON.stringify(multiNamespaceJSON));
 
       const coreItems = result.filter(
-        (item) => item.metadata.namespace === 'Core'
+        (item: any) => item.metadata.namespace === 'Core'
       );
       const threadItems = result.filter(
-        (item) => item.metadata.namespace === 'Threads'
+        (item: any) => item.metadata.namespace === 'Threads'
       );
 
       expect(coreItems.length).toBeGreaterThan(0);
@@ -167,14 +224,14 @@ describe('JSONParser', () => {
     });
 
     it('should maintain namespace separation', async () => {
-      const result = await parser.parse(JSON.stringify(multiNamespaceJSON));
+      const result = await parser.parseSpec(JSON.stringify(multiNamespaceJSON));
 
       const setupMethod = result.find(
-        (item) => item.name === 'setup' && item.metadata.namespace === 'Core'
+        (item: any) => item.name === 'Endpoint.setup' && item.metadata.namespace === 'Core'
       );
       const createThreadMethod = result.find(
-        (item) =>
-          item.name === 'createThread' && item.metadata.namespace === 'Threads'
+        (item: any) =>
+          item.name === 'ThreadApi.createThread' && item.metadata.namespace === 'Threads'
       );
 
       expect(setupMethod).toBeDefined();

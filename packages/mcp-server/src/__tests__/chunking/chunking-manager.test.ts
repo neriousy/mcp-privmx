@@ -53,6 +53,7 @@ describe('ChunkingManager', () => {
   describe('Content Processing', () => {
     const sampleContent: ParsedContent[] = [
       {
+        type: 'method',
         name: 'TestMethod',
         description: 'A test method for demonstration',
         content: 'This is a test method that does something useful.',
@@ -199,6 +200,7 @@ describe('ChunkingManager', () => {
       const result = await chunkingManager.processContent(
         [
           {
+            type: 'method',
             name: 'Method1',
             description: 'First method',
             content: 'Short content',
@@ -211,6 +213,7 @@ describe('ChunkingManager', () => {
             },
           },
           {
+            type: 'class',
             name: 'Method2',
             description: 'Second method',
             content:
@@ -258,6 +261,7 @@ describe('ChunkingManager', () => {
         [
           {
             name: 'Method1',
+            type: 'method',
             description: 'First method',
             content: 'Content 1',
             metadata: {
@@ -270,6 +274,7 @@ describe('ChunkingManager', () => {
           },
           {
             name: 'Method2',
+            type: 'method',
             description: 'Second method',
             content: 'Content 2',
             metadata: {
@@ -303,6 +308,7 @@ describe('ChunkingManager', () => {
       const largeContent: ParsedContent[] = Array.from(
         { length: 50 },
         (_, i) => ({
+          type: 'method',
           name: `Method${i}`,
           description: `Method ${i} description`,
           content: `This is content for method ${i}. `.repeat(20),
