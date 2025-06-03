@@ -13,6 +13,7 @@
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:components": "node dist/scripts/test-components.js",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "check-types": "tsc --noEmit",
@@ -46,4 +47,4 @@
     "ai",
     "vector-embeddings"
   ]
-} 
+}

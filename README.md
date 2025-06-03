@@ -12,6 +12,25 @@ Ten serwer MCP przekształca dokumentację PrivMX w bazę wiedzy dostępną dla 
 - **Pomagać w rozwiązywaniu problemów** z szczegółowymi rozwiązaniami
 - **Prowadzić deweloperów** przez wieloetapowe przepływy pracy
 
+## 📋 Status Projektu
+
+### ✅ Ukończone Fazy
+- **Faza 1**: Konfiguracja projektu i struktura monorepo
+- **Faza 2**: System parsowania dokumentacji (JSON + MDX)
+- **Faza 3**: Inteligentne strategie dzielenia na fragmenty
+- **Faza 3.5**: Testy jednostkowe i integracyjne
+
+### 🔍 Szczegóły Implementacji
+- **4 Strategie dzielenia**: Method-level, Context-aware, Hierarchical, Hybrid
+- **System wzbogacania**: Automatyczne dodawanie kontekstu i metadanych
+- **Optymalizacja fragmentów**: Jakość, deduplikacja, łączenie/podział
+- **Walidacja**: Kompletny system sprawdzania poprawności
+- **Testy**: Pokrycie jednostkowe i integracyjne
+
+### ⚠️ W Trakcie
+- **Faza 4**: Generowanie embeddingów OpenAI
+- **Faza 5**: Integracja z bazą danych wektorowych
+
 ## 🏗 Architektura Monorepo
 
 ```
@@ -48,6 +67,9 @@ pnpm install
 # Zbuduj wszystkie pakiety
 pnpm build
 
+# Uruchom testy
+pnpm test
+
 # Inicjalizuj konfigurację
 pnpm cli init
 ```
@@ -63,6 +85,26 @@ pnpm cli index
 
 # Uruchom serwer MCP
 pnpm mcp-server start
+```
+
+### Testowanie
+
+```bash
+# Uruchom wszystkie testy
+pnpm test
+
+# Uruchom testy komponentów (szybkie)
+pnpm test:components
+
+# Uruchom testy w trybie watch
+pnpm test:watch
+
+# Sprawdź pokrycie testów
+pnpm test:coverage
+
+# Testuj konkretny pakiet
+cd packages/mcp-server
+pnpm test
 ```
 
 ## 📦 Pakiety

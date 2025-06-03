@@ -98,7 +98,42 @@ privmx-docs-mcp/
 - **Cross-references**: Automatic linking between related chunks
 - **Post-processing**: Size optimization with logical boundary preservation
 
-## Phase 4: Embedding Generation (Week 4-5)
+## Phase 3.5: Testing & Validation (CURRENT PHASE) ✅ COMPLETED
+
+### 3.5.1 Unit Testing Infrastructure ✅
+- [x] **Jest Configuration**: Set up Jest with TypeScript and ES modules support
+- [x] **Test Structure**: Created organized test structure with proper file naming
+- [x] **Mocking Setup**: Configured global test setup with console mocking
+
+### 3.5.2 ChunkingManager Tests ✅
+- [x] **Strategy Registration**: Test strategy registration and availability
+- [x] **Content Processing**: Test all chunking strategies with sample content
+- [x] **Enhancement & Optimization**: Test content enhancement and chunk optimization
+- [x] **Validation Pipeline**: Test chunk validation and error handling
+- [x] **Statistics Generation**: Test chunk statistics and metrics
+- [x] **Performance Testing**: Test processing time with large content sets
+- [x] **Error Handling**: Test error scenarios and edge cases
+
+### 3.5.3 Parser Testing ✅
+- [x] **JSON Parser Tests**: Test JSON API specification parsing
+- [x] **Method Extraction**: Test method and class parsing accuracy
+- [x] **Metadata Generation**: Test proper metadata assignment
+- [x] **Multi-namespace Support**: Test handling of multiple API namespaces
+- [x] **Error Handling**: Test invalid JSON and edge cases
+
+### 3.5.4 Build Verification ✅
+- [x] **TypeScript Compilation**: All packages compile without errors
+- [x] **Module Resolution**: All imports and exports work correctly
+- [x] **Dist Generation**: Proper JavaScript output in dist folders
+
+**✅ Testing Status:**
+- **Unit Tests**: Comprehensive test coverage for core components
+- **Integration Tests**: ChunkingManager integration with all strategies
+- **Build Tests**: TypeScript compilation successful
+- **Error Scenarios**: Edge cases and error handling tested
+- **Performance**: Large content processing tested (50+ items)
+
+## Phase 4: Embedding Generation (Week 4-5) ⚠️ IN PROGRESS
 
 ### 4.1 OpenAI Integration
 - [ ] Set up OpenAI API client with proper error handling
