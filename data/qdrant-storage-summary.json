@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-06-03T19:28:57.517Z",
+  "qdrant": {
+    "url": "http://localhost:6333",
+    "collection": "privmx-docs",
+    "documentsStored": 142,
+    "totalDocuments": 142,
+    "vectorSize": 1536,
+    "distance": "Cosine"
+  },
+  "performance": {
+    "healthCheck": true,
+    "realQdrantIntegration": true
+  },
+  "nextSteps": [
+    "Implement semantic search in MCP server",
+    "Add hybrid search capabilities",
+    "Optimize vector retrieval performance",
+    "Add advanced filtering and ranking"
+  ]
+}

@@ -1,354 +1,226 @@
 #!/usr/bin/env node
 
 /**
- * Embeddings Generation Script
+ * Generate Embeddings Script
  *
- * Generates vector embeddings for all processed documentation chunks
- * and stores them for semantic search functionality.
+ * Generates OpenAI embeddings for all processed document chunks
+ * and stores them with metadata for vector database ingestion.
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import { readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { EmbeddingsService } from '../embeddings/embeddings-service.js';
 import type { DocumentChunk } from '@privmx/shared';
 
-// Load environment variables
-dotenv.config();
+interface EmbeddingData {
+  chunkId: string;
+  embedding: number[];
+  metadata: {
+    model: string;
+    tokens: number;
+    timestamp: string;
+    processingTime: number;
+  };
+}
 
-// Get current directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/**
- * Configuration for embeddings generation
- */
-interface EmbeddingGenerationConfig {
-  dataPath: string;
-  outputPath: string;
-  openaiApiKey: string;
-  batchSize: number;
-  forceRegenerate: boolean;
+interface EmbeddingOutput {
+  timestamp: string;
+  totalChunks: number;
+  totalEmbeddings: number;
+  totalTokens: number;
+  processingTime: number;
+  model: string;
+  embeddings: EmbeddingData[];
+  errors: Array<{
+    chunkId: string;
+    error: string;
+  }>;
 }
 
 /**
- * Main embeddings generation class
+ * Main embedding generation function
  */
-class EmbeddingGenerator {
-  private config: EmbeddingGenerationConfig;
-  private embeddingsService: EmbeddingsService;
+async function generateEmbeddings(): Promise<void> {
+  const startTime = Date.now();
+  console.log('🧠 Starting embedding generation process...');
 
-  constructor(config: Partial<EmbeddingGenerationConfig> = {}) {
-    const defaultConfig: EmbeddingGenerationConfig = {
-      dataPath: path.join(__dirname, '../../../../data'),
-      outputPath: path.join(__dirname, '../../../../data/embeddings.json'),
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
-      batchSize: 50, // Smaller batches for better rate limiting
-      forceRegenerate: false,
-    };
+  // Check for test mode
+  const isTestMode = process.argv.includes('--test');
+  if (isTestMode) {
+    console.log('🧪 Running in test mode - processing first 5 chunks only');
+  }
 
-    this.config = { ...defaultConfig, ...config };
+  try {
+    // Load processed chunks
+    const dataPath = join(process.cwd(), '../../data');
+    const chunksFile = join(dataPath, 'processed-chunks.json');
 
-    if (!this.config.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    console.log(`📂 Loading chunks from: ${chunksFile}`);
+    const chunksData = JSON.parse(await readFile(chunksFile, 'utf-8'));
+    let chunks: DocumentChunk[] = chunksData.chunks || [];
+
+    if (!chunks.length) {
+      throw new Error('No chunks found. Run index-docs script first.');
     }
 
-    this.embeddingsService = new EmbeddingsService(
-      {
-        apiKey: this.config.openaiApiKey,
-        model: 'text-embedding-3-small',
-        batchSize: this.config.batchSize,
-        maxTokens: 8000,
-      },
-      this.config.dataPath // Enable persistent tracking
+    // Limit chunks in test mode
+    if (isTestMode) {
+      chunks = chunks.slice(0, 5);
+    }
+
+    console.log(
+      `📊 Processing ${chunks.length} chunks for embedding generation`
     );
-  }
 
-  /**
-   * Generate embeddings for all processed chunks
-   */
-  async generateEmbeddings(): Promise<void> {
-    console.log('🚀 Starting embeddings generation...\n');
+    // Initialize embeddings service
+    const embeddingsService = new EmbeddingsService({
+      model: 'text-embedding-3-small',
+      maxTokens: 8191,
+      batchSize: isTestMode ? 2 : 100,
+      retryAttempts: 3,
+      retryDelay: 1000,
+    });
 
-    try {
-      // Load processed chunks
-      const chunks = await this.loadProcessedChunks();
-      console.log(`📦 Loaded ${chunks.length} processed chunks`);
+    console.log(
+      `⚙️  Configuration: ${embeddingsService.getConfig().model} (${embeddingsService.getConfig().dimensions}D)`
+    );
 
-      // Check if embeddings already exist
-      if (!this.config.forceRegenerate) {
-        const existingEmbeddings = await this.loadExistingEmbeddings();
-        if (existingEmbeddings.length > 0) {
-          console.log(
-            `📂 Found ${existingEmbeddings.length} existing embeddings`
-          );
+    // Generate embeddings
+    const result = await embeddingsService.generateEmbeddings(chunks);
 
-          // Check if we need to generate embeddings for new chunks
-          const existingChunkIds = new Set(
-            existingEmbeddings.map((emb) => emb.chunkId)
-          );
-          const newChunks = chunks.filter(
-            (chunk) => !existingChunkIds.has(chunk.id)
-          );
-
-          if (newChunks.length === 0) {
-            console.log(
-              '✅ All chunks already have embeddings. Use --force to regenerate.'
-            );
-            return;
-          }
-
-          console.log(
-            `🆕 Found ${newChunks.length} new chunks that need embeddings`
-          );
-
-          // Generate embeddings only for new chunks
-          const newEmbeddings =
-            await this.embeddingsService.generateEmbeddings(newChunks);
-          const allEmbeddings = [
-            ...existingEmbeddings,
-            ...newEmbeddings.embeddings,
-          ];
-
-          // Save updated embeddings
-          await this.embeddingsService.saveEmbeddings(
-            allEmbeddings,
-            this.config.outputPath
-          );
-
-          console.log(
-            `\n✅ Generated ${newEmbeddings.embeddings.length} new embeddings`
-          );
-          console.log(`📊 Total embeddings: ${allEmbeddings.length}`);
-          console.log(`💰 Total tokens used: ${newEmbeddings.totalTokens}`);
-          console.log(`⏱️  Processing time: ${newEmbeddings.processingTime}ms`);
-
-          return;
-        }
-      }
-
-      // Generate embeddings for all chunks
-      console.log('🔄 Generating embeddings for all chunks...');
-      const result = await this.embeddingsService.generateEmbeddings(chunks);
-
-      // Save embeddings to file
-      await this.embeddingsService.saveEmbeddings(
-        result.embeddings,
-        this.config.outputPath
-      );
-
-      // Generate summary
-      await this.generateSummary(result, chunks.length);
-
-      console.log('\n✅ Embeddings generation completed successfully!');
-      console.log(`📊 Generated ${result.embeddings.length} embeddings`);
-      console.log(`💰 Total tokens used: ${result.totalTokens}`);
-      console.log(`⏱️  Processing time: ${result.processingTime}ms`);
-      console.log(`💾 Embeddings saved to: ${this.config.outputPath}`);
-    } catch (error) {
-      console.error(
-        '\n❌ Embeddings generation failed:',
-        error instanceof Error ? error.message : error
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Load processed chunks from the data directory
-   */
-  private async loadProcessedChunks(): Promise<DocumentChunk[]> {
-    const chunksFile = path.join(this.config.dataPath, 'processed-chunks.json');
-
-    try {
-      const data = JSON.parse(await fs.readFile(chunksFile, 'utf-8'));
-      return data.chunks || [];
-    } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        throw new Error(
-          `No processed chunks found at ${chunksFile}. Run documentation indexing first.`
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Load existing embeddings if they exist
-   */
-  private async loadExistingEmbeddings(): Promise<any[]> {
-    try {
-      return await this.embeddingsService.loadEmbeddings(
-        this.config.outputPath
-      );
-    } catch (error) {
-      return [];
-    }
-  }
-
-  /**
-   * Generate summary of embeddings generation
-   */
-  private async generateSummary(
-    result: any,
-    totalChunks: number
-  ): Promise<void> {
-    // Get tracking statistics
-    const trackingStats = this.embeddingsService.getTrackingStats();
-
-    const summary = {
+    // Prepare output data
+    const outputData: EmbeddingOutput = {
       timestamp: new Date().toISOString(),
-      configuration: {
-        model: 'text-embedding-3-small',
-        batchSize: this.config.batchSize,
-        totalInputChunks: totalChunks,
-        trackingEnabled: true,
-      },
-      results: {
-        embeddingsGenerated: result.embeddings.length,
-        totalTokensUsed: result.totalTokens,
-        processingTimeMs: result.processingTime,
-        batchCount: result.batchCount,
-        averageTokensPerChunk: Math.round(
-          result.totalTokens / result.embeddings.length || 0
-        ),
-      },
-      tracking: trackingStats || {
-        note: 'Tracking stats not available in this run',
-      },
-      costs: {
-        // text-embedding-3-small pricing: $0.00002 per 1K tokens
-        estimatedCostUSD: (result.totalTokens / 1000) * 0.00002,
-      },
-      files: {
-        inputChunks: path.join(this.config.dataPath, 'processed-chunks.json'),
-        outputEmbeddings: this.config.outputPath,
-        trackingDatabase: trackingStats
-          ? path.join(this.config.dataPath, 'embeddings-tracker.db')
-          : null,
-      },
-      nextSteps: [
-        'Phase 5: Store embeddings in Qdrant Vector Database',
-        'Phase 6: Implement semantic search in MCP server',
-        'Phase 7: Add advanced retrieval strategies',
-      ],
+      totalChunks: chunks.length,
+      totalEmbeddings: result.results.length,
+      totalTokens: result.totalTokens,
+      processingTime: result.processingTime,
+      model: embeddingsService.getConfig().model,
+      embeddings: result.results,
+      errors: result.errors,
     };
 
-    const summaryPath = path.join(
-      this.config.dataPath,
-      'embeddings-summary.json'
+    // Save embeddings to file
+    const outputFile = join(
+      dataPath,
+      isTestMode ? 'test-embeddings.json' : 'embeddings.json'
     );
-    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    await writeFile(outputFile, JSON.stringify(outputData, null, 2));
 
-    console.log(`\n📋 Summary saved to: ${summaryPath}`);
-  }
+    const totalTime = Date.now() - startTime;
 
-  /**
-   * Test embeddings with a sample query
-   */
-  async testEmbeddings(query: string = 'createThread method'): Promise<void> {
-    console.log(`\n🧪 Testing embeddings with query: "${query}"`);
+    // Print summary
+    console.log('\n🎉 Embedding generation completed!');
+    console.log('📊 Summary:');
+    console.log(`  • Total chunks processed: ${chunks.length}`);
+    console.log(`  • Successful embeddings: ${result.results.length}`);
+    console.log(`  • Failed chunks: ${result.errors.length}`);
+    console.log(
+      `  • Total tokens used: ${result.totalTokens.toLocaleString()}`
+    );
+    console.log(`  • Processing time: ${result.processingTime}ms`);
+    console.log(`  • Total time: ${totalTime}ms`);
+    console.log(
+      `  • Average time per chunk: ${Math.round(totalTime / chunks.length)}ms`
+    );
 
-    try {
-      // Load embeddings
-      const embeddings = await this.loadExistingEmbeddings();
-      if (embeddings.length === 0) {
-        throw new Error('No embeddings found. Generate embeddings first.');
-      }
+    // Cost estimation (rough)
+    const estimatedCost = (result.totalTokens / 1000000) * 0.02; // $0.02 per 1M tokens for text-embedding-3-small
+    console.log(`  • Estimated cost: $${estimatedCost.toFixed(4)}`);
 
-      // Generate query embedding
-      const queryEmbedding =
-        await this.embeddingsService.generateQueryEmbedding(query);
+    console.log(`💾 Embeddings saved to: ${outputFile}`);
 
-      // Find similar embeddings
-      const similar = await this.embeddingsService.findSimilar(
-        queryEmbedding,
-        embeddings,
-        5,
-        0.7 // Higher threshold for test
-      );
-
-      console.log(`\n📍 Found ${similar.length} relevant results:`);
-      similar.forEach((result, index) => {
-        console.log(
-          `\n${index + 1}. Similarity: ${result.similarity.toFixed(3)}`
-        );
-        console.log(`   Chunk ID: ${result.chunkId}`);
-        console.log(`   Model: ${result.metadata.model}`);
-        console.log(`   Tokens: ${result.metadata.tokens}`);
+    if (result.errors.length > 0) {
+      console.log('\n⚠️  Errors encountered:');
+      result.errors.forEach((error) => {
+        console.log(`  • ${error.chunkId}: ${error.error}`);
       });
-    } catch (error) {
-      console.error(
-        '❌ Embeddings test failed:',
-        error instanceof Error ? error.message : error
-      );
     }
-  }
 
-  /**
-   * Get generation statistics
-   */
-  getStats(): any {
-    return this.embeddingsService.getStats();
+    // Next steps
+    console.log('\n📋 Next steps:');
+    console.log('  1. Run store-in-qdrant script to upload to vector database');
+    console.log('  2. Test semantic search functionality');
+    console.log('  3. Start MCP server with vector search enabled');
+  } catch (error) {
+    console.error('❌ Embedding generation failed:', error);
+    process.exit(1);
   }
 }
 
 /**
- * CLI interface
+ * Validate environment and dependencies
+ */
+async function validateEnvironment(): Promise<void> {
+  // Check OpenAI API key
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      'OPENAI_API_KEY environment variable is required. ' +
+        'Set it with: export OPENAI_API_KEY="your-api-key"'
+    );
+  }
+
+  // Check if chunks file exists
+  const dataPath = join(process.cwd(), '../../data');
+  const chunksFile = join(dataPath, 'processed-chunks.json');
+
+  try {
+    await readFile(chunksFile);
+  } catch (error) {
+    throw new Error(
+      `Processed chunks file not found: ${chunksFile}\n` +
+        'Run the index-docs script first to generate document chunks.'
+    );
+  }
+}
+
+/**
+ * Display usage information
+ */
+function displayUsage(): void {
+  console.log('📖 Usage:');
+  console.log(
+    '  pnpm run generate-embeddings     # Generate embeddings for all chunks'
+  );
+  console.log(
+    '  pnpm run generate-embeddings --test  # Test mode (first 5 chunks only)'
+  );
+  console.log('');
+  console.log('📋 Prerequisites:');
+  console.log('  • Set OPENAI_API_KEY environment variable');
+  console.log('  • Run index-docs script first to generate chunks');
+  console.log('');
+  console.log('💡 Examples:');
+  console.log('  export OPENAI_API_KEY="sk-..."');
+  console.log('  pnpm run index-docs');
+  console.log('  pnpm run generate-embeddings');
+}
+
+/**
+ * Main execution
  */
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const flags = {
-    force: args.includes('--force'),
-    test: args.includes('--test'),
-    help: args.includes('--help') || args.includes('-h'),
-  };
-
-  if (flags.help) {
-    console.log(`
-🔧 PrivMX Embeddings Generator
-
-Usage: tsx generate-embeddings.ts [options]
-
-Options:
-  --force    Force regeneration of all embeddings
-  --test     Test embeddings with a sample query
-  --help     Show this help message
-
-Environment Variables:
-  OPENAI_API_KEY    Required. Your OpenAI API key
-
-Examples:
-  tsx generate-embeddings.ts
-  tsx generate-embeddings.ts --force
-  tsx generate-embeddings.ts --test
-`);
+  // Handle help flag
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    displayUsage();
     return;
   }
 
   try {
-    const generator = new EmbeddingGenerator({
-      forceRegenerate: flags.force,
-    });
-
-    if (flags.test) {
-      await generator.testEmbeddings();
-    } else {
-      await generator.generateEmbeddings();
-    }
+    await validateEnvironment();
+    await generateEmbeddings();
   } catch (error) {
     console.error(
-      '❌ Script failed:',
-      error instanceof Error ? error.message : error
+      '❌ Error:',
+      error instanceof Error ? error.message : 'Unknown error'
     );
+    console.log('');
+    displayUsage();
     process.exit(1);
   }
 }
 
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  main().catch(console.error);
 }
-
-export { EmbeddingGenerator };

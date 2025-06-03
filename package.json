@@ -18,15 +18,19 @@
     "cli:init": "pnpm --filter @privmx/mcp-cli start init",
     "cli:index": "pnpm --filter @privmx/mcp-cli start index",
     "cli:status": "pnpm --filter @privmx/mcp-cli start status",
+    "cli:search": "pnpm --filter @privmx/mcp-cli start search",
+    "cli:embeddings": "pnpm --filter @privmx/mcp-cli start embeddings",
+    "cli:qdrant": "pnpm --filter @privmx/mcp-cli start qdrant",
+    "cli:clean": "pnpm --filter @privmx/mcp-cli start clean",
     "setup": "pnpm install && pnpm build"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^9.28.0",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
-    "typescript": "5.8.2",
-    "@typescript-eslint/eslint-plugin": "^8.19.0",
-    "@typescript-eslint/parser": "^8.19.0",
-    "eslint": "^9.18.0"
+    "typescript": "5.8.3"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

@@ -1,0 +1,31 @@
+{
+  "timestamp": "2025-06-03T18:51:32.346Z",
+  "totalChunks": 5,
+  "totalEmbeddings": 0,
+  "totalTokens": 0,
+  "processingTime": 10777,
+  "model": "text-embedding-3-small",
+  "embeddings": [],
+  "errors": [
+    {
+      "chunkId": "Core-method-endpoint-connectpublic-mbguw0ce",
+      "error": "Max retries exceeded: 401 Incorrect API key provided: test. You can find your API key at https://platform.openai.com/account/api-keys."
+    },
+    {
+      "chunkId": "Core-method-endpoint-createthreadapi-mbguw0ce-part-0",
+      "error": "Max retries exceeded: 401 Incorrect API key provided: test. You can find your API key at https://platform.openai.com/account/api-keys."
+    },
+    {
+      "chunkId": "Core-method-endpoint-createstoreapi-mbguw0ce",
+      "error": "Max retries exceeded: 401 Incorrect API key provided: test. You can find your API key at https://platform.openai.com/account/api-keys."
+    },
+    {
+      "chunkId": "Core-method-endpoint-createcryptoapi-mbguw0ce",
+      "error": "Max retries exceeded: 401 Incorrect API key provided: test. You can find your API key at https://platform.openai.com/account/api-keys."
+    },
+    {
+      "chunkId": "Core-method-endpoint-createeventapi-mbguw0ce",
+      "error": "Max retries exceeded: 401 Incorrect API key provided: test. You can find your API key at https://platform.openai.com/account/api-keys."
+    }
+  ]
+}

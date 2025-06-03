@@ -1,8 +1,8 @@
 /**
- * Embeddings Service
+ * Embeddings Service (Production Implementation)
  *
- * Handles vector embedding generation using OpenAI's text-embedding-3-small model.
- * Provides efficient batch processing and caching capabilities.
+ * Uses OpenAI's text-embedding-3-small model to generate vector embeddings
+ * for document chunks to enable semantic search functionality.
  */
 
 import OpenAI from 'openai';
@@ -12,18 +12,19 @@ import path from 'path';
 import { EmbeddingsTracker, type SyncResult } from './embeddings-tracker.js';
 
 /**
- * Configuration for embeddings generation
+ * Configuration for embeddings service
  */
 export interface EmbeddingsConfig {
-  apiKey: string;
+  apiKey?: string;
   model: string;
-  batchSize: number;
   maxTokens: number;
-  cacheDir?: string;
+  batchSize: number;
+  retryAttempts: number;
+  retryDelay: number;
 }
 
 /**
- * Embedding result with metadata
+ * Result of embedding generation
  */
 export interface EmbeddingResult {
   chunkId: string;
@@ -32,6 +33,7 @@ export interface EmbeddingResult {
     model: string;
     tokens: number;
     timestamp: string;
+    processingTime: number;
   };
 }
 
@@ -39,23 +41,28 @@ export interface EmbeddingResult {
  * Batch processing result
  */
 export interface BatchEmbeddingResult {
-  embeddings: EmbeddingResult[];
+  results: EmbeddingResult[];
   totalTokens: number;
   processingTime: number;
-  batchCount: number;
+  errors: Array<{
+    chunkId: string;
+    error: string;
+  }>;
 }
 
 /**
  * Default configuration
  */
-const DEFAULT_CONFIG: Partial<EmbeddingsConfig> = {
+const DEFAULT_CONFIG: EmbeddingsConfig = {
   model: 'text-embedding-3-small',
-  batchSize: 100,
-  maxTokens: 8192,
+  maxTokens: 8191, // Max for text-embedding-3-small
+  batchSize: 100, // OpenAI's recommended batch size
+  retryAttempts: 3,
+  retryDelay: 1000,
 };
 
 /**
- * Embeddings Service Class with Persistent Tracking
+ * Embeddings Service Class
  */
 export class EmbeddingsService {
   private openai: OpenAI;
@@ -63,10 +70,20 @@ export class EmbeddingsService {
   private cache: Map<string, EmbeddingResult> = new Map();
   private tracker: EmbeddingsTracker | null = null;
 
-  constructor(config: EmbeddingsConfig, dataPath?: string) {
+  constructor(config: Partial<EmbeddingsConfig> = {}, dataPath?: string) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+
+    // Initialize OpenAI client
+    const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error(
+        'OpenAI API key is required. Set OPENAI_API_KEY environment variable or pass apiKey in config.'
+      );
+    }
+
     this.openai = new OpenAI({
-      apiKey: this.config.apiKey,
+      apiKey,
     });
 
     // Initialize tracker if dataPath provided
@@ -76,207 +93,289 @@ export class EmbeddingsService {
   }
 
   /**
-   * Generate embeddings for a batch of document chunks with tracking
+   * Generate embeddings for a batch of document chunks
    */
   async generateEmbeddings(
     chunks: DocumentChunk[]
   ): Promise<BatchEmbeddingResult> {
     const startTime = Date.now();
+    console.log(`🧠 Generating embeddings for ${chunks.length} chunks...`);
+
+    const results: EmbeddingResult[] = [];
+    const errors: Array<{ chunkId: string; error: string }> = [];
     let totalTokens = 0;
-    let batchCount = 0;
 
-    console.log(`🔄 Generating embeddings for ${chunks.length} chunks...`);
+    // Process in batches
+    const batches = this.createBatches(chunks, this.config.batchSize);
+    console.log(`📦 Processing ${batches.length} batches...`);
 
-    // Sync with tracker if available
-    let chunksToProcess = chunks;
-    if (this.tracker) {
-      const syncResult = await this.tracker.syncChunks(chunks);
-      chunksToProcess = [...syncResult.newChunks, ...syncResult.updatedChunks];
-
-      if (chunksToProcess.length === 0) {
-        console.log('✅ All chunks already have embeddings.');
-        return {
-          embeddings: [],
-          totalTokens: 0,
-          processingTime: 0,
-          batchCount: 0,
-        };
-      }
-
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
       console.log(
-        `📊 Processing ${chunksToProcess.length} chunks that need embeddings`
-      );
-    }
-
-    const allEmbeddings: EmbeddingResult[] = [];
-
-    // Process chunks in batches
-    for (let i = 0; i < chunksToProcess.length; i += this.config.batchSize) {
-      const batch = chunksToProcess.slice(i, i + this.config.batchSize);
-      batchCount++;
-
-      console.log(
-        `📦 Processing batch ${batchCount}/${Math.ceil(chunksToProcess.length / this.config.batchSize)} (${batch.length} chunks)`
+        `🔄 Processing batch ${i + 1}/${batches.length} (${batch.length} items)...`
       );
 
       try {
         const batchResult = await this.processBatch(batch);
-        allEmbeddings.push(...batchResult.embeddings);
+        results.push(...batchResult.results);
         totalTokens += batchResult.totalTokens;
 
-        // Update tracker for successful embeddings
-        if (this.tracker) {
-          for (const embedding of batchResult.embeddings) {
-            await this.tracker.markEmbeddingCompleted(
-              embedding.chunkId,
-              embedding
-            );
-          }
+        if (batchResult.errors.length > 0) {
+          errors.push(...batchResult.errors);
         }
 
-        // Add delay between batches to respect rate limits
-        if (i + this.config.batchSize < chunksToProcess.length) {
-          await this.delay(100); // 100ms delay
+        // Small delay between batches to respect rate limits
+        if (i < batches.length - 1) {
+          await this.delay(200);
         }
       } catch (error) {
-        console.error(`❌ Failed to process batch ${batchCount}:`, error);
+        console.error(`❌ Batch ${i + 1} failed:`, error);
 
-        // Mark failed chunks in tracker
-        if (this.tracker) {
-          for (const chunk of batch) {
-            await this.tracker.markEmbeddingFailed(
-              chunk.id,
-              error instanceof Error ? error.message : 'Unknown error'
-            );
-          }
-        }
-
-        throw new Error(
-          `Embedding generation failed at batch ${batchCount}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
+        // Add all chunks in failed batch to errors
+        batch.forEach((chunk) => {
+          errors.push({
+            chunkId: chunk.id,
+            error:
+              error instanceof Error ? error.message : 'Unknown batch error',
+          });
+        });
       }
     }
 
     const processingTime = Date.now() - startTime;
 
     console.log(
-      `✅ Generated ${allEmbeddings.length} embeddings in ${processingTime}ms`
+      `✅ Generated ${results.length} embeddings in ${processingTime}ms`
     );
     console.log(`📊 Total tokens used: ${totalTokens}`);
 
+    if (errors.length > 0) {
+      console.warn(`⚠️  ${errors.length} chunks failed to process`);
+    }
+
     return {
-      embeddings: allEmbeddings,
+      results,
       totalTokens,
       processingTime,
-      batchCount,
+      errors,
     };
+  }
+
+  /**
+   * Generate embedding for a single text query
+   */
+  async generateQueryEmbedding(text: string): Promise<number[]> {
+    const preprocessedText = this.preprocessText(text);
+
+    try {
+      const response = await this.openai.embeddings.create({
+        model: this.config.model,
+        input: preprocessedText,
+        encoding_format: 'float',
+      });
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error('No embedding returned from OpenAI');
+      }
+
+      return response.data[0].embedding;
+    } catch (error) {
+      throw new Error(
+        `Failed to generate query embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   /**
    * Process a single batch of chunks
    */
   private async processBatch(chunks: DocumentChunk[]): Promise<{
-    embeddings: EmbeddingResult[];
+    results: EmbeddingResult[];
     totalTokens: number;
+    errors: Array<{ chunkId: string; error: string }>;
   }> {
-    // Check cache first
-    const uncachedChunks = chunks.filter((chunk) => !this.cache.has(chunk.id));
-    const cachedEmbeddings = chunks
-      .filter((chunk) => this.cache.has(chunk.id))
-      .map((chunk) => this.cache.get(chunk.id)!);
+    const results: EmbeddingResult[] = [];
+    const errors: Array<{ chunkId: string; error: string }> = [];
 
-    if (uncachedChunks.length === 0) {
-      console.log(`📋 All ${chunks.length} chunks found in cache`);
-      return {
-        embeddings: cachedEmbeddings,
-        totalTokens: 0, // No API calls made
-      };
-    }
-
-    console.log(
-      `🆕 Processing ${uncachedChunks.length} new chunks (${cachedEmbeddings.length} cached)`
-    );
-
-    // Prepare input texts
-    const inputTexts = uncachedChunks.map((chunk) =>
+    // Prepare texts for embedding
+    const textsToEmbed = chunks.map((chunk) =>
       this.prepareTextForEmbedding(chunk)
     );
 
-    // Make API call
-    const response = await this.openai.embeddings.create({
-      model: this.config.model,
-      input: inputTexts,
-      encoding_format: 'float',
-    });
+    let attempt = 0;
+    while (attempt < this.config.retryAttempts) {
+      try {
+        const startTime = Date.now();
 
-    // Process results
-    const newEmbeddings: EmbeddingResult[] = response.data.map(
-      (embedding, index) => {
-        const chunk = uncachedChunks[index];
-        const result: EmbeddingResult = {
-          chunkId: chunk.id,
-          embedding: embedding.embedding,
-          metadata: {
-            model: this.config.model,
-            tokens: this.estimateTokens(inputTexts[index]),
-            timestamp: new Date().toISOString(),
-          },
+        const response = await this.openai.embeddings.create({
+          model: this.config.model,
+          input: textsToEmbed,
+          encoding_format: 'float',
+        });
+
+        const processingTime = Date.now() - startTime;
+
+        // Process results
+        for (let i = 0; i < response.data.length; i++) {
+          const embedding = response.data[i];
+          const chunk = chunks[i];
+
+          results.push({
+            chunkId: chunk.id,
+            embedding: embedding.embedding,
+            metadata: {
+              model: this.config.model,
+              tokens: response.usage?.total_tokens || 0,
+              timestamp: new Date().toISOString(),
+              processingTime,
+            },
+          });
+        }
+
+        return {
+          results,
+          totalTokens: response.usage?.total_tokens || 0,
+          errors,
         };
+      } catch (error) {
+        attempt++;
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error';
 
-        // Cache the result
-        this.cache.set(chunk.id, result);
+        if (attempt >= this.config.retryAttempts) {
+          // Final attempt failed, add all chunks to errors
+          chunks.forEach((chunk) => {
+            errors.push({
+              chunkId: chunk.id,
+              error: `Max retries exceeded: ${errorMsg}`,
+            });
+          });
+          break;
+        }
 
-        return result;
+        console.warn(
+          `⚠️  Batch attempt ${attempt} failed: ${errorMsg}. Retrying...`
+        );
+        await this.delay(this.config.retryDelay * attempt);
       }
-    );
+    }
 
-    return {
-      embeddings: [...cachedEmbeddings, ...newEmbeddings],
-      totalTokens: response.usage.total_tokens,
-    };
+    return { results, totalTokens: 0, errors };
   }
 
   /**
-   * Prepare chunk text for embedding generation
+   * Prepare text from document chunk for embedding
    */
   private prepareTextForEmbedding(chunk: DocumentChunk): string {
-    // Combine content with important metadata for better embeddings
-    const parts = [chunk.content];
+    let text = chunk.content;
 
-    // Add metadata context
+    // Add metadata context for better embedding quality
+    const contextParts = [];
+
     if (chunk.metadata.namespace) {
-      parts.unshift(`Namespace: ${chunk.metadata.namespace}`);
+      contextParts.push(`Namespace: ${chunk.metadata.namespace}`);
     }
 
     if (chunk.metadata.className) {
-      parts.unshift(`Class: ${chunk.metadata.className}`);
+      contextParts.push(`Class: ${chunk.metadata.className}`);
     }
 
     if (chunk.metadata.methodName) {
-      parts.unshift(`Method: ${chunk.metadata.methodName}`);
+      contextParts.push(`Method: ${chunk.metadata.methodName}`);
     }
 
     if (chunk.metadata.type) {
-      parts.unshift(`Type: ${chunk.metadata.type}`);
+      contextParts.push(`Type: ${chunk.metadata.type}`);
     }
 
-    const fullText = parts.join('\n\n');
-
-    // Truncate if too long (roughly estimate tokens)
-    if (this.estimateTokens(fullText) > this.config.maxTokens) {
-      const maxChars = this.config.maxTokens * 3; // Rough estimate: 1 token ≈ 3-4 chars
-      return fullText.substring(0, maxChars) + '...';
+    if (contextParts.length > 0) {
+      text = contextParts.join(', ') + '\n\n' + text;
     }
 
-    return fullText;
+    return this.preprocessText(text);
   }
 
   /**
-   * Estimate token count (rough approximation)
+   * Preprocess text for better embedding quality
    */
-  private estimateTokens(text: string): number {
-    // Rough estimation: 1 token ≈ 3.5 characters for English text
-    return Math.ceil(text.length / 3.5);
+  private preprocessText(text: string): string {
+    // Remove excessive whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // Truncate if too long (leave some buffer for tokenization differences)
+    const maxLength = this.config.maxTokens * 3; // Rough character to token ratio
+    if (text.length > maxLength) {
+      text = text.substring(0, maxLength) + '...';
+      console.warn(`⚠️  Text truncated to ${maxLength} characters`);
+    }
+
+    return text;
+  }
+
+  /**
+   * Create batches from chunks array
+   */
+  private createBatches<T>(items: T[], batchSize: number): T[][] {
+    const batches: T[][] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      batches.push(items.slice(i, i + batchSize));
+    }
+    return batches;
+  }
+
+  /**
+   * Delay utility for rate limiting
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get embedding dimensions for current model
+   */
+  getEmbeddingDimensions(): number {
+    switch (this.config.model) {
+      case 'text-embedding-3-small':
+        return 1536;
+      case 'text-embedding-3-large':
+        return 3072;
+      case 'text-embedding-ada-002':
+        return 1536;
+      default:
+        return 1536; // Default fallback
+    }
+  }
+
+  /**
+   * Estimate token count for text
+   */
+  estimateTokens(text: string): number {
+    // Rough estimation: 1 token ≈ 4 characters for English
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Check if text is within token limits
+   */
+  isWithinTokenLimits(text: string): boolean {
+    return this.estimateTokens(text) <= this.config.maxTokens;
+  }
+
+  /**
+   * Get configuration info
+   */
+  getConfig(): {
+    model: string;
+    maxTokens: number;
+    batchSize: number;
+    dimensions: number;
+  } {
+    return {
+      model: this.config.model,
+      maxTokens: this.config.maxTokens,
+      batchSize: this.config.batchSize,
+      dimensions: this.getEmbeddingDimensions(),
+    };
   }
 
   /**
@@ -376,19 +475,6 @@ export class EmbeddingsService {
   }
 
   /**
-   * Generate embedding for a single query text
-   */
-  async generateQueryEmbedding(query: string): Promise<number[]> {
-    const response = await this.openai.embeddings.create({
-      model: this.config.model,
-      input: query,
-      encoding_format: 'float',
-    });
-
-    return response.data[0].embedding;
-  }
-
-  /**
    * Get embedding statistics
    */
   getStats(): {
@@ -438,12 +524,5 @@ export class EmbeddingsService {
     if (this.tracker) {
       this.tracker.close();
     }
-  }
-
-  /**
-   * Utility delay function
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

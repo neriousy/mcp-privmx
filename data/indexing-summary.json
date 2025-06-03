@@ -1,0 +1,56 @@
+{
+  "indexingDate": "2025-06-03T18:32:38.114Z",
+  "configuration": {
+    "specDir": "/home/neriousy/programming/mcp-privmx/spec",
+    "outputDir": "/home/neriousy/programming/mcp-privmx/data",
+    "chunkingStrategy": "hybrid",
+    "maxChunkSize": 1500,
+    "overlapSize": 200
+  },
+  "processingMetadata": {
+    "totalInputItems": 188,
+    "totalOutputChunks": 142,
+    "averageChunkSize": 1894,
+    "processingTime": 1567.163554,
+    "strategy": "hybrid"
+  },
+  "chunkStatistics": {
+    "totalChunks": 142,
+    "averageSize": 1894,
+    "sizeDistribution": {
+      "0-500": 1,
+      "501-1000": 36,
+      "1001-1500": 98,
+      "1501-2000": 0,
+      "2000+": 7
+    },
+    "typeDistribution": {
+      "method": 103,
+      "class": 11,
+      "example": 28
+    },
+    "namespaceDistribution": {
+      "Core": 15,
+      "Threads": 15,
+      "Stores": 23,
+      "Inboxes": 24,
+      "Crypto": 28,
+      "Events": 4,
+      "general": 28,
+      "Types": 5
+    }
+  },
+  "validationResults": {
+    "isValid": true,
+    "errors": [],
+    "warnings": [
+      "Chunk 108: Very large content (83929 chars)",
+      "Chunk 136: Very large content (9448 chars)"
+    ]
+  },
+  "nextSteps": [
+    "Phase 4: Generate embeddings using OpenAI API",
+    "Phase 5: Store chunks in vector database (ChromaDB)",
+    "Phase 6: Implement semantic search functionality"
+  ]
+}

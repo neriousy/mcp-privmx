@@ -2,7 +2,7 @@
 
 /**
  * PrivMX Documentation MCP Server
- * 
+ *
  * A Model Context Protocol server that provides AI assistants with semantic access
  * to PrivMX WebEndpoint documentation through vector embeddings and intelligent chunking.
  */
@@ -19,10 +19,15 @@ import { ChunkingManager } from './chunking/chunking-manager.js';
 import { JSONParser } from './parsers/json-parser.js';
 import { MDXParser } from './parsers/mdx-parser.js';
 import { DocumentationIndexer } from './scripts/index-docs.js';
+import { QdrantService } from './vector-db/qdrant-service.js';
+import { EmbeddingsService } from './embeddings/embeddings-service.js';
 import type { ParsedContent, DocumentChunk } from '@privmx/shared';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
@@ -36,8 +41,16 @@ interface ServerConfig {
   version: string;
   maxChunkSize: number;
   overlapSize: number;
-  chunkingStrategy: 'method-level' | 'context-aware' | 'hierarchical' | 'hybrid';
+  chunkingStrategy:
+    | 'method-level'
+    | 'context-aware'
+    | 'hierarchical'
+    | 'hybrid';
   dataPath: string;
+  useSemanticSearch: boolean;
+  qdrantUrl: string;
+  qdrantApiKey?: string;
+  collectionName: string;
 }
 
 const DEFAULT_CONFIG: ServerConfig = {
@@ -47,6 +60,10 @@ const DEFAULT_CONFIG: ServerConfig = {
   overlapSize: 200,
   chunkingStrategy: 'hybrid',
   dataPath: path.join(__dirname, '../../../data'),
+  useSemanticSearch: !!process.env.OPENAI_API_KEY,
+  qdrantUrl: process.env.QDRANT_URL || 'http://localhost:6333',
+  qdrantApiKey: process.env.QDRANT_API_KEY,
+  collectionName: 'privmx-docs',
 };
 
 /**
@@ -60,6 +77,8 @@ class PrivMXMCPServer {
   private config: ServerConfig;
   private documentChunks: DocumentChunk[] = [];
   private chunksLoaded: boolean = false;
+  private qdrantService?: QdrantService;
+  private embeddingsService?: EmbeddingsService;
 
   constructor(config: Partial<ServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -80,7 +99,41 @@ class PrivMXMCPServer {
     this.jsonParser = new JSONParser();
     this.mdxParser = new MDXParser();
 
+    // Initialize semantic search services if enabled
+    if (this.config.useSemanticSearch) {
+      this.initializeSemanticSearch();
+    }
+
     this.setupHandlers();
+  }
+
+  /**
+   * Initialize semantic search services
+   */
+  private initializeSemanticSearch(): void {
+    try {
+      this.embeddingsService = new EmbeddingsService({
+        model: 'text-embedding-3-small',
+        maxTokens: 8191,
+        batchSize: 100,
+        retryAttempts: 3,
+        retryDelay: 1000,
+      });
+
+      this.qdrantService = new QdrantService({
+        url: this.config.qdrantUrl,
+        apiKey: this.config.qdrantApiKey,
+        collectionName: this.config.collectionName,
+        vectorSize: this.embeddingsService.getEmbeddingDimensions(),
+        distance: 'Cosine',
+      });
+
+      console.log('🔍 Semantic search enabled with Qdrant + OpenAI');
+    } catch (error) {
+      console.warn('⚠️  Failed to initialize semantic search:', error);
+      console.warn('   Falling back to text-based search');
+      this.config.useSemanticSearch = false;
+    }
   }
 
   /**
@@ -99,14 +152,16 @@ class PrivMXMCPServer {
               properties: {
                 query: {
                   type: 'string',
-                  description: 'Search query for finding relevant documentation',
+                  description:
+                    'Search query for finding relevant documentation',
                 },
                 filters: {
                   type: 'object',
                   properties: {
                     namespace: {
                       type: 'string',
-                      description: 'Filter by namespace (Core, Threads, Stores, Inboxes, etc.)',
+                      description:
+                        'Filter by namespace (Core, Threads, Stores, Inboxes, etc.)',
                     },
                     type: {
                       type: 'string',
@@ -137,7 +192,8 @@ class PrivMXMCPServer {
               properties: {
                 methodName: {
                   type: 'string',
-                  description: 'Full method name (e.g., "ThreadApi.createThread")',
+                  description:
+                    'Full method name (e.g., "ThreadApi.createThread")',
                 },
                 includeExamples: {
                   type: 'boolean',
@@ -156,7 +212,8 @@ class PrivMXMCPServer {
               properties: {
                 useCase: {
                   type: 'string',
-                  description: 'Description of what you want to achieve (e.g., "create encrypted thread")',
+                  description:
+                    'Description of what you want to achieve (e.g., "create encrypted thread")',
                 },
                 namespace: {
                   type: 'string',
@@ -174,7 +231,8 @@ class PrivMXMCPServer {
               properties: {
                 task: {
                   type: 'string',
-                  description: 'Task description (e.g., "setup PrivMX and create first thread")',
+                  description:
+                    'Task description (e.g., "setup PrivMX and create first thread")',
                 },
               },
               required: ['task'],
@@ -188,7 +246,8 @@ class PrivMXMCPServer {
               properties: {
                 issue: {
                   type: 'string',
-                  description: 'Description of the problem you are experiencing',
+                  description:
+                    'Description of the problem you are experiencing',
                 },
                 context: {
                   type: 'string',
@@ -243,11 +302,16 @@ class PrivMXMCPServer {
     if (this.chunksLoaded) return;
 
     try {
-      const chunksFile = path.join(this.config.dataPath, 'processed-chunks.json');
+      const chunksFile = path.join(
+        this.config.dataPath,
+        'processed-chunks.json'
+      );
       const chunksData = JSON.parse(await fs.readFile(chunksFile, 'utf-8'));
       this.documentChunks = chunksData.chunks || [];
       this.chunksLoaded = true;
-      console.log(`📊 Loaded ${this.documentChunks.length} chunks from storage`);
+      console.log(
+        `📊 Loaded ${this.documentChunks.length} chunks from storage`
+      );
     } catch (error) {
       console.warn('⚠️  No processed chunks found. Running indexing...');
       await this.reindexDocumentation();
@@ -279,31 +343,118 @@ class PrivMXMCPServer {
   }) {
     const { query, filters = {}, limit = 5 } = args;
 
-    // Simple text-based search (will be replaced with vector search in Phase 4)
-    let matchingChunks = this.documentChunks.filter(chunk => {
+    // Use semantic search if available, otherwise fall back to text search
+    if (
+      this.config.useSemanticSearch &&
+      this.qdrantService &&
+      this.embeddingsService
+    ) {
+      return await this.handleSemanticSearch(query, filters, limit);
+    } else {
+      return await this.handleTextSearch(query, filters, limit);
+    }
+  }
+
+  /**
+   * Handle semantic search using Qdrant vector database
+   */
+  private async handleSemanticSearch(
+    query: string,
+    filters: any = {},
+    limit: number = 5
+  ) {
+    try {
+      // Generate query embedding
+      const queryEmbedding =
+        await this.embeddingsService!.generateQueryEmbedding(query);
+
+      // Search Qdrant
+      const searchResults = await this.qdrantService!.search(
+        queryEmbedding,
+        {
+          namespace: filters.namespace,
+          type: filters.type,
+          importance: filters.importance,
+        },
+        limit,
+        0.3 // Similarity threshold
+      );
+
+      if (searchResults.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No semantic results found for "${query}". Try different keywords or check the available namespaces: Core, Threads, Stores, Inboxes, Crypto, Events.`,
+            },
+          ],
+        };
+      }
+
+      const results = searchResults.map((result, index) => {
+        const title =
+          this.extractTitle(result.chunk.content) || result.chunk.id;
+        const preview = this.extractPreview(result.chunk.content, 150);
+        const similarity = (result.similarity * 100).toFixed(1);
+        return `${index + 1}. **${title}** (${result.chunk.metadata.namespace}) - ${similarity}% match\n   ${preview}\n   Type: ${result.chunk.metadata.type} | Importance: ${result.chunk.metadata.importance}\n`;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Found ${searchResults.length} semantic results for "${query}":\n\n${results.join('\n')}`,
+          },
+        ],
+      };
+    } catch (error) {
+      console.warn(
+        '⚠️  Semantic search failed, falling back to text search:',
+        error
+      );
+      return await this.handleTextSearch(query, filters, limit);
+    }
+  }
+
+  /**
+   * Handle text-based search (fallback)
+   */
+  private async handleTextSearch(
+    query: string,
+    filters: any = {},
+    limit: number = 5
+  ) {
+    let matchingChunks = this.documentChunks.filter((chunk) => {
       // Text matching
-      const contentMatch = chunk.content.toLowerCase().includes(query.toLowerCase());
+      const contentMatch = chunk.content
+        .toLowerCase()
+        .includes(query.toLowerCase());
       const nameMatch = chunk.id.toLowerCase().includes(query.toLowerCase());
-      
+
       if (!contentMatch && !nameMatch) return false;
 
       // Apply filters
-      if (filters.namespace && chunk.metadata.namespace !== filters.namespace) return false;
+      if (filters.namespace && chunk.metadata.namespace !== filters.namespace)
+        return false;
       if (filters.type && chunk.metadata.type !== filters.type) return false;
-      if (filters.importance && chunk.metadata.importance !== filters.importance) return false;
+      if (
+        filters.importance &&
+        chunk.metadata.importance !== filters.importance
+      )
+        return false;
 
       return true;
     });
 
     // Sort by relevance (simple scoring)
     matchingChunks = matchingChunks
-      .map(chunk => ({
+      .map((chunk) => ({
         chunk,
-        score: this.calculateRelevanceScore(chunk, query)
+        score: this.calculateRelevanceScore(chunk, query),
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(item => item.chunk);
+      .map((item) => item.chunk);
 
     if (matchingChunks.length === 0) {
       return {
@@ -326,7 +477,7 @@ class PrivMXMCPServer {
       content: [
         {
           type: 'text',
-          text: `Found ${matchingChunks.length} results for "${query}":\n\n${results.join('\n')}`,
+          text: `Found ${matchingChunks.length} text results for "${query}":\n\n${results.join('\n')}`,
         },
       ],
     };
@@ -342,13 +493,15 @@ class PrivMXMCPServer {
     const { methodName, includeExamples = true } = args;
 
     // Find method chunk
-    const methodChunk = this.documentChunks.find(chunk => 
-      chunk.metadata.type === 'method' && (
-        chunk.id.includes(methodName.toLowerCase()) ||
-        chunk.content.includes(methodName) ||
-        (chunk.metadata.className && chunk.metadata.methodName && 
-         `${chunk.metadata.className}.${chunk.metadata.methodName}` === methodName)
-      )
+    const methodChunk = this.documentChunks.find(
+      (chunk) =>
+        chunk.metadata.type === 'method' &&
+        (chunk.id.includes(methodName.toLowerCase()) ||
+          chunk.content.includes(methodName) ||
+          (chunk.metadata.className &&
+            chunk.metadata.methodName &&
+            `${chunk.metadata.className}.${chunk.metadata.methodName}` ===
+              methodName))
     );
 
     if (!methodChunk) {
@@ -365,15 +518,25 @@ class PrivMXMCPServer {
     let response = methodChunk.content;
 
     // Add related methods if available
-    if (methodChunk.metadata.relatedMethods && methodChunk.metadata.relatedMethods.length > 0) {
+    if (
+      methodChunk.metadata.relatedMethods &&
+      methodChunk.metadata.relatedMethods.length > 0
+    ) {
       response += '\n\n## Related Methods\n\n';
-      response += methodChunk.metadata.relatedMethods.map(method => `- ${method}`).join('\n');
+      response += methodChunk.metadata.relatedMethods
+        .map((method) => `- ${method}`)
+        .join('\n');
     }
 
     // Add common mistakes if available
-    if (methodChunk.metadata.commonMistakes && methodChunk.metadata.commonMistakes.length > 0) {
+    if (
+      methodChunk.metadata.commonMistakes &&
+      methodChunk.metadata.commonMistakes.length > 0
+    ) {
       response += '\n\n## Common Mistakes to Avoid\n\n';
-      response += methodChunk.metadata.commonMistakes.map(mistake => `- ${mistake}`).join('\n');
+      response += methodChunk.metadata.commonMistakes
+        .map((mistake) => `- ${mistake}`)
+        .join('\n');
     }
 
     return {
@@ -396,23 +559,30 @@ class PrivMXMCPServer {
     const { useCase, namespace } = args;
 
     // Find example chunks
-    let exampleChunks = this.documentChunks.filter(chunk => {
-      const hasExamples = chunk.content.includes('example') || chunk.content.includes('Example') || 
-                         chunk.content.includes('```') || chunk.metadata.type === 'example';
-      
-      const matchesUseCase = chunk.content.toLowerCase().includes(useCase.toLowerCase());
-      
+    let exampleChunks = this.documentChunks.filter((chunk) => {
+      const hasExamples =
+        chunk.content.includes('example') ||
+        chunk.content.includes('Example') ||
+        chunk.content.includes('```') ||
+        chunk.metadata.type === 'example';
+
+      const matchesUseCase = chunk.content
+        .toLowerCase()
+        .includes(useCase.toLowerCase());
+
       if (namespace && chunk.metadata.namespace !== namespace) return false;
-      
+
       return hasExamples && matchesUseCase;
     });
 
     if (exampleChunks.length === 0) {
       // Fallback to method chunks that might have examples
-      exampleChunks = this.documentChunks.filter(chunk => {
-        return chunk.metadata.type === 'method' && 
-               chunk.content.toLowerCase().includes(useCase.toLowerCase()) &&
-               (!namespace || chunk.metadata.namespace === namespace);
+      exampleChunks = this.documentChunks.filter((chunk) => {
+        return (
+          chunk.metadata.type === 'method' &&
+          chunk.content.toLowerCase().includes(useCase.toLowerCase()) &&
+          (!namespace || chunk.metadata.namespace === namespace)
+        );
       });
     }
 
@@ -449,9 +619,13 @@ class PrivMXMCPServer {
     const { task } = args;
 
     // Find workflow-related chunks
-    const workflowChunks = this.documentChunks.filter(chunk => {
-      return chunk.content.toLowerCase().includes(task.toLowerCase()) ||
-             chunk.metadata.tags.some(tag => task.toLowerCase().includes(tag.toLowerCase()));
+    const workflowChunks = this.documentChunks.filter((chunk) => {
+      return (
+        chunk.content.toLowerCase().includes(task.toLowerCase()) ||
+        chunk.metadata.tags.some((tag) =>
+          task.toLowerCase().includes(tag.toLowerCase())
+        )
+      );
     });
 
     if (workflowChunks.length === 0) {
@@ -491,22 +665,23 @@ class PrivMXMCPServer {
   /**
    * Handle troubleshoot tool
    */
-  private async handleTroubleshoot(args: {
-    issue: string;
-    context?: string;
-  }) {
+  private async handleTroubleshoot(args: { issue: string; context?: string }) {
     const { issue, context } = args;
 
     // Find troubleshooting-related chunks
-    const troubleshootingChunks = this.documentChunks.filter(chunk => {
-      const hasTroubleshooting = chunk.content.toLowerCase().includes('troubleshoot') ||
-                                chunk.content.toLowerCase().includes('error') ||
-                                chunk.content.toLowerCase().includes('problem') ||
-                                chunk.content.toLowerCase().includes('issue') ||
-                                (chunk.metadata.commonMistakes && chunk.metadata.commonMistakes.length > 0);
-      
-      const matchesIssue = chunk.content.toLowerCase().includes(issue.toLowerCase());
-      
+    const troubleshootingChunks = this.documentChunks.filter((chunk) => {
+      const hasTroubleshooting =
+        chunk.content.toLowerCase().includes('troubleshoot') ||
+        chunk.content.toLowerCase().includes('error') ||
+        chunk.content.toLowerCase().includes('problem') ||
+        chunk.content.toLowerCase().includes('issue') ||
+        (chunk.metadata.commonMistakes &&
+          chunk.metadata.commonMistakes.length > 0);
+
+      const matchesIssue = chunk.content
+        .toLowerCase()
+        .includes(issue.toLowerCase());
+
       return hasTroubleshooting && matchesIssue;
     });
 
@@ -521,10 +696,13 @@ class PrivMXMCPServer {
       };
     }
 
-    const troubleshootingInfo = troubleshootingChunks.slice(0, 3).map((chunk, index) => {
-      const title = this.extractTitle(chunk.content) || `Solution ${index + 1}`;
-      return `## ${title}\n\n${chunk.content}\n\n---\n`;
-    });
+    const troubleshootingInfo = troubleshootingChunks
+      .slice(0, 3)
+      .map((chunk, index) => {
+        const title =
+          this.extractTitle(chunk.content) || `Solution ${index + 1}`;
+        return `## ${title}\n\n${chunk.content}\n\n---\n`;
+      });
 
     return {
       content: [
@@ -549,7 +727,8 @@ class PrivMXMCPServer {
     if (title?.includes(queryLower)) score += 0.5;
 
     // Content frequency
-    const matches = (contentLower.match(new RegExp(queryLower, 'g')) || []).length;
+    const matches = (contentLower.match(new RegExp(queryLower, 'g')) || [])
+      .length;
     score += Math.min(matches * 0.1, 0.3);
 
     // Importance bonus
@@ -576,13 +755,13 @@ class PrivMXMCPServer {
   private extractPreview(content: string, maxLength: number): string {
     // Remove markdown headers
     const cleanContent = content.replace(/^#{1,6}\s+.+$/gm, '').trim();
-    
+
     // Get first paragraph or first maxLength characters
     const firstParagraph = cleanContent.split('\n\n')[0];
     if (firstParagraph.length <= maxLength) {
       return firstParagraph;
     }
-    
+
     return firstParagraph.substring(0, maxLength) + '...';
   }
 
@@ -591,11 +770,16 @@ class PrivMXMCPServer {
    */
   private getImportanceScore(importance: string): number {
     switch (importance) {
-      case 'critical': return 4;
-      case 'high': return 3;
-      case 'medium': return 2;
-      case 'low': return 1;
-      default: return 0;
+      case 'critical':
+        return 4;
+      case 'high':
+        return 3;
+      case 'medium':
+        return 2;
+      case 'low':
+        return 1;
+      default:
+        return 0;
     }
   }
 
@@ -605,7 +789,36 @@ class PrivMXMCPServer {
   async loadDocumentation(): Promise<void> {
     console.log('📚 Loading documentation...');
     await this.ensureChunksLoaded();
-    console.log(`✅ Documentation loaded: ${this.documentChunks.length} chunks available`);
+
+    // Initialize Qdrant if semantic search is enabled
+    if (this.config.useSemanticSearch && this.qdrantService) {
+      try {
+        const isHealthy = await this.qdrantService.healthCheck();
+        if (isHealthy) {
+          await this.qdrantService.initialize();
+          const stats = await this.qdrantService.getStats();
+          console.log(
+            `🔍 Qdrant connected: ${stats.totalDocuments} vectors available`
+          );
+        } else {
+          console.warn('⚠️  Qdrant not available, using text search only');
+          this.config.useSemanticSearch = false;
+        }
+      } catch (error) {
+        console.warn('⚠️  Failed to connect to Qdrant:', error);
+        this.config.useSemanticSearch = false;
+      }
+    }
+
+    console.log(
+      `✅ Documentation loaded: ${this.documentChunks.length} chunks available`
+    );
+
+    if (this.config.useSemanticSearch) {
+      console.log('🧠 Semantic search enabled');
+    } else {
+      console.log('📝 Using text-based search');
+    }
   }
 
   /**
@@ -613,14 +826,14 @@ class PrivMXMCPServer {
    */
   async run(): Promise<void> {
     console.log(`🚀 Starting PrivMX MCP Server v${this.config.version}...`);
-    
+
     // Load documentation
     await this.loadDocumentation();
-    
+
     // Start server
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    
+
     console.log('✅ PrivMX MCP Server is running!');
     console.log('📖 Available tools:');
     console.log('  - search_documentation: Search docs semantically');
@@ -647,4 +860,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { PrivMXMCPServer }; 
+export { PrivMXMCPServer };
