@@ -1,0 +1,271 @@
+{
+  "core": [
+    {
+      "title": "PrivmxEndpointBaseActivity",
+      "content": [
+        {
+          "type": "class",
+          "name": "PrivmxEndpointBaseActivity",
+          "generics": [],
+          "description": "Manages PrivmxEndpointService and active connections.",
+          "fields": [
+            {
+              "name": "privmxEndpointContainer",
+              "description": "Container instance for active connections to handle PrivMX Bridge.",
+              "type": {
+                "name": "PrivmxEndpointContainer",
+                "optional": false
+              },
+              "snippet": "protected PrivmxEndpointContainer privmxEndpointContainer"
+            }
+          ],
+          "methods": [
+            {
+              "name": "PrivmxEndpointBaseActivity",
+              "snippet": "public void PrivmxEndpointBaseActivity()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            },
+            {
+              "name": "getCertPath",
+              "description": "Override this method to set the path to your .pem certificate to create secure connection with PrivMX Bridge.\n If the passed path does not contain .pem file, the default PrivMX certificate is installed.",
+              "snippet": "protected abstract String getCertPath()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "String",
+                    "optional": false
+                  },
+                  "description": "Path to .pem certificate used to initialize PrivmxEndpointService"
+                }
+              ]
+            },
+            {
+              "name": "onPrivmxEndpointStart",
+              "description": "Method called when PrivmxEndpointService and PrivmxEndpointContainer\n have been successfully initialized.\n Override this method to safely work with PrivmxEndpointBaseActivity#privmxEndpointContainer.",
+              "snippet": "protected void onPrivmxEndpointStart()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "onStart",
+              "description": "Starting and binding to PrivmxEndpointService with passing path to .pem certificate\n returned from #getCertPath().",
+              "snippet": "protected void onStart()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "onStop",
+              "description": "Unregisters all callbacks registered using PrivmxEndpoint#registerCallback(Object, EventType, EventCallback)\n identified by this instance and unbinds PrivmxEndpointService.",
+              "snippet": "protected void onStop()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "PrivmxEndpointService",
+      "content": [
+        {
+          "type": "class",
+          "name": "PrivmxEndpointService",
+          "generics": [],
+          "description": "Runs and manages active PrivMX Bridge connections.",
+          "fields": [
+            {
+              "name": "CERTS_PATH_EXTRA",
+              "description": "Defines a key for Intent extras.",
+              "type": {
+                "name": "String",
+                "optional": false
+              },
+              "snippet": "public static final String CERTS_PATH_EXTRA\u003d \"com.simplito.android.privmx_endpoint_wrapper.services.PrivmxEndpointService.CERTS_PATH_EXTRA\""
+            }
+          ],
+          "methods": [
+            {
+              "name": "PrivmxEndpointService",
+              "snippet": "public void PrivmxEndpointService()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            },
+            {
+              "name": "getContainer",
+              "description": "Gets PrivmxEndpointContainer.",
+              "snippet": "public PrivmxEndpointContainer getContainer()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "PrivmxEndpointContainer",
+                    "optional": false
+                  },
+                  "description": "Initialized container. If the service does not initialize the container successfully, it returns `null`"
+                }
+              ]
+            },
+            {
+              "name": "onBind",
+              "description": "Initializes PrivmxEndpointContainer with certsPath passed in intent extras.\n If intent does not contain the path, the default value is used.",
+              "snippet": "public IBinder onBind(\n\tIntent intent\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "intent",
+                  "description": "",
+                  "type": {
+                    "name": "Intent",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "IBinder",
+                    "optional": false
+                  },
+                  "description": ""
+                }
+              ]
+            },
+            {
+              "name": "onDestroy",
+              "description": "Disconnects active connections if any exist.",
+              "snippet": "public void onDestroy()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": []
+            },
+            {
+              "name": "onStartCommand",
+              "description": "Initialize PrivmxEndpointContainer with certsPath passed in intent extras.\n If intent does not contain the path, the default value is used.",
+              "snippet": "public int onStartCommand(\n\tIntent intent,\n\tint flags,\n\tint startId\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "intent",
+                  "description": "",
+                  "type": {
+                    "name": "Intent",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "flags",
+                  "description": "",
+                  "type": {
+                    "name": "int",
+                    "optional": false
+                  }
+                },
+                {
+                  "name": "startId",
+                  "description": "",
+                  "type": {
+                    "name": "int",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "int",
+                    "optional": false
+                  },
+                  "description": ""
+                }
+              ]
+            },
+            {
+              "name": "setOnInit",
+              "description": "Sets callback executed when service has been successfully prepared to use.",
+              "snippet": "public void setOnInit(\n\tRunnable onInit\n)",
+              "methodType": "method",
+              "generic": [],
+              "params": [
+                {
+                  "name": "onInit",
+                  "description": "callback",
+                  "type": {
+                    "name": "Runnable",
+                    "optional": false
+                  }
+                }
+              ],
+              "events": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "PrivmxEndpointBinder",
+      "content": [
+        {
+          "type": "class",
+          "name": "PrivmxEndpointService.PrivmxEndpointBinder",
+          "generics": [],
+          "description": "Implements Service Binder.",
+          "fields": [],
+          "methods": [
+            {
+              "name": "PrivmxEndpointBinder",
+              "snippet": "public void PrivmxEndpointBinder()",
+              "methodType": "constructor",
+              "generic": [],
+              "params": []
+            },
+            {
+              "name": "getService",
+              "description": "",
+              "snippet": "public PrivmxEndpointService getService()",
+              "methodType": "method",
+              "generic": [],
+              "params": [],
+              "events": [],
+              "returns": [
+                {
+                  "type": {
+                    "name": "PrivmxEndpointService",
+                    "optional": false
+                  },
+                  "description": "Instance of PrivMX Endpoint Service"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "version": "2.2.0",
+    "package": "privmx-endpoint-java-android",
+    "lang": "java",
+    "name": "PrivMX Endpoint Java Android"
+  }
+}

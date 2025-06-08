@@ -1,0 +1,131 @@
+---
+title: Custom Fields and Queries
+description: Using custom fields and querying them in Thread and Store containers.  
+---
+
+Custom fields and querying them is a functionality that works with Threads and Stores containers.
+
+It allows you to define new fields by placing them in the `publicMeta` of a container or an object within a given container, 
+and then querying the PrivMX Endpoint Client (using existing listing methods) for elements containing these previously defined fields.
+
+:::info
+
+Sample code on this page is based on the **[initial assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+
+## Working with Custom Fields and Queries
+
+Below there is a simple code example of how to add a **custom field** to a batch of Threads, and then search for them using **custom query**.
+
+
+### Initial Setup
+
+Let's add some required includes and initialize the PrivMX Endpoint Client with the Thread API:
+```cpp
+// ...
+
+#include <privmx/endpoint/core/Connection.hpp>
+#include <privmx/endpoint/thread/ThreadApi.hpp>
+#include <privmx/endpoint/core/Buffer.hpp>
+
+// ...
+
+// initialize Endpoint connection and Threads API
+auto connection {core::Connection::connect(USER1_PRIVATE_KEY, SOLUTION_ID, BRIDGE_URL)};
+auto threadApi {thread::ThreadApi::create(connection)};
+
+std::vector<core::UserWithPubKey> threadUsers {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY}
+};
+```
+
+### Defining a Sample Custom Field
+```cpp
+// ...
+
+std::string threadCustomField = R"(
+    {
+        "threadType": "special"
+    }
+)";
+
+// ...
+```
+
+### Creating Threads
+
+The following code will create a total of 6 new Threads. 3 of them will contain a Custom Field.
+
+```cpp
+// ...
+
+// Creating some ordinary Threads
+for (int i = 0; i < 3; ++i) {
+    threadApi.createThread(
+        CONTEXT_ID, 
+        threadUsers, threadUsers, 
+        core::Buffer::from(""),
+        core::Buffer::from("Ordinary thread")
+    );
+}
+
+// Creating some Threads with the custom field
+for (int i = 0; i < 3; ++i) {
+    threadApi.createThread(
+        CONTEXT_ID, 
+        threadUsers, threadUsers, 
+        core::Buffer::from(threadCustomField),
+        core::Buffer::from("Thread with the custom field")
+    );
+}
+
+// ...
+```
+
+### Listing Threads
+The next piece of code will demonstrate how you can filter the results of the `listThreads(...)` method using built-in it Custom Queries functionality
+to get the Threads containing the previously defined Custom Field.
+
+```cpp
+// ...
+
+// Quering over Threads
+core::PagingQuery defaultListQuery = {.skip = 0, .limit = 10, .sortOrder = "desc"};
+auto threadsList1 {threadApi.listThreads(CONTEXT_ID, defaultListQuery)};
+
+core::PagingQuery customQuery = {.skip = 0, .limit = 10, .sortOrder = "desc", .queryAsJson = threadCustomField};
+auto threadsList2 {threadApi.listThreads(CONTEXT_ID, customQuery)};
+
+std::cout << "The list of all Threads:" << std::endl;
+for (auto t: threadsList1.readItems) {
+    std::cout << "ThreadId: " << t.threadId << " / privateMeta: " << t.privateMeta.stdString() << std::endl;
+}
+
+std::cout << "The list of Threads with the custom field:" << std::endl;
+for (auto t: threadsList2.readItems) {
+    std::cout << "ThreadId: " << t.threadId << " / privateMeta: " << t.privateMeta.stdString() << std::endl;
+}
+
+// ...
+```
+
+The results of the example above will look similar to those below:
+
+```
+The list of all Threads:
+ThreadId: 6809fb0b57a381d1a23f10ec / privateMeta: Thread with the custom field
+ThreadId: 6809fb0b57a381d1a23f10eb / privateMeta: Thread with the custom field
+ThreadId: 6809fb0b57a381d1a23f10ea / privateMeta: Thread with the custom field
+ThreadId: 6809fb0b57a381d1a23f10e9 / privateMeta: Ordinary thread
+ThreadId: 6809fb0b57a381d1a23f10e8 / privateMeta: Ordinary thread
+ThreadId: 6809fb0b57a381d1a23f10e7 / privateMeta: Ordinary thread
+
+The list of Threads with the custom field:
+ThreadId: 6809fb0b57a381d1a23f10ec / privateMeta: Thread with the custom field
+ThreadId: 6809fb0b57a381d1a23f10eb / privateMeta: Thread with the custom field
+ThreadId: 6809fb0b57a381d1a23f10ea / privateMeta: Thread with the custom field
+```
+
+A full code example can be found on [Simplito's GitHub](https://github.com/simplito/privmx-endpoint/tree/main/examples).

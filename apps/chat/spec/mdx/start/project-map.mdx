@@ -1,0 +1,50 @@
+---
+title: Project Map
+description: This page is the reference for all the GitHub repositories and projects necessary to work with PrivMX. 
+
+---
+## PrivMX Bridge 
+- [Bridge](https://github.com/simplito/privmx-bridge): Zero-knowledge server for secure storage and transfer of E2E encrypted data.
+- [Bridge Docker](https://github.com/simplito/privmx-bridge-docker): Docker Compose for PrivMX Bridge.
+## PrivMX Endpoint
+### C++
+- [PrivMX Endpoint](https://github.com/simplito/privmx-endpoint): Library written in C++ allowing applications to build E2EE communication channels.
+- [Example projects](https://github.com/simplito/privmx-endpoint/tree/main/examples): Example use of PrivMX Endpoint in C++.
+#### Dependencies
+- [ECC Driver](https://github.com/simplito/privmx-endpoint-drv-ecc-openssl): Interface for elliptic-curve cryptography for PrivMX Endpoint.
+- [Net Driver](https://github.com/simplito/privmx-endpoint-drv-net-poco): Interface for networking for PrivMX Endpoint.
+- [Crypto Driver](https://github.com/simplito/privmx-endpoint-drv-crypto-openssl): Interface for the base cryptographic functions for PrivMX Endpoint.
+- [pson-cpp](https://github.com/simplito/pson-cpp)
+### Wrappers
+#### Web
+- [PrivMX Endpoint Web](https://github.com/simplito/privmx-webendpoint): JavaScript library designed to work in browser environment, used by PrivMX communication channels.
+##### npm
+- [Web Endpoint](https://www.npmjs.com/package/@simplito/privmx-webendpoint)
+- [Web Endpoint Manager](https://www.npmjs.com/package/@simplito/webendpoint-manager): CLI tool for managing PrivMX Endpoint Web assets.
+#### Java
+- [PrivMX Endpoint Java](https://github.com/simplito/privmx-endpoint-java): Java wrappers for the native C++ library used by PrivMX to handle end-to-end encryption.
+- [PrivMX Java Tools](https://github.com/simplito/privmx-endpoint-java-tools): Tools which simplify using PrivMX libraries in JVMs.
+#### Kotlin
+- [PrivMX Endpoint Kotlin](https://github.com/simplito/privmx-endpoint-kotlin): Kotlin wrappers for the native C++ library used by PrivMX to handle end-to-end encryption.
+#### Swift
+- [Endpoint Swift](https://github.com/simplito/privmx-endpoint-swift): Swift wrapper for the native C++ library used by PrivMX to handle end-to-end encryption.
+- [Endpoint Swift Extra](https://github.com/simplito/privmx-endpoint-swift-extra): Extension wrapper for PrivMX Endpoint Swift.
+#### C#  
+- [PrivMX Endpoint C# Extra](https://github.com/simplito/privmx-endpoint-csharp-extra): the recommended library for using PrivMX in C#. The package provides asynchronous methods, additional abstraction of event dispatching, reading and writing files, and more.
+- [PrivMX Endpoint C#](https://github.com/simplito/privmx-endpoint-csharp): the fundamental wrapper library, essential for the platform’s operational functionality. As the most minimalist library available, it provides the highest degree of flexibility in customizing PrivMX to meet your specific requirements.
+
+## Apps
+### Web
+- [Chatee](https://github.com/simplito/privmx-chatee): End-to-end encrypted chat, written in Next.js.
+- [Web Endpoint Examples](https://github.com/simplito/privmx-webendpoint/tree/main/examples): Example usage of PrivMX Endpoint methods in JavaScript/TypeScript.
+### iOS/macOS
+- [Chatee](https://github.com/simplito/privmx-chatee-swift): End-to-end encrypted chat, written in Swift.
+- [Endpoint Minimal Swift](https://github.com/simplito/privmx-endpoint-minimal-swift): Console app written in Swift demonstrating the use of PrivMX Endpoint Swift library to work with PrivMX Bridge.
+### Android
+- [Chatee](https://github.com/simplito/privmx-chatee-android): End-to-end encrypted chat, built for Android.
+### Java Desktop
+- [PrivMX Endpoint Minimal Java](https://github.com/simplito/privmx-endpoint-minimal-java): Console app written in Java demonstrating the use of PrivMX Endpoint Java library to work with PrivMX Bridge.
+### Windows/Unity
+Coming soon.
+### VR/Unity
+Coming soon.

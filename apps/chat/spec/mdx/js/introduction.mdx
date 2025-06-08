@@ -1,0 +1,132 @@
+---
+title: Getting Started
+---
+
+## Initial Requirements
+
+To start developing end-to-end encrypted applications using PrivMX Web Endpoint you need a **PrivMX Bridge** instance, you can find quick start guide [here](../start/quick-start).
+
+To connect it to your environment, you need:
+  - `Bridge URL` - URL address of the instance of your PrivMX Bridge
+  - `Solution ID` - ID of the Solution provided by PrivMX Bridge during its initialization process
+  - `User Private Key` - the private key from the user's public-private key pair
+
+When you develop a project using PrivMX, you will most likely use some kind of application server – a server to manage users (and their keys), Contexts, etc. 
+It can be new or existing, depending on the specific requirements.
+
+## Using Public and Private Keys
+You need a private key to connect the Endpoint to your Bridge. **Private key will never leave the Endpoint**.
+- PrivMX Endpoint uses the user's private key to encrypt, decrypt and verify data on the client side only.
+- PrivMX Bridge stores only the public part, i.e., the user's public key and user's ID.
+
+## Setting up Web Server to Host JavaScript Assets
+
+To properly integrate PrivMX Web Endpoint library, it's crucial to configure your server. This will ensure the library functions correctly and maintain security. 
+You need to set up specific HTTP headers: 
+- set `Cross-Origin-Embedder-Policy` to `require-corp`;
+- set `Cross-Origin-Opener-Policy` to `same-origin`.
+
+These headers are essential to prevent potential cross-origin attacks and to maintain a secure execution environment.
+
+For detailed instructions on how to configure these headers in different environments like Vite, Next.js, Express, and Nginx, 
+refer to our [Server Configuration](./application-server) page.
+
+You can also take a look at our [example projects](https://github.com/simplito/privmx-webendpoint/tree/main/examples)
+to find server configuration samples.
+
+## Setting up Web Endpoint
+
+:::warning
+
+PrivMX Web Endpoint relies heavily on WebAssembly and browser Web Workers.
+Because of that, Web Endpoint is not compatible with the Node.js environments used on the server side and is limited to **browsers only**.
+We are actively working on the `@simplito/privmx-endpoint-node` NPM package to support this kind of usage in the future.
+
+:::
+
+PrivMX Web Endpoint is distributed as an NPM package ([@simplito/privmx-webendpoint](https://www.npmjs.com/package/@simplito/privmx-webendpoint)) that contains
+all the necessary assets and helpers to get started.
+
+Follow these steps to get started:
+
+1. Download the NPM package for your target project by calling: `npm i @simplito/privmx-webendpoint`.
+2. Set up your Web Server to host JavaScript assets properly – [see below](#setting-up-web-server-to-host-javascript-assets).
+3. Copy the Endpoint's assets (all .js and .wasm files from `./node_modules/@simplito/privmx-webendpoint/assets`) to your Web Server's public directory.
+
+Finally, to complete the setup process, you have two ways to import the package to your project:
+
+### Importing NPM Package
+```ts
+import { Endpoint, EventQueue, Types } from "@simplito/privmx-webendpoint";
+```
+
+### Using Bundle
+
+First you should copy the `privmx-endpoint-web.js` file (bundle) from the `./node_modules/@simplito/privmx-webendpoint/dist/bundle` directory to your Web Server's public directory.
+
+Next, in your `index.html` add script tag to import the bundle:
+```html
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="<public_dir>/privmx-endpoint-web.js"></script>
+    </head>
+    <body>
+    </body>
+</html>
+```
+You can use it in your app in one of the following methods:
+
+- **From global scope**
+    ```js
+    // this/window binding
+    const Endpoint = PrivmxWebEndpoint.Endpoint;
+    // or
+    const Endpoint = window.PrivmxWebEndpoint.Endpoint;
+    ```
+- **CommonJS import**
+   ```js
+   const Endpoint = require("privmx-webendpoint").Endpoint;
+   ```
+- **AMD import**
+   ```js
+   require(['privmx-webendpoint'], function (privmxWebEndpoint) {
+   // Do something with the library...
+   });
+   ```
+
+## Web Endpoint's APIs
+You need your Bridge's instance specific data, mentioned [earlier](#initial-requirements), which you should get during the Bridge's setup process.
+
+```js
+const  bridgeUrl = "http://localhost:9111";
+const  solutionId = "SOLUTION_ID";
+
+const  userPrivKey = "USER_PRIVATE_KEY";
+const  userPubKey = "USER_PUBLIC_KEY";
+```
+
+First connect to your PrivMX Bridge instance.
+Initialize the Endpoint and its WebAssembly dependencies
+(provide the Endpoint.setup() function with your Web Server's public directory URL/path
+ where the Endpoint assets were copied)
+```js
+await Endpoint.setup("<public_dir>");
+// Create connection to the Bridge Server
+const connection = await Endpoint.connect(userPrivKey, solutionId, bridgeUrl);
+// Initialize the Threads API
+const threadsApi = await Endpoint.createThreadApi(connection);
+// call some API methods
+const threads = await threadsApi.listThreads(...);
+```
+
+## Next Steps
+
+With everything ready to go, now it's time to start using all the capabilities of Endpoint and Bridge.
+
+Learn how to use:
+
+-   [**Threads**](../start/threads/overview) - for exchanging encrypted messages;
+-   [**Stores**](../start/stores/overview) - for saving and sharing encrypted files;
+-   [**Inboxes**](../start/inboxes/overview) - for one way communication with external users.
+

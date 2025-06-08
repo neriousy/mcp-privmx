@@ -1,0 +1,48 @@
+---
+title: Context Users
+description: Get information about users from a Context.
+---
+
+The method `getContextUsers(...)` from the Connection API lets you retrieve a list of users from a given Context. 
+Additionally, it returns the user's activity status.
+
+:::info
+
+Sample code on this page is based on the **[initial assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+### Retrieving Users from a Context
+
+```cpp
+// ...
+
+#include <privmx/endpoint/core/Connection.hpp>
+
+// ...
+
+// initialize Endpoint connection
+auto connection {core::Connection::connect(USER1_PRIVATE_KEY, SOLUTION_ID, BRIDGE_URL)};
+
+// Get users of the Context
+auto contextUsers {connection.getContextUsers(CONTEXT_ID)};
+for (auto ctxUser: contextUsers) {
+    std::cout << "UserId: " << ctxUser.user.userId << " / UserPubKey: " << ctxUser.user.pubKey << std::endl;
+    std::cout << "isActive: " << ctxUser.isActive << std::endl; 
+}
+
+
+```
+
+The results of the example above will look similar to those below:
+
+```
+UserId: user1 / UserPubKey: 51WPnnGwztNPWUDEbhncYDxZCZWAFS4M9Yqv94N2335nL92fEn
+isActive: 1
+UserId: user2 / UserPubKey: 83NSj4JTAXTPLrTKf7kXwT2XPxAE3ATudFb7vrWmhizKStkU48
+isActive: 0
+UserId: user3 / UserPubKey: 7qaaU47RdiTFqQZtRWcyHRgSBVbxBxeS9USyhStXqN14Pc4xxt
+isActive: 0
+```
+
+A full code example can be found on [Simplito's GitHub](https://github.com/simplito/privmx-endpoint/tree/main/examples).

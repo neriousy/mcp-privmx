@@ -1,0 +1,287 @@
+---
+title: Overview
+---
+
+
+
+Inboxes are a way for users to send encrypted data to your app.
+
+The advantage of Inboxes is that they don't require the user to be registered in order to send encrypted data.
+This opens up various possibilities in environments where you need to gather sensitive information from unregistered users (e.g. on your website).
+
+To learn more about Inboxes, their structure, how they are encrypted, and what are their use cases - read [Inbox Docs](../start/inboxes/overview).
+
+:::info
+
+Before working with Inboxes, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+
+The sample code on this page is based on the same **[assumptions](./first-app#initial-assumptions)**
+
+:::
+
+## Working with Inboxes
+
+When working with Inboxes, you will use the following:
+- `inboxApi` - for methods used to manage Inboxes in given Context
+
+```js
+const threadApi = await Endpoint.createThreadApi(connection);
+const storeApi = await Endpoint.createStoreApi(connection);
+const inboxApi = await Endpoint.createInboxApi(connection, threadApi, storeApi);
+```
+## Creating an Inbox
+
+<Tabs groupId="variant" items={["Basic","With a structured Private Meta","With Public View"]}>
+<Tab>
+Creating a basic unnamed Inbox, which can be used if your app needs only one Inbox and you don't need a distinction between them:
+
+```js
+const users = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }, { userId: 'MY_USER2', pubKey: 'PUB_KEY2' }];
+const managers = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }];
+
+
+const inboxId = await inboxApi.createInbox(
+    'CONTEXT_ID',
+    users,
+    managers,
+    serializeObject("some public-meta"),
+    serializeObject("some private-meta"),
+    undefined // optional files config
+);
+```
+</Tab>
+     
+<Tab >
+
+You can assign any data to private and public meta fields (e.g. the name of the Inbox), as long as they are serialized to Uint8Array.
+In this case, use the `serializeObject` function from the SDK to serialize a JavaScript object into a binary format:
+
+```js
+const privateMeta = {
+    name: 'Contact Form'
+};
+const users = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }, { userId: 'MY_USER2', pubKey: 'PUB_KEY2' }];
+const managers = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }];
+
+const inboxId = await inboxApi.createInbox(
+    'CONTEXT_ID',
+    users,
+    managers,
+    serializeObject("some public-meta"),
+    serializeObject(privateMeta),
+    undefined // optional files config
+);
+```
+</Tab>
+<Tab>
+
+In Inboxes, `publicMeta` is exposed as `InboxPublicView`. To get it - call the getInboxPublicView(...) method.
+Note that users don't have to be added to the Inbox to have access to this method - they only need it's ID and they can connect using connectPublic(...) method.
+
+Putting data inside `publicMeta` also gives your own server the ability to access it using [PrivMX Bridge API](https://bridge.privmx.dev/).
+
+```js
+const users = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }, { userId: 'MY_USER2', pubKey: 'PUB_KEY2' }];
+const managers = [{ userId: 'MY_USER', pubKey: 'PUB_KEY' }];
+
+const privateMeta = {
+    name: 'Album'
+};
+
+const publicMeta = {
+    formScheme: [
+        { question: 'Your name' },
+        { question: 'E-mail' }
+    ]
+};
+
+const inboxId = await inboxApi.createInbox(
+    'CONTEXT_ID',
+    users,
+    managers,
+    serializeObject(publicMeta),
+    serializeObject(privateMeta),
+    undefined // optional files config
+);
+```
+
+</Tab>
+</Tabs>
+
+## Fetching Inboxes
+
+<Tabs groupId="variant" items={["Most Recent","Oldest Inboxes","By Inbox ID","Paging"]}>
+<Tab >
+Fetching the most recent Inboxes in given Context:
+
+```js
+const defaultListQuery = {skip:0, limit: 100, sortOrder: "asc"};
+
+const inboxList = await inboxApi.listInboxes(
+    "CONTEXT_ID",
+    defaultListQuery
+);
+
+const inboxListwithDeserializedMeta = inboxList.readItems.map(inbox => {
+    return {
+        inbox: inbox,
+        privateMeta: deserializeObject(inbox.privateMeta),
+        publicMeta: deserializeObject(inbox.publicMeta)
+    };
+});
+```
+</Tab>
+
+<Tab>
+Fetching the oldest Inboxes (by creation date) in given Context:
+
+```js
+const defaultListQuery = {skip:0, limit: 100, sortOrder: "desc"};
+
+const inboxList = await inboxApi.listInboxes(
+    "CONTEXT_ID",
+    defaultListQuery
+);
+
+const inboxListwithDeserializedMeta = inboxList.readItems.map(inbox => {
+    return {
+        inbox: inbox,
+        privateMeta: deserializeObject(inbox.privateMeta),
+        publicMeta: deserializeObject(inbox.publicMeta)
+    };
+});
+```
+</Tab>
+
+<Tab>
+You can get info about an Inbox using its `inboxId`:
+
+```js
+const inbox = await inboxApi.getInbox("INBOX_ID");
+
+const privateMeta = deserializeObject(inbox.privateMeta);
+const publicMeta = deserializeObject(inbox.publicMeta);
+```
+</Tab>
+
+<Tab>
+You can change how many items are on a page using `limit` in options object:
+
+```js
+const defaultListQuery = {skip:50, limit: 20, sortOrder: "desc"};
+
+const inboxList = await inboxApi.listInboxes(
+    "CONTEXT_ID",
+    defaultListQuery
+);
+
+const inboxListwithDeserializedMeta = inboxList.readItems.map(inbox => {
+    return {
+        inbox: inbox,
+        privateMeta: deserializeObject(inbox.privateMeta),
+        publicMeta: deserializeObject(inbox.publicMeta)
+    };
+});
+```
+
+</Tab>
+</Tabs>
+
+Remember that data is transmitted in binary format, so you'll need to parse it back into your desired format.
+You can use the `deserializeObject` function provided by the SDK for this purpose.
+
+## Modifying Inboxes
+
+<Tabs items={["Renaming Inboxes","Removing Users","Deleting Inbox"]}>
+<Tab default>
+To update an Inbox you must always provide its current version, as well as:
+- list of users,
+- list of managers,
+- new private and public meta (even if it didn't change).
+
+``` js
+const inbox = await inboxApi.getInbox(
+    inboxId    
+);
+
+const newUsers = inbox.users.map(user => ({
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        userId: user,
+        pubKey: 'USER_PUBLIC_KEY'
+    })
+);
+
+const newManagers = newUsers.filter(user =>
+    inbox.managers.find(manager => manager == user.userId));
+
+const newPrivateMeta = {
+    title: 'New inbox name'
+};
+
+await inboxApi.updateInbox(
+    inboxId    
+    newUsers,
+    newManagers,
+    inbox.publicMeta,
+    serializeObject(newPrivateMeta),
+    inbox.filesConfig,
+    inbox.version,
+    false, 
+    false
+);
+```
+
+</Tab>
+
+<Tab>
+To remove a user from an Inbox you must provide:
+- list of all the users, without the user you want to remove;
+- list of managers;
+- Inbox's current version;
+- new private and public meta (even if it didn't change).
+
+``` js   
+const inbox = await inboxApi.getInbox(inboxId);
+
+const newUsers = inbox.users
+    .filter(user => user !== userToRemove)
+    .map(user => ({
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        userId: user,
+        pubKey: 'USER_PUBLIC_KEY'
+    })
+);
+
+const newManagers = newUsers.filter(user =>
+    inbox.managers.find(manager => manager == user.userId));
+
+const newPrivateMeta = {
+    title: 'New inbox name'
+};
+
+await inboxApi.updateInbox(
+    inboxId    
+    newUsers,
+    newManagers,
+    inbox.publicMeta,
+    serializeObject(newPrivateMeta),
+    inbox.filesConfig,
+    inbox.version,
+    false, 
+    false
+);
+```
+
+</Tab>
+
+<Tab>
+The snippet below deletes the Inbox and all its data. This action is irreversible.
+
+```js
+await inboxApi.deleteInbox("INBOX_ID");
+```
+</Tab>
+</Tabs>
+

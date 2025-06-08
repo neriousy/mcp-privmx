@@ -1,0 +1,176 @@
+---
+title: Getting Started
+---
+
+## Initial Requirements
+
+To start developing using PrivMX Endpoint Swift follow our [quick start guide](../start/quick-start) first
+
+To connect it to your environment, you need:
+  - `Bridge URL` - URL address of the instance of your PrivMX Bridge
+  - `Solution ID` - ID of the Solution provided by PrivMX Bridge during its initialization process
+  - `User Private Key` - the private key from the user's public-private key pair
+
+You also need to use your own application server to manage users (and their keys) and Contexts.
+
+## Installation
+
+Our Swift packages contain all the necessary assets and helpers to get started with PrivMX Endpoint. Select which level is the best for you. 
+Go to [Swift overview](../swift) to see the descriptions of each package.
+
+### Swift Dependencies
+Swift Dependencies are managed by Swift Package Manager, and published on Simplito's [Github](https://github.com/simplito).
+
+1. Add `privmx-endpoint-swift-extra` package to your project using Xcode's built-in package management:
+
+```
+https://github.com/simplito/privmx-endpoint-swift-extra
+```
+
+It should be present in Package Dependencies as well as in target's "Link Binary With Libraries" section.
+
+2. Everywhere you want to use PrivMX Package, you need to import:
+
+```swift
+import PrivMXEndpointSwift
+import PrivMXEndpointSwiftExtra
+import PrivMXEndpointSwiftNative
+```
+
+### Shared Libraries
+Our `privmx-endpoint-swift-extra` package depends on `privmx-endpoint-swift` package, 
+which depends on a set of native libraries, which are downloaded automatically by Xcode.
+They are all compiled for arm and Intel architectures for using with iOS, macOS and simulator environments.
+
+## Initial Assumptions
+
+The initial assumptions for all the code examples below are as follows:
+
+```swift
+/*
+    All the values below like BRIDGE_URL, SOLUTION_ID, CONTEXT_ID
+    should be replaced by the ones corresponding to your Bridge Server instance.
+    
+    The private keys here are for demonstration purposes only.
+    Normally, they should be kept separately by each user and stored in a safe place,
+    or generated from a password (see the derivePrivateKey2() method in the Crypto API)
+    */
+
+let BRIDGE_URL = "YOUR_BRIDGE_URL";
+let SOLUTION_ID = "YOUR_SOLUTION_ID";
+let CONTEXT_ID = "YOUR_CONTEXT_ID";
+
+let USER1_ID = "USER_ID_1";
+let USER1_PUBLIC_KEY = "PUBLIC_KEY_1";
+let USER1_PRIV = "PRIVATE_KEY_1";
+
+let USER2_ID = "USER_ID_2";
+let USER2_PUBLIC_KEY = "PUBLIC_KEY_2";
+
+let USER3_ID = "USER_ID_3";
+let USER3_PUBLIC_KEY = "PUBLIC_KEY_3";
+```
+
+## Connecting to PrivMX Bridge
+
+To use any of the library's elements, you must first connect to PrivMX Bridge.
+Use the API keys mentioned [earlier](#initial-requirements). You can use `PrivMXEndpointContainer` and its helper functions or manually instantiate `PrivMXEndpoint`.
+This is the most recommended approach.
+
+<Tabs groupId="variant" items={["Swift Extra","Swift Basic"]}>
+<Tab>
+```swift
+ // Initialize the endpoint container
+var endpointContainer = PrivMXEndpointContainer()
+
+// Set the path to the certificate matching Your installation
+guard let pathToCerts = Bundle.main.path(forResource: "cacert", ofType: "pem") else { return }
+try endpointContainer.setCertsPath(to: pathToCerts)
+
+// Establish a new endpoint session
+var endpointSession = try await endpointContainer.newEndpoint(
+    enabling: [.thread,.store,.inbox],
+    connectingAs: USER1_PRIVATE_KEY,
+    to: SOLUTION_ID,
+    on: BRIDGE_URL
+)		
+```
+</Tab>
+<Tab>
+```swift
+// Set the path to the certificate matching Your installation
+guard let pathToCerts = Bundle.main.path(forResource: "cacert", ofType: "pem") else {return}
+try? Connection.setCertsPath(pathToCerts)
+// Establish a new endpoint session
+var endpointSession = try? PrivMXEndpoint(
+    modules: [.thread,.store,.inbox],
+    userPrivKey: USER1_PRIVATE_KEY,
+    solutionId: SOLUTION_ID,
+    bridgeUrl: BRIDGE_URL)
+```
+
+Alternatively: 
+```swift
+// Set the path to the certificate matching Your installation
+guard let pathToCerts = Bundle.main.path(forResource: "cacert", ofType: "pem") else {return}
+try? Connection.setCertsPath(pathToCerts)
+// Establish connection
+guard var connection = try? Connection.connect(
+    as: USER1_PRIVATE_KEY,
+    to: BRIDGE_URL,
+    on: CONTEXT_ID) as? Connection
+else {return}
+// Init required API's
+guard var storeApi = try? StoreApi.create(connection: &connection) else {return}
+guard var threadApi = try? ThreadApi.create(connection: &connection) else {return}
+guard let inboxApi = try? InboxApi.create(
+    connection: &connection,
+    threadApi: &threadApi,
+    storeApi: &storeApi) else {return}
+                                    
+```
+</Tab>
+</Tabs>
+
+Certificates should be set up accordingly to the Local Bridge Installation. More details are available [here](../start/certificates).
+
+The active connection is kept by [`endpointContainer`](../reference/privmx-endpoint-swift-extra/core/privmx-endpoint-container) and can be accessed with `getPrivmxEndpoint()` function.
+<Tabs groupId="variant" items={["Swift"]}>
+<Tab>
+```swift
+let endpointSessionId:Int64 = 0 //need to be initialized during session setup
+let endpointSession = endpointContainer?.getEndpoint(endpointSessionId)
+//by passing value indexed by connectionID
+```
+</Tab>
+</Tabs>
+
+## Disconnecting from PrivMX Bridge
+
+While using `PrivMXEndpointContainer`, you can run disconnect on `endpointContainer` object. It ends all underlying connections.
+
+<Tabs groupId="variant" items={["Swift"]}>
+<Tab>
+```swift
+ try? endpointContainer?.disconnectAll()
+```
+</Tab>
+</Tabs>
+
+## Compilation
+
+Compilation requires C++ interoperability turned on in the project settings, which can be found here:
+
+```
+Project > Target > Build Settings > C++ and Objective-C interoperability = C++ / Objective-C++
+```
+
+## Next Steps
+
+With everything ready to go, now it's time to start using all of the Platform's capabilities. 
+
+Learn how to use:
+
+-   [**Threads**](../start/threads/overview) - for exchanging encrypted messages;
+-   [**Stores**](../start/stores/overview) - for saving and sharing encrypted file;
+-   [**Inboxes**](../start/inboxes/overview) - for one way communication with external users.

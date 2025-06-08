@@ -1,0 +1,72 @@
+---
+title: Events
+description: Events enable your application to react dynamically to changes within user context.
+---
+
+
+
+:::info
+
+Before working with Events, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+
+The sample code on this page is based on the **[initial assumptions](./introduction#initial-assumptions)**.
+
+:::
+
+These events are triggered automatically when a relevant change occurs. You can subscribe to them by registering event listeners. This allows you to respond to changes as they happen in real-time.
+
+
+## Caveats
+
+- All callbacks are related to the connection on which they were registered.
+- Calling [`PrivmxEndpointContainer.stopListening()`](/reference/kotlin/privmx-endpoint-extra/com.simplito.kotlin.privmx_endpoint_extra.lib/-privmx-endpoint-container/stop-listening.html) does not delete event listeners.
+- Disconnecting deletes all event listeners related to the connection.
+
+## Quick Start
+
+<div className={'fd-steps'}>
+   <div className={'fd-step'}>
+
+Start the event loop:
+```kotlin
+endpointContainer.startListening()
+```
+   </div>
+       <div className={'fd-step'}>
+Add event listener for 'ThreadCreatedEvent' related with `callbackID`
+```kotlin
+val callbackID = "CALLBACK_ID"
+endpointSession.registerCallback(
+    callbackID,
+    EventType.ThreadCreatedEvent
+){ newThreadData ->
+    // some actions with newThreadData
+}
+```
+       </div>
+           <div className={'fd-step'}>
+Remove the event listener when no longer needed:
+```kotlin
+endpointSession.unregisterCallbacks(callbackID)
+```
+   </div>
+</div>
+## Unregister Callbacks
+
+<Tabs groupId="variant" items={["By Callback ID", "All Callbacks"]}>
+<Tab value="By Callback ID">
+Unregister all callbacks identified by `callbacksID`:
+```kotlin
+val callbacksID = "CALLBACKS_ID"
+endpointSession.unregisterCallbacks(callbacksID)
+```
+</Tab>
+
+<Tab value="All Callbacks">
+Unregister all callbacks from the connection:
+```kotlin
+endpointSession.unregisterAll()
+```
+</Tab>
+
+</Tabs>

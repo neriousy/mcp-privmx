@@ -1,0 +1,220 @@
+---
+title: Authorization
+---
+
+## API Keys
+You can access the API methods using API Keys. These keys have no time-to-live (TTL) but can be disabled or deleted.
+Each key is assigned a specific scope. You can create up to 10 API Keys by calling the method `manager/createApiKey`.
+
+:::info
+
+When you install PrivMX Bridge, you receive your first API Key with full API access.
+
+:::
+
+An API Key can be created without public key:
+```shell
+curl -X POST -H "Content-Type: application/json" \
+    -H "Authorization: one-of-our-authorization-methods" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "manager/createApiKey",
+        "params": {
+            "name": "My ApiKey",
+            "scope": ["apikey", "context", "solution"],
+        }
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+Or with an ED25519 PEM-encoded public key:
+```shell
+curl -X POST -H "Content-Type: application/json" \
+    -H "Authorization: one-of-our-authorization-methods" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "manager/createApiKey",
+        "params": {
+            "name": "My ApiKey",
+            "scope": ["apikey", "context", "solution"],
+            "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEADsSTjY2wnm1iwWamIWwLTPVhtTIb8TVlI8tts3wkhkQ=\n-----END PUBLIC KEY-----",
+        }
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+You will receive an ID and secret of API Key:
+```json
+{
+    "jsonrpc":"2.0",
+    "id":0,
+    "result": {
+        "id": "hysd62jsd7823nasd03",
+        "secret": "759a1d8edba555badf1216b0f381b94950141"
+    }
+}
+```
+
+You can now authorize requests using your API Key in one of the following ways:
+
+### Signatures
+You can sign your request using your API Key.
+
+1. First, prepare the data to be signed:
+ ```js
+ apiKeyId = "6XMc4VMf3q54YNarSn9CWUn4htStNu1ry9ajamemdo23sS1y21";
+ requestPayload = '{"jsonrpc":"2.0","id":0,"method":"solution/listSolutions","params":{}}';
+ requestData = `POST\n/api\n${requestPayload}\n`; // UPPERCASE(HTTP_METHOD()) + "\n" + URI() + "\n" + RequestBody + "\n";
+ timestamp = 1702555410352;
+ nonce = "3xUee4EA0gr8dg==";
+ dataToSign = `${timestamp};${nonce};${requestData}`;
+    ```
+
+2. Next, generate a signature corresponding to your API Key credentials:
+
+ - HMAC signature:
+  ```
+  apiKeySecret = "CspXxVtTyE3sf6jB7z4CSjxoymuS2H67ZjNDfovTu3i8";
+  signature = BASE64(HMACSHA256(apiKeySecret, dataToSign).SUBARRAY(0, 20))
+        ```
+ - If you provided a `publicKey` – ECC signature:
+  ```
+  privateKey = "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIOBVFGaSFtfqbNvZWctFKg3k+I0T5YXRavpKAD9+BgCX\n-----END PRIVATE KEY-----";
+  signature = BASE64(SIGN(dataToSign, privateKey))
+        ```
+
+3. To sign a request, include the following in the `Authorization` header:
+
+ ```js
+ `pmx-hmac-sha256 ${apiKeyId};1;${timestamp};${nonce};${signature}`
+    ```
+
+ ```shell
+ curl -X POST -H "Content-Type: application/json" \
+     -H "Authorization: pmx-hmac-sha256 6XMc4VMf3q54YNarSn9CWUn4htStNu1ry9ajamemdo23sS1y21;1;1702555410352;3xUee4EA0gr8dg;JN5llLladWZ+1rGu6yrkbIQzme0=" \
+     --data-binary '{
+         "jsonrpc": "2.0",
+         "id": 0,
+         "method": "solution/listSolutions",
+         "params": {}
+     }' \
+     https://my-privmx-bridge-instance/api
+    ```
+
+### API Key Credentials
+You can authorize the request by placing your API Key credentials in the `Authorization` header:
+```js
+basicAuthorization = BASE64(`${apiKeyId}:${apiKeySecret}`);
+authorizationHeaderValue = `Basic ${basicAuthorization}`;
+```
+
+```shell
+curl -X POST -H "Content-Type: application/json" \
+    -H "Authorization: Basic YWxpY2U6dGhlc2NlcmV0" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "solution/listSolutions",
+        "params": {}
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+
+:::info
+
+Note that you cannot use this authorization method if your API Key includes a public key.
+In such a case, only ECC signatures are available for this API Key.
+
+:::
+
+### Access Tokens
+Access tokens have a TTL but can be refreshed using refresh tokens. You can generate them by calling [manager/auth](https://bridge.privmx.dev/#manager-auth):
+
+```shell
+curl -X POST \
+    -H "Content-Type: application/json" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 128,
+        "method": "manager/auth",
+        "params": {
+            "scope": ["apikey", "solution"],
+            "grantType": "api_key_credentials",
+            "apiKeyId": "65ad8f6b2e4f4f1adb40bf68",
+            "apiKeySecret": "5ZTUQ7VBxoqRKn3pEyPjHeavXHVw7JcJF3MvAV43yfsR"
+        }
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+You will receive an `access_token` and a `refresh_token`:
+
+```json
+{
+    "jsonrpc": "2.0",
+    "id": 128,
+    "result": {
+        "accessToken": "SXRzIGEgcmFuZG9tIHRleHQgZW5jb2RlZCBmb3IgdGhlIHRlc3RpbmcgcHVycG9zZSwgaWYgeW91IGRlY29kZWQgdGhpcyB0ZXh0LCB0cmVhdCBpcyBhcyBhIHNvcnQgb2YgZWFzdGVyIGVnZyA6KS4=",
+        "accessTokenExpiry": 1726652150623,
+        "refreshToken": "TG9yZW0gaXBzdW1Mb3JlbSBpcHN1bUxvcmVtIGlwc3VtTG9yZW0gaXBzdW1Mb3JlbSBpcHN1bUxvcmVtIGlwc3VtTG9yZW0gaXBzdW0=",
+        "refreshTokenExpiry": 1726952150623,
+        "tokenType": "Bearer",
+        "scope": [
+            "apiKey",
+            "solution",
+            "context"
+        ]
+    }
+}
+```
+The access token can be used to authorize your request by placing it in the `Authorization` header:
+
+```shell
+curl -X POST \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer SXRzIGEgcmFuZG9tIHRleHQgZW5jb2RlZCBmb3IgdGhlIHRlc3RpbmcgcHVycG9zZSwgaWYgeW91IGRlY29kZWQgdGhpcyB0ZXh0LCB0cmVhdCBpcyBhcyBhIHNvcnQgb2YgZWFzdGVyIGVnZyA6KS4=" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 128,
+        "method": "solution/listSolutions",
+        "params": {}
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+Access tokens can be refreshed using refresh tokens by calling the [manager/auth](https://bridge.privmx.dev/#manager-auth) method:
+
+```shell
+curl -X POST \
+    -H "Content-Type: application/json" \
+    --data-binary '{
+        "jsonrpc": "2.0",
+        "id": 128,
+        "method": "manager/auth",
+        "params": {
+            "grantType": "refresh_token",
+            "refreshToken": "TG9yZW0gaXBzdW1Mb3JlbSBpcHN1bUxvcmVtIGlwc3VtTG9yZW0gaXBzdW0=",
+        }
+    }' \
+    https://my-privmx-bridge-instance/api
+```
+In response, you will receive a new pair of tokens, and the old pair will be revoked.
+
+### API Scopes
+When requesting an access token, you can specify the scope, which defines the level of granted access.
+Here's a breakdown of the available scopes:
+
+| **Scope**        | **Description**                                                                                                                                                                                                                                                                                                                                                             |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `session:NAME` | Creates a new session with the provided name, generating tokens bound to that session. Access is granted for the session's lifetime. A user can have up to 16 sessions; when this limit is reached, the oldest session is removed. |
+| `ipAddr:ADDR`  | Restricts the token to connections from a specific IPv4 address (ADDR).                                                                                                                                                                                                                                                                                                                                                                      |
+|`expiresIn:NUMBER` | Access token will expire after `NUMBER` of milliseconds. Max value is TTL of the refresh token. |
+| `solution` | Restricts the token to Solution API scope. |
+| `context` | Restricts the token to Context API scope. |
+|`thread`	|Restricts the token to Thread API scope.|
+|`store`	|Restricts the token to Store API scope.|
+|`inbox`	|Restricts the token to Inbox API scope.|
+|`stream`	|Restricts the token to Stream API scope.|
+|`solution:SOLUTION_ID`	|Restricts the token to manage Contexts only under given `SOLUTION_ID`.|
+|`solution:*`	|Restricts the token to manage all Contexts.|
+
+These scopes allow fine-grained control over what actions can be performed with the generated tokens,
+making it easier to manage permissions across different parts of the system.

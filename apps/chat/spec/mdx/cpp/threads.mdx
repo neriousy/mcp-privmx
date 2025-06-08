@@ -1,0 +1,139 @@
+---
+title: Overview
+description: Threads are a secure way for assigned members to exchange encrypted messages.
+---
+
+
+
+:::info
+
+Before working with Threads, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+Sample code on this page is based on the **[initial assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+
+## Working with Threads
+
+When working with Threads, you will use the following:
+- `ThreadApi` - provides methods used to manage Threads in given Context
+
+
+Let's modify the program from the [First App](./first-app) chapter to connect to the Bridge server, create a Thread, and send the first message in it.
+
+**`CMakeLists.txt`**
+```cmake
+...
+target_link_libraries(test_program PUBLIC 
+		privmxendpoint::privmxendpointcore
+        privmxendpoint::privmxendpointthread
+		privmxendpoint::crypto
+)
+```
+
+**`main.cpp`**
+
+```cpp
+// setup some defaults
+core::PagingQuery defaultListQuery = {.skip = 0, .limit = 100, .sortOrder = "desc"};
+
+// initialize Endpoint connection and Threads API
+auto connection {core::Connection::connect(USER1_PRIVATE_KEY, SOLUTION_ID, BRIDGE_URL)};
+auto threadApi {thread::ThreadApi::create(connection)};
+
+// ...
+```
+## Creating Threads
+Creating a basic, unnamed Thread, which can act as an encrypted data container:
+
+```cpp
+// ...
+
+std::vector<core::UserWithPubKey> managers {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY}
+};
+
+std::vector<core::UserWithPubKey> users {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY},
+    {.userId = USER2_ID, .pubKey = USER2_PUBLIC_KEY}
+};
+
+// create a new Thread with access for USER_1 as manager and USER_2 as regular user
+auto threadId {threadApi.createThread(
+    CONTEXT_ID, 
+    users, managers, 
+    core::Buffer::from("some thread's public meta-data"), 
+    core::Buffer::from("some thread's private meta-data")
+)};
+
+// ...
+```
+Hint: You can assign any data to private and public meta fields (e.g. the Thread's name), as long as it is serialized and can be given as the `core::Buffer`.
+
+## Fetching Threads
+
+Getting a list of Threads available for the user in the given Context:
+
+```cpp
+// ...
+
+auto threadsList = threadApi.listThreads(CONTEXT_ID, defaultListQuery);
+
+// ...
+```
+
+As a result you will receive an object:
+```cpp
+// threadsList:
+{
+    readItems: [<threadObject1>, <threadObject2>,..., <threadObjectN>],
+    totalAvailable: <number_of_all_threads>
+}
+```
+
+Getting a single Thread:
+
+```cpp
+// ...
+
+auto thread = threadApi.getThread(threadId, defaultListQuery);
+
+// ...
+```
+A detailed description of the `Thread` object fields can be found in [API Reference](../reference/endpoint/thread/types#thread).
+
+## Modifying Threads
+
+
+### How Updates Work
+To update a Thread you must always provide a full list of parameters.
+
+The `updateThread(...)` method needs all the parameters as in the `createThread(...)` method and a few more. If you want to update
+one of the parameters – provide it in a new modified form. If, on the other hand, you want to leave
+the parameter unchanged – provide it as it was before.
+
+```cpp
+// ...
+auto currentThread {threadApi.getThread(threadId, defaultListQuery)};
+
+std::vector<core::UserWithPubKey> managers {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY}
+};
+
+std::vector<core::UserWithPubKey> users {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY}
+};
+
+// update a new Thread with access for USER_1 as the only user.
+auto threadId {threadApi.updateThread(
+    threadId, 
+    users, managers, 
+    currentThread.publicMeta, 
+    currentThread.privateMeta,
+    currentThread.version, // <- pass the version of the Thread you will perform the update on
+    false, // <- force update (without checking version)
+    false // <- force to regenerate a key for the Thread
+)};
+
+// ...
+```

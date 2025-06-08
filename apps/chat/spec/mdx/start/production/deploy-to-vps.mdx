@@ -1,0 +1,153 @@
+---
+title: Deploy to VPS
+description: This guide will walk you through deploying PrivMX Bridge Instance.
+---
+      Tab,Tabs} from "fumadocs-ui/components/tabs"
+
+
+## Prerequisites
+
+This guide requires access to VPS server.
+You can choose any provider you prefer, e.g.:
+
+- AWS EC2
+- Google Cloud Compute Engine
+- Digital Ocean Droplets
+- Azure Virtual Machine
+
+We recommend choosing an option with at least 1 CPU and 500MB of RAM for PrivMX Bridge itself,
+and if you decide to host your MongoDB instance on the same machine to increase RAM to 4GB.
+
+You will need also a domain name for your server.
+This tutorial will guide you through how to generate certificates for it for https connection.
+
+## Setup Environment
+
+:::warning
+
+This guides requires access to your server with sudo privileges.
+
+:::
+
+### Installing Docker
+
+1. Add Docker's official GPG key.
+```shell
+ sudo apt-get update
+ sudo apt-get install ca-certificates curl
+ sudo install -m 0755 -d /etc/apt/keyrings
+ sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+ sudo chmod a+r /etc/apt/keyrings/docker.asc
+   ```
+2. Add the repository to Apt sources.
+```sh
+ echo \
+ "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+ $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+
+ sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+ sudo apt-get update
+    ```
+3. Install docker.
+ ```shell
+ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    ```
+
+### Setup nginx
+
+1. Install nginx and certbot.
+ ```shell
+ sudo apt-get update
+ sudo apt install certbot python3-certbot-nginx nginx
+    ```
+2. Create site config.
+
+Create files in `/etc/nginx/sites-available/YOUR_DOMAIN_NAME`
+ ```shell
+ touch /etc/nginx/sites-available/YOUR_DOMAIN_NAME
+    ```
+open it in your favourite text editor and add the following configuration:
+ ```
+server {
+listen 80;
+server_name YOUR_DOMAIN_NAME;
+
+     location / {
+         proxy_pass http://localhost:9111;
+         proxy_set_header Host $host;
+         proxy_set_header X-Forwarded-For $remote_addr;
+         proxy_set_header Upgrade $http_upgrade;
+         proxy_set_header Connection "Upgrade";
+     }
+}
+```
+3. Create a link to sites-enabled.
+ ```shell
+sudo ln -s /etc/nginx/sites-available/YOUR_DOMAIN_NAME /etc/nginx/sites-enabled/YOUR_DOMAIN_NAME
+    ```
+
+
+### PrivMX Bridge Setup
+PrivMX Bridge requires [MongoDB](https://www.mongodb.com/) instance.
+You can host it alongside PrivMX Bridge using our docker compose file or provide connection string
+to external MongoDB instance, for example, from [MongoDB Atlas](https://www.mongodb.com/atlas).
+
+<Callout>
+PrivMX Bridge requires MongoDB instance with an initialized replica set.
+`./setup.sh` script takes care of initializing a replica set for local MongoDB instance in docker compose.
+</Callout>
+
+
+1. Start by cloning PrivMX Bridge docker repo containing setup scripts.
+ ```shell
+ git clone https://github.com/simplito/privmx-bridge-docker.git privmx-bridge
+ cd privmx-bridge
+    ```
+2. Run setup script.
+<Tabs items={["contained","external"]}>
+    <Tab value={"contained"} label={"Coupled ???"}>
+        ```shell
+        sudo ./setup.sh
+        ```
+    </Tab>
+    <Tab value={"external"} label={"External Database"}>
+        ```shell
+        sudo ./setup.sh --db-uri="YOUR_MONGODB_CONNECTION_STRING"
+        ```
+    </Tab>
+</Tabs>
+
+This script will pull all necessary docker images, and setup your first Solution and Context.
+After setup PrivMX Bridge, you will be prompted with variables required for connection.
+
+By default, new instance will be available on `http://localhost:9111`
+
+
+## Exposing Application
+1. Check Nginx config.
+ ```shell
+ sudo nginx -t
+    ```
+2. Restart nginx.
+ ```shell
+ sudo systemctl restart nginx
+    ```
+3. Generate certificates using certbot.
+ ```shell
+ sudo certbot --nginx -d YOUR_DOMAIN
+    ```
+4. In your firewall settings expose port `80` and `443`.
+During certificate generation, Certbot adds redirects from http connections to https.
+
+You can now open domain URL in your browser. PrivMX Bridge instance should return starting page.
+
+## Next Steps
+
+Checkout Containers documentation for guides on how you can use your PrivMX Bridge for E2E encrypted communication.
+
+Learn how to use:
+
+-   [**Threads**](../threads/overview) - for exchanging encrypted messages;
+-   [**Stores**](../stores/overview) - for saving and sharing encrypted files;
+-   [**Inboxes**](../inboxes/overview) - for one way communication with external users.
+

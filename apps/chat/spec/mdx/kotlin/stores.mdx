@@ -1,0 +1,287 @@
+---
+title: Stores
+description: Stores provide encrypted block storage, enabling simple file uploading and downloading.
+---
+
+
+:::info
+
+Before working with Stores, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+
+The sample code on this page is based on the **[initial assumptions](./introduction#initial-assumptions)**.
+
+:::
+
+:::info
+
+Store `publicMeta` and `privateMeta` fields support any kind of data formats encoded to byte arrays. Examples in this section use `kotlinx-serialization-json` dependency to serialize object to JSON format.
+
+:::
+
+## Working with Stores
+
+To access Store methods, get the field `storeApi` from active connection. Connection should be initialized with `Modules.STORE` passed to [`PrivmxEndpoint()`](/reference/kotlin/privmx-endpoint-extra/com.simplito.kotlin.privmx_endpoint_extra.lib/-privmx-endpoint/-privmx-endpoint.html).
+
+```kotlin
+val storeApi = endpointSession.storeApi
+```
+
+## Creating Stores
+
+<Tabs groupId="variant" items={["Basic","With a Name","With publicMeta"]}>
+<Tab value="basic" label="Basic">
+Creating a basic, unnamed Store, which can act as an encrypted data container:
+```kotlin
+val users : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey),
+    UserWithPubKey(user2Id, user2PublicKey)
+)
+val managers : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey)
+)
+val publicMeta = ByteArray(0)
+val privateMeta = ByteArray(0)
+
+val storeId = storeApi.createStore(
+    contextId,
+    users,
+    managers,
+    publicMeta,
+    privateMeta
+)
+```
+</Tab>
+
+<Tab value="With a Name">
+You can assign any data to private and public meta fields (e.g. the Store's name), as long as they are serialized to byte array:
+```kotlin
+val users : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey),
+    UserWithPubKey(user2Id, user2PublicKey)
+)
+val managers : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey)
+)
+val publicMeta = ByteArray(0)
+val storeNameAsPrivateMeta = "New store"
+val storeId = storeApi.createStore(
+    contextId,
+    users,
+    managers,
+    publicMeta,
+    storeNameAsPrivateMeta.encodeToByteArray()
+)
+```
+</Tab>
+<Tab value="With publicMeta">
+You can implement a tag system which allows you to create Stores with arbitrary tags. Putting them inside `publicMeta` gives your own server the ability to access it using PrivMX Bridge API:
+
+Define Store public meta structure:
+```kotlin
+@Serializable
+data class StorePublicMeta(val tags: List<String>)
+```
+
+Prepare and create Store:
+```kotlin
+val users : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey),
+    UserWithPubKey(user2Id, user2PublicKey)
+)
+val managers : List<UserWithPubKey> = listOf(
+    UserWithPubKey(user1Id, user1PublicKey)
+)
+val publicMeta = StorePublicMeta(
+    listOf("TAG1", "TAG2", "TAG3")
+)
+val storeNameAsPrivateMeta = "New store"
+
+val storeID = storeApi.createStore(
+    contextId,
+    users,
+    managers,
+    Json.encodeToString(publicMeta).encodeToByteArray(),
+    storeNameAsPrivateMeta.encodeToByteArray()
+)
+```
+</Tab>
+</Tabs>
+
+## Getting Stores
+
+Define Store item class with decoded `publicMeta` and `privateMeta`:
+```kotlin
+data class StoreItem(
+    val store: Store,
+    val decodedPrivateMeta: String,
+    val decodedPublicMeta: StorePublicMeta
+)
+```
+
+<Tabs groupId="variant" items={["Most Recent","Oldest","By Store ID"]}>
+<Tab value="Most Recent">
+Fetching the most recent Stores in given Context:
+```kotlin
+val startIndex = 0L
+val pageSize = 100L
+
+val storesPagingList = storeApi.listStores(
+    contextId,
+    startIndex,
+    pageSize,
+    SortOrder.DESC
+)
+
+val stores = storesPagingList.readItems.map {
+    StoreItem(
+        it,
+        it.privateMeta.decodeToString(),
+        Json.decodeFromString(it.publicMeta.decodeToString())
+    )
+}
+```
+</Tab>
+
+<Tab value="Oldest">
+Fetching the oldest Stores (by creation date) in given Context:
+```kotlin
+val startIndex = 0L
+val pageSize = 100L
+
+val storesPagingList = storeApi.listStores(
+    contextId,
+    startIndex,
+    pageSize,
+    SortOrder.ASC
+)
+
+val stores = storesPagingList.readItems.map {
+    StoreItem(
+        it,
+        it.privateMeta.decodeToString(),
+        Json.decodeFromString(it.publicMeta.decodeToString())
+    )
+}
+```
+</Tab>
+<Tab value="By Store ID">
+You can get info about a Store using its `storeId`:
+```kotlin
+val storeId = "STORE_ID"
+
+val storeItem = storeApi.getStore(storeId).let {
+    StoreItem(
+        it,
+        it.privateMeta.decodeToString(),
+        Json.decodeFromString(it.publicMeta.decodeToString())
+    )
+}
+```
+</Tab>
+</Tabs>
+
+
+## Managing Stores
+
+<Tabs groupId="variant" items={["Renaming Store","Removing User","Deleting Store"]}>
+<Tab value="Renaming Store">
+To update a Store you must always provide its current version, as well as:
+- list of users
+- list of managers
+- new private and public meta (even if it didn't change)
+- Store's current version
+- `true` if update action should be forced
+
+```kotlin
+val storeID = "STORE_ID"
+val store: Store = storeApi.getStore(storeID)
+val users = store
+    .users
+    .map { userId ->
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        UserWithPubKey(
+            userId,
+            "USER_PUBLIC_KEY"
+        )
+    }
+val managers = store
+    .managers
+    .map { userId ->
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        UserWithPubKey(
+            userId,
+            "USER_PUBLIC_KEY"
+        )
+    }
+val newStoreNameAsPrivateMeta = "New store name"
+
+storeApi.updateStore(
+    storeID,
+    users,
+    managers,
+    store.publicMeta,
+    newStoreNameAsPrivateMeta.encodeToByteArray(),
+    store.version!!,
+    false
+)
+```
+</Tab>
+
+<Tab value="Removing User">
+To remove a user from a Store you must provide:
+- list of all the users, without the user you want to remove
+- list of managers
+- new private and public meta (even if it didn't change)
+- Store's current version
+- `true` if update action should be forced
+
+```kotlin
+val storeID = "STORE_ID"
+val store: Store = storeApi.getStore(storeID)
+val userToRemove = "USERID_TO_REMOVE"
+val newUsers = store
+    .users
+    .filter {
+        it != userToRemove
+    }.map { userId ->
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        UserWithPubKey(
+            userId,
+            "USER_PUBLIC_KEY"
+        )
+    }
+val managers = store
+    .managers
+    .map { userId ->
+        //Your application must provide a way,
+        //to get user's public key from their userId.
+        UserWithPubKey(
+            userId,
+            "USER_PUBLIC_KEY"
+        )
+    }
+
+storeApi.updateStore(
+    storeID,
+    newUsers,
+    managers,
+    store.publicMeta,
+    store.privateMeta,
+    store.version!!,
+    false
+)
+```
+</Tab>
+
+<Tab value="Deleting Store">
+The snippet below deletes Store and all its data. This action is irreversible.
+```kotlin
+val storeID = "STORE_ID"
+storeApi.deleteStore(storeID)
+```
+</Tab>
+
+</Tabs>

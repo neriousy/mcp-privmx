@@ -1,0 +1,52 @@
+---
+title: Overview
+---
+
+Thread container is a structured communication tool used for **message based communication**. 
+
+Users create Threads to organize topic-specific conversations where they can securely **exchange encrypted messages** with designated participants.
+All the active users are **notified** right away when a new message arrives or anything within the Thread changes. 
+
+All the data is stored in [PrivMX Bridge](../privmx-bridge) and can be freely shared between its users.
+
+## Prerequisites
+
+Before working with Threads, you need to have a PrivMX Bridge instance.
+
+To install it, [follow our PrivMX quick start guide](../quick-start).
+
+## Architecture
+
+Threads are time-sorted containers for messages. Think of a Thread as a container that allows you to **post messages, which can include any binary or text data as well as metadata.**
+Each Thread has its own set of permissions, managed by assigning the users’ public keys to the Thread. **Only the users with assigned public keys can read the messages posted in that Thread.**
+Decryption of these messages is possible only with the corresponding private keys. 
+
+**Each message is protected by a synchronous key, which is further secured using an asynchronous pair of public and private user keys.**
+This dual-layer encryption ensures that the system remains both safe and efficient.
+
+[Learn more](./encryption) about our advanced encryption methods and how they safeguard your messages.
+
+The following diagram is a visual reference for the architecture of Threads:
+!![threads architecture](/img/privmx-threads.svg)
+
+## Messages in Threads
+
+The main data units in Threads are messages, which contain binary `data`, as well as metadata
+
+- `privateMeta` - encrypted data about the message
+- `publicMeta` - **decrypted** additional data about the message
+
+Each message also has information assigned by the Bridge.
+
+To learn more about messages, go to [Sending Messages](./messages).
+
+### Examples
+- Chatee
+  A demo project of Chat Application, containing server-side logic and web client. Created with Next.js.
+
+  [Github](https://github.com/simplito/privmx-chatee)
+
+- Simple, minimal examples
+  A set of short code snippets showing you how to start interacting with PrivMX Endpoint Library.
+
+  [Github](https://github.com/simplito/privmx-webendpoint/tree/main/examples)

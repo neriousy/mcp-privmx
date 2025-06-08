@@ -1,0 +1,159 @@
+---
+title: Managing Files
+---
+
+
+
+
+Stores allow you to exchange and save files. In this section, we'll take a closer look at file structures and how to manage them effectively. We'll also cover some best practices when working with Stores.
+
+## About Files
+
+Along with a file's main content, additional **metadata** is stored to allow easy file management. Below is the structure of the metadata associated with each file:
+
+|**field**|**type**|**encrypted**|**description**|
+|---|---|---|---|
+|`info`|ServerFileInfo|yes|additional information assigned by the server e.g. author, `creationDate`, `storeID` and `fileID`
+|`publicMeta`|binary|no|additional public information about the message, also accessible through Bridge API
+|`privateMeta`|binary|yes|additional information about the message
+|`size`|number|yes|The size of file in getBytes
+|`authorPubKey`|string|yes|The public key of the author of the file
+|`statusCode`|number|no|0 if the file was decrypted successfully
+
+
+## Listing Files
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](./managing#initial-assumptions)** mentioned in [Managing Stores](./managing).
+
+:::
+
+Here's how you can retrieve and list files from a Store:
+
+<Tabs groupId="lang" items={["cpp","js","java","kotlin","swift"]}>
+<Tab value="cpp" label="C++">
+```cpp
+    core::PagingQuery query = {.skip = 0, .limit = 30, .sortOrder = "desc"};
+
+	// list files of the Store specified by storeId
+	auto filesResult {storesApi.listFiles(storeId, query)};
+	for (auto file: filesResult.readItems) {
+        std::cout << "File ID: " << file.info.fileId << std::endl;
+        std::cout << "File size: " << file.size << std::endl;
+    }
+```
+</Tab>
+
+<Tab label="JavaScript" value="js">
+
+```js
+    const filesResult = await storesApi.listFiles(storeId, query);
+    for (const f of filesResult.readItems) {
+        console.log("File ID: ", f.info.fileId);
+        console.log("File public meta: ", this.uint8ToStr(f.publicMeta));
+        console.log("File private meta: ", this.uint8ToStr(f.privateMeta));
+    }
+```
+</Tab>
+
+<Tab label="Java" value="java">
+
+```java
+PrivmxEndpointContainer container = new PrivmxEndpointContainer();
+Long connectionID = 0L; // your connection ID
+String storeID = "<STORE_ID>";
+
+long limit = 30L;
+long skip = 0L;
+
+PagingList<File> files = container.getEndpoint(connectionID).storeApi.listFiles(
+        storeID,
+        skip,
+        limit,
+        SortOrder.DESC
+);
+```
+</Tab>
+
+
+<Tab label="Kotlin" value="kotlin">
+
+```kotlin
+val container = PrivmxEndpointContainer()
+val connectionID = 0L // your connection ID
+val storeID = "<STORE_ID>"
+
+val limit = 30L
+val skip = 0L
+
+val files = container.getEndpoint(connectionID).storeApi.listFiles(
+    storeID,
+    skip,
+    limit,
+    SortOrder.DESC
+)
+```
+</Tab>
+
+<Tab label="Swift" value="swift">
+
+```ts
+const files = await Endpoint.connection().store(STORE_ID).getFiles(0, {
+  pageSize: 100,
+  sort: 'desc',
+})
+
+```
+</Tab>
+</Tabs>
+
+## Deleting Files
+
+Deleting a file is straightforward, but be aware that this action is irreversible:
+
+
+<Tabs groupId="lang"  items={["cpp","js","java","kotlin","swift"]}>
+<Tab value="cpp" label="C++">
+```cpp
+	// deleting file specified by fileId
+	storesApi.deleteFile(fileId);
+```
+</Tab>
+<Tab label="JavaScript" value="js">
+
+```js
+    // delete the file
+    await storesApi.deleteFile(fileId);
+```
+</Tab>
+
+<Tab label="Java" value="java">
+
+```java
+PrivmxEndpointContainer container = new PrivmxEndpointContainer();
+Long connectionID = 0L; // your connection ID
+String fileID = "<YOUR_FILE_ID>";
+container.getEndpoint(connectionID).storeApi.deleteFile(fileID);
+```
+</Tab>
+
+
+<Tab label="Kotlin" value="kotlin">
+
+```kotlin
+val container = PrivmxEndpointContainer()
+val connectionID = 0L // your connection ID
+val fileID = "<YOUR_FILE_ID>"
+container.getEndpoint(connectionID).storeApi.deleteFile(fileID)
+```
+</Tab>
+
+<Tab label="Swift" value="swift">
+
+```ts
+await Endpoint.connection().stores.deleteFile(FILE_ID);
+
+```
+</Tab>
+</Tabs>

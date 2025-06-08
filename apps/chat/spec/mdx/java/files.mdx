@@ -1,0 +1,240 @@
+---
+title: Files
+---
+
+
+
+Uploading and managing files.
+
+:::info
+
+The sample code on this page is based on the **[initial assumptions](./introduction#initial-assumptions)**.
+
+:::
+
+:::info
+
+File `publicMeta` and `privateMeta` fields support any kind of data formats encoded to byte arrays. Examples in this section use `kotlinx-serialization-json-jvm` dependency for Kotlin and `com.google.code.gson:gson` for Java to serialize object to JSON format.
+
+:::
+
+## Uploading Files
+
+<Tabs groupId="variant" items={["Basic Upload","With File Meta","Using Streams"]}>
+<Tab >
+Uploading file to a Store in the most basic way:
+```kotlin
+val storeID = "STORE_ID"
+val fileContent = "Text file content".encodeToByteArray()
+val publicMeta = ByteArray(0)
+val privateMeta = ByteArray(0)
+
+val fileId = StoreFileStreamWriter.createFile(
+    storeApi,
+    storeID,
+    publicMeta,
+    privateMeta,
+    fileContent.size.toLong(),
+).also {
+    it.write(fileContent)
+}.close()
+```
+</Tab>
+<Tab >
+
+Uploading file to a Store with additional meta data.
+
+Define file `privateMeta` structure:
+```kotlin
+@Serializable
+data class FilePrivateMeta(
+    val name: String,
+    val mimetype: String
+)
+```
+Prepare and upload the file:
+```kotlin
+val storeID = "STORE_ID"
+val fileContent = "Text file content".encodeToByteArray()
+val publicMeta = ByteArray(0)
+val privateMeta = FilePrivateMeta(
+    name = "Example text file",
+    mimetype = "text/plain"
+)
+
+val fileId = StoreFileStreamWriter.createFile(
+    storeApi,
+    storeID,
+    publicMeta,
+    Json.encodeToString(privateMeta).encodeToByteArray(),
+    fileContent.size.toLong(),
+).also {
+    it.write(fileContent)
+}.close()
+```
+</Tab>
+<Tab value='Using Streams'>
+The snippet below shows how to send `InputStream` directly to a file.
+
+Define file `privateMeta` structure:
+```kotlin
+@Serializable
+data class FilePrivateMeta(
+    val name: String,
+    val mimetype: String
+)
+```
+Prepare and upload the file:
+```kotlin
+val storeID = "STORE_ID"
+val file = File("PATH_TO_FILE")
+val inputStream: InputStream = file.inputStream()
+val publicMeta = ByteArray(0)
+val privateMeta = FilePrivateMeta(
+    name = file.name,
+    mimetype = Files.probeContentType(file.toPath())
+)
+val streamController = object : StoreFileStream.Controller() {
+    override fun onChunkProcessed(processedBytes: Long?) {
+        super.onChunkProcessed(processedBytes)
+        println("Processed size: $processedBytes")
+    }
+}
+
+val fileId = StoreFileStreamWriter.createFile(
+    storeApi,
+    storeID,
+    publicMeta,
+    Json.encodeToString(privateMeta).encodeToByteArray(),
+    inputStream.available().toLong(),
+    inputStream,
+    streamController
+)
+```
+</Tab>
+</Tabs>
+
+## Getting Files
+
+Define file item class with decoded `privateMeta`.
+```kotlin
+data class FileItem(
+    val file: File,
+    val decodedPrivateMeta: FilePrivateMeta
+)
+```
+
+<Tabs groupId="variant" items={["Most Recent","Oldest","By File ID"]}>
+<Tab value="Most Recent">
+Fetching the most recent files in given Store:
+```kotlin
+val storeId = "STORE_ID"
+val startIndex = 0L
+val pageSize = 100L
+
+val filesPagingList = storeApi.listFiles(
+    storeId,
+    startIndex,
+    pageSize,
+    SortOrder.DESC
+)
+
+val files = filesPagingList.readItems.map {
+    FileItem(
+        it,
+        Json.decodeFromString(it.privateMeta.decodeToString())
+    )
+}
+```
+</Tab>
+
+<Tab value="Oldest">
+Fetching the oldest files (by creation date) in given Store:
+```kotlin
+val storeId = "STORE_ID"
+val startIndex = 0L
+val pageSize = 100L
+
+val filesPagingList = storeApi.listFiles(
+    storeId,
+    startIndex,
+    pageSize,
+    SortOrder.ASC
+)
+
+val files = filesPagingList.readItems.map {
+    FileItem(
+        it,
+        Json.decodeFromString(it.privateMeta.decodeToString())
+    )
+}
+```
+</Tab>
+<Tab value="By File ID">
+You can get info about a file using its `fileId`:
+```kotlin
+val fileID = "FILE_ID"
+
+val fileItem = storeApi.getFile(fileID).let {
+    FileItem(
+        it,
+        Json.decodeFromString(it.privateMeta.decodeToString())
+    )
+}
+```
+</Tab>
+</Tabs>
+
+
+## Managing Files
+
+<Tabs groupId="variant" items={["Changing File Name","Overwriting File Content","Deleting File"]}>
+<Tab value="Changing File Name">
+```kotlin
+val fileID = "FILE_ID"
+val file = storeApi.getFile(fileID)
+var filePrivateMeta: FilePrivateMeta = Json.decodeFromString(file.privateMeta.decodeToString())
+filePrivateMeta = filePrivateMeta.copy(
+    name = "New file name"
+)
+
+storeApi.updateFileMeta(
+    fileID,
+    file.publicMeta,
+    Json.encodeToString(filePrivateMeta).encodeToByteArray(),
+)
+```
+</Tab>
+
+<Tab value="Overwriting File Content">
+```kotlin
+val fileID = "FILE_ID"
+val newFile = File("PATH_TO_FILE")
+val inputStream: InputStream = newFile.inputStream()
+val streamController = object : StoreFileStream.Controller() {
+    override fun onChunkProcessed(processedBytes: Long?) {
+        super.onChunkProcessed(processedBytes)
+        println("Processed size: $processedBytes")
+    }
+}
+val file = storeApi.getFile(fileID)
+
+StoreFileStreamWriter.updateFile(
+    storeApi,
+    fileID,
+    file.publicMeta,
+    file.privateMeta,
+    inputStream.available().toLong(),
+    inputStream,
+    streamController
+)
+```
+</Tab>
+
+<Tab value="Deleting File">
+```kotlin
+val fileID = "FILE_ID"
+storeApi.deleteFile(fileID)
+```
+</Tab>
+</Tabs>
