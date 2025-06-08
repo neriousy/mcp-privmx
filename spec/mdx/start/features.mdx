@@ -1,0 +1,117 @@
+---
+title: Features
+---
+
+## What is PrivMX?
+
+PrivMX is a comprehensive platform designed for developers, enabling seamless integration of end-to-end encrypted communication into any application. It also provides the foundation for building new, encryption-focused communication apps.
+
+PrivMX consists of two key components:
+
+- [PrivMX Bridge](../start/installation) – server deployed within your infrastructure, ensuring secure communication.
+- [PrivMX Endpoint](#privmx-endpoint) – a set of libraries and wrappers ready to be configured and used with various programming languages and frameworks.
+
+### Application Server
+
+PrivMX only provides containers for implementing features, for example Threads, Stores, etc. To create and manage user accounts, you need a basic Application Server, connected to your app built with PrivMX. PrivMX identifies users using their public keys, but your Application Server has to handle them and store information about user profiles etc.
+
+## PrivMX Bridge
+
+Bridge is a **zero-knowledge server** that intermediates in the **transfer of encrypted data** and notifications
+between PrivMX Endpoints and **stores encrypted data** for containers: Threads, Stores, and Inboxes.
+
+[More information and Bridge installation guides](../start/installation)
+
+### Solution
+
+A Solution represents an isolated data environment, **designed for specific applications or IT solutions**.
+
+[Learn more about Solutions in Architecture](./architecture)
+
+### Context
+
+Each Context represents a distinct space within a Solution, where users can be assigned specific roles and permissions
+using public keys.
+
+[Learn more about Contexts in Architecture](./architecture)
+
+### API keys
+
+You can use API keys to receive Access Tokens required for authorizing requests between your application backend and PrivMX Bridge.
+
+[More information about API keys and authorization in PrivMX Bridge](../start/authorization)
+
+## PrivMX Endpoint
+
+PrivMX Endpoint is a set of libraries and wrappers ready to be configured and used with various programming languages and frameworks. Its core is a modular library written in C++.
+
+Learn more about how to use PrivMX Endpoint in your favorite language:
+
+<Cards>
+  <Card
+    href={"../cpp/introduction"}
+    title={"C++"}
+    icon={<Icon icon={"cpp"} />}
+  />
+  <Card
+    href={"../js/introduction"}
+    title={"JavaScript"}
+    icon={<Icon icon={"js"} />}
+  />
+  <Card
+    href={"../java/getting-started"}
+    title={"Java/Kotlin"}
+    icon={<Icon icon={"java"} />}
+  />
+    <Card
+    href={"../kotlin/introduction"}
+    title={"Kotlin"}
+    icon={<Icon icon={"kotlin"} />}
+  />
+  <Card
+    href={"../swift/getting-started"}
+    title={"Swift"}
+    icon={<Icon icon={"swift"} />}
+  />
+    <Card
+    href={"../csharp/introduction"}
+    title={"C#"}
+    icon={<Icon icon={"csharp"} />}
+  />
+</Cards>
+
+### User's Keys
+
+PrivMX Endpoint uses a private-public key pair to encrypt data before sending it to PrivMX Bridge.
+
+[More information about encryption in PrivMX Endpoint](./encryption)
+
+## Containers
+
+### Threads
+
+Thread container is a structured communication tool used for **message based communication**.
+
+Users create Threads to organize topic-specific conversations where they can securely **exchange encrypted messages** with designated
+participants. All the active users are **notified** right away when a new message arrives or anything within the Thread changes.
+
+[Learn more about working with Threads](../start/threads/overview)
+
+### Stores
+
+Store container is a structured data storage and communication tool used for **file exchange and management**.
+
+Users create Stores to organize topic-specific spaces where they can securely **upload encrypted files** and share them with designated
+participants. All the active users are **notified** right away when a file is uploaded or modified. Stores can be integrated with Threads.
+
+[Learn more about working with Stores](../start/stores/overview)
+
+### Inboxes
+
+Inbox container is a special kind of communication tool used for **one way communication with external users**.
+
+An authorized PrivMX user can create an Inbox, configure its snippet and place it in a desired place (like a webpage or an app).
+**Anonymous, unregistered users can send data to the Inbox**. This procedure uses Inbox Public Key, which allows to write data to an Inbox.
+One time access assures that the writer has no possibility of reading the data once it's sent.
+
+[Learn more about working with Inboxes](../start/inboxes/overview)

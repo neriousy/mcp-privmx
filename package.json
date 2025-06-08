@@ -9,18 +9,14 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
-    "test:components": "cd packages/mcp-server && npm run test:components",
     "clean": "turbo run clean",
     "mcp-server": "pnpm --filter @privmx/mcp-server",
     "mcp-server:dev": "pnpm --filter @privmx/mcp-server dev",
     "mcp-server:start": "pnpm --filter @privmx/mcp-server start",
+    "mcp-server:test": "pnpm --filter @privmx/mcp-server test-option-a",
     "cli": "pnpm --filter @privmx/mcp-cli start",
-    "cli:init": "pnpm --filter @privmx/mcp-cli start init",
-    "cli:index": "pnpm --filter @privmx/mcp-cli start index",
     "cli:status": "pnpm --filter @privmx/mcp-cli start status",
     "cli:search": "pnpm --filter @privmx/mcp-cli start search",
-    "cli:embeddings": "pnpm --filter @privmx/mcp-cli start embeddings",
-    "cli:qdrant": "pnpm --filter @privmx/mcp-cli start qdrant",
     "cli:clean": "pnpm --filter @privmx/mcp-cli start clean",
     "setup": "pnpm install && pnpm build"
   },
@@ -35,5 +31,11 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.0",
+    "unist-util-visit": "^5.0.0"
   }
 }

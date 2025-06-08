@@ -1,0 +1,317 @@
+---
+title: Uploading Files
+---
+      Tabs, Tab} from "fumadocs-ui/components/tabs"
+
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](./managing#initial-assumptions)** mentioned in [Managing Stores](./managing).
+
+:::
+
+In this section, we will guide you through the process of uploading a file to a Store. This process involves both uploading the file content and managing its associated metadata. Storing metadata, such as the file's name, and type, allows for easier identification and retrieval of files when needed.
+
+We highly recommend storing the file's metadata along with the file content to make it easier to manage and interact with the uploaded file in the future.
+
+## Small Files
+Writing whole file at once:
+<Tabs groupId="lang" items={["cpp","js","java","kotlin","swift"]}>
+<Tab value="cpp" label="C++">
+
+```cpp
+	// add file to the specified Store
+	auto sampleFileMeta {core::Buffer::from("sample file data")};
+
+    std::string exampleFileMeta = "{\"name\":\"some_file_name\"}";
+
+	auto fileHandle {storesApi.createFile(storeId, 
+	        core::Buffer::from("file's public meta-data"), 
+        	core::Buffer::from(exampleFileMeta),
+			sampleFileData.size()
+	)};
+
+	storesApi.writeToFile(fileHandle, sampleFileData);
+	auto fileId {storesApi.closeFile(fileHandle)};
+```
+</Tab>
+<Tab label="JavaScript" value="js">
+
+```js
+    // for example, let's put some extra file info in the file's private meta
+    const privateMeta = this.strToUint8(JSON.stringify({
+        name: file.name,
+        mimetype: file.type
+    });
+    const sampleFileData = this.strToUint8("sample file data");
+
+    const fileHandle = await storesApi.createFile(storeId, 
+        this.strToUint8("file's public meta-data"), 
+        privateMeta,
+        sampleFileData.length
+    );
+
+    await storesApi.writeToFile(fileHandle, sampleFileData);
+    const fileId = await storesApi.closeFile(fileHandle);
+
+```
+</Tab>
+
+<Tab label="Java" value="java">
+```java
+PrivmxEndpointContainer container = new PrivmxEndpointContainer();
+Long connectionID = 0L; // your connection ID
+StoreApi storeApi = container.getEndpoint(connectionID).storeApi;
+String storeID = "<YOUR_STORE_ID>";
+
+byte[] publicMeta = "File public meta".getBytes(StandardCharsets.UTF_8);
+byte[] privateMeta = "File private meta".getBytes(StandardCharsets.UTF_8);
+byte[] fileContent = "Text file content".getBytes(StandardCharsets.UTF_8);
+try {
+    StoreFileStreamWriter writer = StoreFileStreamWriter.createFile(
+            storeApi,
+            storeID,
+            publicMeta,
+            privateMeta,
+            fileContent.length
+    );
+    writer.write(fileContent);
+    String fileId = writer.close();
+}catch (Exception e){
+    System.out.println("Cannot upload file: " + e.getMessage());
+}
+```
+</Tab>
+
+
+<Tab label="Kotlin" value="Kotlin">
+```kotlin
+val container = PrivmxEndpointContainer()
+val connectionID = 0L // your connection ID
+val storeApi = container.getEndpoint(connectionID).storeApi
+val storeID = "<YOUR_STORE_ID>"
+
+val publicMeta = "File public meta".encodeToByteArray()
+val privateMeta = "File private meta".encodeToByteArray()
+val fileContent = "Text file content".encodeToByteArray()
+
+val fileId = StoreFileStreamWriter.createFile(
+    storeApi,
+    storeID,
+    publicMeta,
+    privateMeta,
+    fileContent.size.toLong()
+).run {
+    write(fileContent)
+    close()
+}
+```
+</Tab>
+
+
+<Tab label="Swift" value="swift">
+```swift
+struct FilePrivateMeta:Codable{
+    let name: String
+    let mimetype: String
+}
+
+let storeID = "STORE_ID"
+guard let fileContentData = "Text file content".data(using: .utf8 ) else {return}
+
+let filePrivateMeta = FilePrivateMeta(name: "Example text file", mimetype: "text/plain")
+guard let filePrivateMetaData = try? JSONEncoder().encode(filePrivateMeta) else {return}
+
+guard let privMXEndpoint =  endpointContainer.getEndpoint(connectionId) else {return}
+
+guard let storeFileHandle = try? privMXEndpoint.storeApi?.createFile(
+    in: storeID,
+    withPublicMeta: Data(),
+    withPrivateMeta: filePrivateMetaData,
+    ofSize: Int64(fileContentData.count))
+else {return}
+
+try? privMXEndpoint.storeApi?.writeToFile(withHandle: storeFileHandle, uploading: fileContentData)
+
+```
+</Tab>
+</Tabs>
+
+## Streaming
+
+For larger files or scenarios where you need more control over the upload process (e.g. managing upload progress, pausing, or canceling uploads), we recommend using streaming. 
+Streaming allows you to upload the file in chunks, enabling better interactivity, monitoring, and control.
+
+Streaming is especially useful when:
+- You need to upload large files and a single upload might take a long time;
+- You need the ability to cancel the upload in the middle of the process.
+
+Uploading large file - writing to Store chunk by chunks:
+
+<Tabs groupId="lang" items={["cpp","js","java","kotlin","swift"]}>
+
+<Tab value="cpp" label="C++">
+```cpp
+	std::string filePath {"file.zip"};
+	std::string filePrivMeta = "{\"name\":\"" +filePath+ "\"}";
+	auto sizeTotal = std::filesystem::file_size(filePath);
+
+	auto binaryFileHandle {storesApi.createFile(storeId, core::Buffer::from("file's public meta-data"), 
+        core::Buffer::from(filePrivMeta), sizeTotal
+	)};
+	
+	// read from disk and upload chunks to the Bridge
+	std::ifstream fin(filePath, std::ios::binary);
+    std::vector<char> buffer (1024,0);
+
+	while(!fin.eof()) {
+		auto chunkSize {fin.read(buffer.data(), buffer.size()).gcount()};
+		storesApi.writeToFile(binaryFileHandle, core::Buffer::from(buffer.data(), chunkSize));
+		if (!fin.good()) {
+			break;
+		}
+	}
+	auto binaryFileId {storesApi.closeFile(binaryFileHandle)};
+	fin.close();
+```
+
+</Tab>
+
+<Tab label="JavaScript" value="js">
+Let's say you have an Html input element in the page body:
+```html
+    <input type="file" id="inp"/>
+```
+    Now, access that above input element from the JS code and get a file from there:
+```js
+
+    const fileInput = document.getElementById('inp');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        return;
+    }
+
+    // prepare a stream to read from the file
+    const stream = fileInput.files[0].stream();
+    const name = fileInput.files[0].name;
+
+    const fHandle = await storesApi.createFile(storeId, 
+        this.strToUint8("file's public meta-data"), 
+        this.strToUint8(JSON.stringify({name})), 
+        fileSize
+    );
+
+    const reader = stream.getReader();
+    while( true ) {
+        const result = await reader.read();
+        if( !result || result.done ) { 
+            break; 
+        }
+        console.log("Writing the file's chunk to the Store...");
+        await storesApi.writeToFile(fHandle, result.value);
+    }
+    await storesApi.closeFile(fHandle);
+
+```
+</Tab>
+
+<Tab label="Java" value="java">
+```java
+PrivmxEndpointContainer container = new PrivmxEndpointContainer();
+Long connectionID = 0L; // your connection ID
+StoreApi storeApi = container.getEndpoint(connectionID).storeApi;
+String storeID = "<YOUR_STORE_ID>";
+
+byte[] publicMeta = "File public meta".getBytes(StandardCharsets.UTF_8);
+byte[] privateMeta = "File private meta".getBytes(StandardCharsets.UTF_8);
+StoreFileStream.Controller controller = new StoreFileStream.Controller(){
+    @Override
+    public void onChunkProcessed(Long processedBytes) {
+        System.out.println("Uploaded bytes: " + processedBytes);
+    }
+};
+
+try(InputStream iS = new FileInputStream("<PATH_TO_FILE>")) {
+    String fileId = StoreFileStreamWriter.createFile(
+            storeApi,
+            storeID,
+            publicMeta,
+            privateMeta,
+            iS.available(),
+            iS,
+            controller
+    );
+}catch (Exception e){
+    System.out.println("Cannot download file: " + e.getMessage());
+}
+```
+</Tab>
+
+
+<Tab label="Kotlin" value="Kotlin">
+```kotlin
+val container = PrivmxEndpointContainer()
+val connectionID = 0L // your connection ID
+val storeApi = container.getEndpoint(connectionID).storeApi
+val storeID = "<YOUR_STORE_ID>"
+
+val publicMeta = "File public meta".encodeToByteArray()
+val privateMeta = "File private meta".encodeToByteArray()
+val controller: StoreFileStream.Controller = object : StoreFileStream.Controller() {
+    override fun onChunkProcessed(processedBytes: Long) {
+        println("Downloaded bytes: $processedBytes")
+    }
+}
+
+val fileId = FileInputStream("<PATH_TO_FILE>").use { iS ->
+    StoreFileStreamWriter.createFile(
+        storeApi,
+        storeID,
+        publicMeta,
+        privateMeta,
+        iS.available().toLong(),
+        iS,
+        controller
+    )
+}
+```
+</Tab>
+
+
+<Tab label="Swift" value="swift">
+```swift
+struct FilePrivateMeta:Codable{
+    let name: String
+    let mimetype: String
+}
+let filePrivateMeta = FilePrivateMeta(name: "Filename.txt", mimetype: "text/plain")
+
+guard let filePrivateMetaData = try? JSONEncoder().encode(filePrivateMeta) else {return}
+
+    let storeID = "STORE_ID"
+    let URL = URL(fileURLWithPath: "/path/to/file/Filename.txt")
+
+    guard let fileHandle =  try? FileHandle(forReadingFrom: URL) else { return }
+    let fileSize:Int64 = 0 //to be provided by app
+
+
+    guard let filePrivateMetaData = try? JSONEncoder().encode(filePrivateMeta) else {return}
+
+    guard let privMXEndpoint =  endpointContainer.getEndpoint(connectionId) else {return}
+
+
+    let newFileId = try? await privMXEndpoint
+        .startUploadingNewFile(fileHandle,
+                                to: storeID,
+                                withPublicMeta: Data(),
+                                withPrivateMeta: filePrivateMetaData,
+                                sized: fileSize)
+```
+</Tab>
+</Tabs>
+
+## Notes
+
+- **Metadata**: helps you identify files later on by storing additional information about them. You can use both private metada (which might contain sensitive or internal data) and public metada (which can be shared publicly).
+- **Error Handling**: During the streaming process, it's important to handle potential errors, such as network interruptions, by using try-catch blocks and the ability to abort the upload.
+- **Progress Monitoring**: Streaming enables you to monitor the progress of the file upload, allowing you to display the current upload percentage to the user.
+

@@ -1,0 +1,67 @@
+---
+title: Policy Builders
+---
+
+
+
+
+PrivMX Endpoint has configurable policies that determine who can perform specified actions in Containers and Items. To learn more about them see the [Policies documentation](../start/concepts/policies).
+
+
+PrivMX Endpoint Swift Extra package provides an enumeration of possible policy values in `ItemPolicyValue`, `ContainerPolicyValue` and `SpecialPolicyValue` enums; as well as `ItemPolicyBuilder` and `ContainerPolicyBuilder` classes for configuring the respective Policies.
+
+## Combining Policy Values
+
+Some policy values like `ContainerPolicyComplexValue` or `ItemPolicyComplexValue` can be combined
+with the same type of policy value using `.AND()` or `.OR()` methods.
+
+## Configuring a Container Policy
+
+Not configured builder will create an empty policy, which is equivalent to setting `inherit` in all fields. To configure it, call the methods responsible for setting particular policies.
+Those calls can be chained together, since each of the methods setting a policy value returns the reference to the builder.
+The `ContainerPolicyBuilder` can build both `ContainerPolicy` and `ContainerPolicyWithoutItem` by calling `.build()` and `.buildWithoutItem()` respectively.
+
+To build the `ItemPolicy`, use `ItemPolicyBuilder` which works in the same way as `ContainerPolicyBuilder`:
+
+
+<Tabs groupId="variant" items={["Container Policy","Container Policy without Item","Item Policy"]}>
+<Tab>
+```swift
+ ContainerPolicyBuilder()
+                .setUpdate(.all)
+                .setGet(.all)
+                .setItem(ItemPolicyBuilder()
+                        .setUpdate(
+                            .itemOwner
+                            .or(.manager)
+                            .or(.owner.and(.user)))
+                        .setGet(.all)
+                        .build())
+                .build()
+```
+</Tab>
+
+<Tab>
+```swift
+ ContainerPolicyBuilder()
+            .setUpdate(.all)
+            .setGet(.all)
+            .buildWithoutItem()
+```
+</Tab>
+
+<Tab>
+```swift
+ItemPolicyBuilder()
+	.setUpdate(
+	    .itemOwner
+        .or(.manager)
+        .or(.owner
+            .and(.user)
+            )
+        )
+	.setGet(.all)
+	.build()
+```
+</Tab>
+</Tabs>

@@ -1,0 +1,35 @@
+---
+title: Overview
+---
+
+This part of the documentation describes our solutions to simplify working with PrivMX Endpoint C++ library inside Swift projects.
+
+## Libraries
+
+### PrivMX Endpoint Swift Extra
+
+PrivMX Endpoint Swift Extra is the basic **recommended library** for using the Platform in most cases. 
+It contains all the logic that makes using our libraries simple and secure. 
+It can be used on any Apple platform (iOS/macOS/simulators).
+
+This library implements:
+
+- Enums and static fields to reduce errors while using the methods.
+- [`PrivmxEndpoint`](./reference/privmx-endpoint-swift-extra/core/privmx-endpoint) for managing connection and registering callbacks on any events.
+- [`PrivmxEndpointContainer`](./reference/privmx-endpoint-swift-extra/core/privmx-endpoint-container) for managing global session with implemented event loop.
+- Classes to simplify reading/writing to files using byte arrays and FileHandles.
+
+[Go to Reference](./reference/privmx-endpoint-swift-extra/core/privmx-endpoint) for a detailed description of each class.
+
+### PrivMX Endpoint Swift
+
+PrivMX Endpoint Swift is the minimal wrapper library, crucial for the Platform's functioning. It declares native functions in Swift using C++ interoperability, so it's crucial to turn it on in compiler Settings.
+
+This library implements models, exception catching, and the following modules:
+- `CryptoApi` - Cryptographic methods used to encrypt/decrypt and sign your data or generate keys to work with PrivMX Bridge.
+- `Connection` - Methods for managing connection with PrivMX Bridge.
+- `ThreadApi` - Methods for managing Threads and sending/reading messages.
+- `StoreApi` - Methods for managing Stores and sending/reading files.
+- `InboxApi` - Methods for managing Inboxes and entries.
+
+[PrivMX Endpoint Swift API Reference](../reference/privmx-endpoint-swift/core/backend-requester)

@@ -1,0 +1,37 @@
+---
+title: Overview
+---
+
+This part of the documentation describes our solutions to simplify working with PrivMX Endpoint library on the .NET platform.
+
+## Requirements
+
+PrivMX Endpoint for C# are .NET Standard 2.1 libraries, which can be running using .NET Runtime, Mono or Unity.
+
+Supported runtimes are:
+    - Windows: `win-x64`
+    - Linux: `linux-x64`
+    - macOS: `osx-arm64`
+
+Additionally, in progress and available soon:
+    - iOS: `ios-arm64`
+    - Android: `android-arm64`, `android-arm`
+
+## Libraries
+
+### PrivMX Endpoint C#
+
+PrivMX Endpoint C# is the minimal native library wrapper. It declares import functions using Platform Invoke
+(P/Invoke) and maps data between native objects and C# objects.
+
+For detailed descriptions of each class, see [API Reference](../reference/privmx-endpoint-csharp/core/backend-requester)
+or the source code on [GitHub](https://github.com/simplito/privmx-endpoint-csharp).
+
+### PrivMX Endpoint C# Extra
+
+PrivMX Endpoint C# Extra provides additional functionality for PrivMX Endpoint C#.
+It adds asynchronous methods, additional abstraction of event dispatching, reading and writing files.
+This package is the recommended for using PrivMX in most cases.
+
+For detailed descriptions of each class, see [API Reference](../reference/privmx-endpoint-csharp-extra/core/async-connection)
+or the source code on [GitHub](https://github.com/simplito/privmx-endpoint-csharp-extra).

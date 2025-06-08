@@ -1,0 +1,81 @@
+---
+title: Inbox Updates
+---
+
+      Tabs, Tab} from "fumadocs-ui/components/tabs"
+
+
+Events play a crucial role in modern applications, allowing them to instantly respond to changes in stored data. Monitoring and reacting to entries and Inbox-related events, is essential for maintaining up-to-date records, triggering workflows, and ensuring synchronization across various parts of the system.
+
+## Types of Events
+
+Before receiving Events, your application must first subscribe to a group of events.
+In the case of Inbox, types of events are the following:
+
+Inbox events:
+- `inboxCreated` - triggers when a new Inbox is created in your Context
+- `inboxDeleted` - triggers when an Inbox is deleted from your Context
+- `inboxUpdated` - triggers when an Inbox is updated in your Context
+
+Entry events:
+- `inboxEntryCreated` - triggers when an entry is sent to an Inbox
+- `inboxEntryDeleted` - triggers when an entry is deleted from an Inbox
+
+## Handling Inbox Events
+
+:::info
+
+The sample code on this page is based on the same **[assumptions](./usage#initial-assumptions)** mentioned in [Working with Inboxes](./usage).
+
+:::
+
+Here is an example of how to do it in your own project:
+<Tabs groupId="lang" items={["JavaScript"]}>
+
+<Tab >
+Start by getting `eventQueue` instance using Endpoint:
+
+```js
+const eventQueue = await Endpoint.getEventQueue()
+```
+
+`EventQueue` provides `waitEvent` method that blocks main browser's thread.
+To avoid freezing the entire app:
+
+```js
+    const eventQueue = await EndpointFactory.getEventQueue();
+    let listenForEventsPromise = null;
+
+    function listenForEvents(queue) {
+        if (!listenForEventsPromise) {
+            listenForEventsPromise = queue.waitEvent();
+            listenForEventsPromise.then(result => {
+                console.log("Event Received:", result);
+                listenForEventsPromise = null;
+                listenForEvents(queue);
+            })
+        }
+    }
+
+    listenForEvents(eventQueue);
+```
+</Tab>
+</Tabs>
+
+You can now subscribe for events you need:
+<Tabs groupid="lang" items={["JavaScript"]}>
+    <Tab >
+        ```js
+        await inboxApi.subscribeForInboxEvents()
+        ```
+        or
+        ```js
+        await inboxApi.subscribeForEntryEvents(inboxID)
+        ```
+        When no longer needed, you can unsubscribe from events:
+
+        ```js
+        await inboxApi.unSubscribeForInboxEvents()
+        ```
+    </Tab>
+</Tabs>

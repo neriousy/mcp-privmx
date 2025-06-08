@@ -1,0 +1,269 @@
+---
+title: Overview
+---
+
+
+
+
+Threads are a secure way for assigned members to exchange encrypted messages.
+
+:::info
+
+Before working with Threads, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+The sample code on this page is based on the same **[assumptions](./first-app#initial-assumptions)**
+
+:::
+
+
+## Working with Threads
+
+When working with Threads, you will use the following:
+- `ThreadApi` - provides methods used to manage Threads in given Context
+
+```js
+const threadApi  = await Endpoint.createThreadApi(connection);
+```
+## Creating Threads
+<Tabs groupId="variant" items={["Basic","With a Name","Public Meta"]}>
+<Tab >
+Creating a basic, unnamed Thread, which can act as an encrypted data container:
+
+```js
+const managers = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY}
+];
+
+const users = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY},
+    {userId: USER2_ID, pubKey: USER2_PUBLIC_KEY}
+];
+
+// create a new Thread with access for USER_1 as manager and USER_2 as regular user
+const threadId = await threadsApi.createThread(CONTEXT_ID, users, managers,
+    serializeObject("some thread's public meta-data"),
+    serializeObject("some thread's private meta-data")
+);
+```
+</Tab>
+ <Tab >
+
+You can assign any data to private and public meta fields (e.g. the Thread's name), as long as they are serialized to `Uint8Array`.
+```js
+const privateMeta = {
+    name: 'First thread'
+};
+
+const managers = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY}
+];
+
+const users = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY},
+    {userId: USER2_ID, pubKey: USER2_PUBLIC_KEY}
+];
+
+// create a new Thread with access for user_1 as manager and user_2 as regular user
+const threadId = await threadsApi.createThread(CONTEXT_ID, users, managers,
+    serializeObject("some thread's public meta-data"),
+    serializeObject(privateMeta)
+);
+```
+
+
+</Tab>
+<Tab >
+
+You can implement a tag system which allows you to create Threads with arbitrary tags.
+Putting them inside `publicMeta` gives your own server ability to access it using [PrivMX Bridge API](https://bridge.privmx.dev/).
+
+```js
+const privateMeta = {
+    name: 'First Thread'
+};
+
+const publicMeta = {
+    tags: ['TAG1', 'TAG2', 'TAG3']
+};
+
+const managers = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY}
+];
+
+const users = [
+    {userId: USER1_ID, pubKey: USER1_PUBLIC_KEY},
+    {userId: USER2_ID, pubKey: USER2_PUBLIC_KEY}
+];
+
+// create a new Thread with access for USER_1 as manager and USER_2 as regular user
+const threadId = await threadsApi.createThread(CONTEXT_ID, users, managers,
+    serializeObject(publicMeta),
+    serializeObject(privateMeta)
+);
+```
+
+</Tab>
+</Tabs>
+
+
+## Fetching Threads
+
+<Tabs groupId="variant" items={["Recent","Sorting","ThreadID","Paging"]}>
+<Tab value="recent" label="Most Recent">
+Fetching the most recent Threads in given Context:
+
+```js
+const defaultListQuery = {skip: 0, limit: 100, sortOrder: "desc"};
+const threadList = await threadApi.listThreads(CONTEXT_ID, defaultListQuery);
+```
+As a result you will receive an object:
+```js
+// threadList:
+{
+    readItems: [<threadObject1>, <threadObject2>,..., <threadObjectN>],
+    totalAvailable: <number_of_all_threads>
+}
+```
+
+</Tab>
+
+<Tab value={"sorting"} label={"Oldest Threads"}>
+Fetching the oldest Threads (by creation date) in given Context:
+
+```js
+const defaultListQuery = {skip: 0, limit: 100, sortOrder: "asc"};
+const threadList = await threadApi.listThreads(CONTEXT_ID, defaultListQuery);
+```
+As a result you will receive an object:
+```js
+// threadList:
+{
+    readItems: [<threadObject1>, <threadObject2>,..., <threadObjectN>],
+    totalAvailable: <number_of_all_threads>
+}
+```
+
+</Tab>
+
+<Tab value={"threadID"} label={"By Thread ID"}>
+You can get info about a Thread using its `threadId`:
+
+```js
+const thread = await threadApi.getThread(
+    threadId    
+);
+
+const privateMeta = deserializeObject(thread.privateMeta);
+const publicMeta = deserializeObject(thread.publicMeta);
+```
+As a result you will receive an `Thread` object.
+</Tab>
+
+<Tab value={"paging"} label={"Paging"}>
+You can change how many items are on a page using `limit` in options object:
+```js
+
+const defaultListQuery = {skip: 50, limit: 20, sortOrder: "asc"};
+const threadList = await threadApi.listThreads(CONTEXT_ID, defaultListQuery);
+
+```
+As a result you will receive an object:
+```js
+// threadList:
+{
+    readItems: [THREAD_1,THREAD_2,THREAD_3],
+    totalAvailable: NUMBER_OF_THREADS
+}
+```
+</Tab>
+</Tabs>
+
+A detailed description of the `Thread` object fields can be found [here](../reference/webendpoint/api-reference/types#thread).
+
+## Modifying Threads
+
+
+### How Updates Work
+To update a Thread you must always provide a full list of parameters.
+
+The `updateThread(...)` method needs all the parameters as in the `createThread(...)` method and a few more. If we want to update
+one of the parameters - we provide it in a new modified form. If - on the other hand - we want to leave
+the parameter unchanged, we provide it as it was before. All current values ​​of the parameters of a given Thread can be
+obtained using `getThread(threadId)`
+
+<Tabs items={["Renaming Thread","Removing User","Deleting Thread"]}>
+<Tab>
+
+```js
+const thread = await threadApi.getThread(threadId);
+
+const newUsers = thread.users.map(user => ({
+    //Your application must provide a way,
+    //to get user's public key from their userId.
+    userId: user,
+    pubKey: 'USER_PUBLIC_KEY'
+    })
+);
+
+const newManagers = newUsers.filter(user =>
+    thread.managers.find(manager => manager == user.userId));
+
+const newPrivateMeta = {
+    title: 'New thread name'
+};
+
+await threadApi.updateThread(
+    threadId
+    newUsers,
+    newManagers,
+    thread.publicMeta,
+    serializeObject(newPrivateMeta),
+    thread.version,
+    false,
+    false
+);
+```
+
+</Tab>
+<Tab>
+To remove a user from the Thread you must update a list of the users/managers by removing the user you want to get rid of.
+All the other values required for update can be taken from the current Thread.
+
+```js
+const thread = await threadApi.getThread(threadId);
+
+// Get all users who were in the Thread,
+// besides the one you want to remove:
+const newUsers = thread.users
+  .filter(user => user !== userToRemove)
+  .map(user => ({
+    // Your application must provide a way,
+    // to get user's public key from their userId.
+    userId: user,
+    pubKey: 'USER_PUBLIC_KEY'
+  }));
+
+const newManagers = newUsers.filter(user =>
+  thread.managers.find(manager => manager == user.userId)
+);
+
+await threadApi.updateThread(
+  threadId,
+  newUsers,
+  newManagers,
+  thread.publicMeta,
+  thread.privateMeta,
+  thread.version,
+  false,
+  false
+);
+```
+
+</Tab>
+<Tab>
+The snippet below deletes Thread and all its data. This action is irreversible.
+
+```js
+await threadApi.deleteThread(threadId);
+```
+</Tab>
+</Tabs>

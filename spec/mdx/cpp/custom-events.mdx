@@ -1,0 +1,85 @@
+---
+title: Custom Events
+description: Custom events allow emitting and receiving data of any shape in a secure, end-to-end encrypted way.
+---
+
+Custom events allow you to send information to specific groups of users. The data will not be stored anywhere. 
+For an event to reach the recipient, the recipient must be subscribed to the channel on which you are emitting the event at that moment.
+
+:::info
+
+Before working with Custom Events, follow our [Getting Started Guide](./introduction). It will show you how to set up your project to work with PrivMX Bridge.
+
+Sample code on this page is based on the **[initial assumptions](./first-app#initial-assumptions)**.
+
+:::
+
+
+
+## Working with Custom Events
+
+### Key Considerations
+
+Please note the following:
+
+- Events will only trigger for active connections.
+- Events are not captured unless explicitly listened for.
+- A single instance of the `eventQueue` is shared across all connections.
+
+
+### Emitting and Handling Custom Events
+Below there is simple code example of how to emit an Event with the custom payload and then how to handle it when it arrives to the recipients.
+
+```cpp
+// ...
+
+#include <privmx/endpoint/core/Connection.hpp>
+#include <privmx/endpoint/event/EventApi.hpp>
+#include <privmx/endpoint/core/Buffer.hpp>
+#include <privmx/endpoint/core/EventQueue.hpp>
+#include <privmx/endpoint/event/Events.hpp>
+
+// ...
+
+core::EventQueue eventQueue {core::EventQueue::getInstance()};
+
+// Start the EventQueue reading loop
+std::thread t([&](){
+    while(true) {
+        core::EventHolder event = eventQueue.waitEvent();
+        if (event::Events::isContextCustomEvent(event)) {
+            auto customEvent = event::Events::extractContextCustomEvent(event);
+            std::cout << "Received event:" << std::endl;
+            std::cout << "contextId: " << customEvent.data.contextId << std::endl;
+            std::cout << "sender: " << customEvent.data.userId << std::endl;
+            std::cout << "payload: " << customEvent.data.payload.stdString() << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+});
+
+// initialize Endpoint connection and the Event API
+auto connection {core::Connection::connect(USER1_PRIVATE_KEY, SOLUTION_ID, BRIDGE_URL)};
+auto eventApi {event::EventApi::create(connection)};
+
+// Subscribe for the Thread's events
+eventApi.subscribeForCustomEvents(CONTEXT_ID, "myChannel");
+
+// sending event to myself
+std::vector<core::UserWithPubKey> recipients {
+    {.userId = USER1_ID, .pubKey = USER1_PUBLIC_KEY}
+};
+
+// Emit event
+eventApi.emitEvent(
+    CONTEXT_ID, 
+    recipients, 
+    "myChannel", 
+    core::Buffer::from("some data")
+);
+
+t.join();
+
+```
+
+A full code example can be found on [Simplito's GitHub](https://github.com/simplito/privmx-endpoint/tree/main/examples).

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "privmx": {
+      "command": "tsx",
+      "args": [
+        "/home/neriousy/programming/mcp-privmx/packages/mcp-server/src/langchain-server.ts"
+      ]
+    }
+  }
+}

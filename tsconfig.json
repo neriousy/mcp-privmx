@@ -15,10 +15,6 @@
     "incremental": true,
     "composite": true
   },
-  "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/mcp-server" },
-    { "path": "./apps/cli" }
-  ],
+  "references": [{ "path": "./packages/mcp-server" }],
   "files": []
-} 
+}
