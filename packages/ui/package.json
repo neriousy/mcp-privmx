@@ -15,7 +15,6 @@
   },
   "scripts": {
     "build": "tsup && tsc-alias -p tsconfig.json",
-    "dev": "tsup --watch",
     "lint": "eslint src/",
     "clean": "rm -rf dist",
     "check-types": "tsc --noEmit"

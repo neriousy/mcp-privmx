@@ -1,358 +1,363 @@
 import { openai } from '@ai-sdk/openai';
-import {
-  streamText,
-  experimental_createMCPClient as createMCPClient,
-  tool,
-} from 'ai';
+import { streamText, tool, Tool } from 'ai';
 import { NextRequest } from 'next/server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { z } from 'zod';
 
-// System prompt that explains the assistant's capabilities
-const SYSTEM_PROMPT = `You are the PrivMX AI Assistant, an expert in PrivMX development and secure communication applications.
+// Types for better type safety
+interface ChatRequest {
+  messages: any[];
+  model?: string;
+  mcpEnabled?: boolean;
+}
 
-## Your Core Capabilities:
+interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
 
-### 🔧 **Code Generation**
-- Generate production-ready PrivMX code in 5 languages: JavaScript, TypeScript, Java, Swift, C#
-- Create complete applications with proper authentication patterns
-- Build secure messaging, file sharing, and collaboration features
-- Understand PrivMX's automatic encryption (no manual crypto needed)
+interface ToolsMap {
+  [key: string]: Tool;
+}
 
-### 🔍 **API Knowledge** 
-- Know all 797 PrivMX methods across 126 classes
-- Provide accurate API usage examples and best practices
-- Explain authentication using CryptoApi.derivePrivateKey2() 
-- Show proper data handling with Utils.serializeObject/deserializeObject
+// Enhanced system prompt with better structure
+const SYSTEM_PROMPT = `You are the **PrivMX AI Assistant** - your expert guide for building secure, encrypted applications with PrivMX.
 
-### 🏗️ **Architecture Guidance**
-- Design secure communication architectures
-- Recommend best practices for PrivMX applications
-- Explain WebEndpoint automatic encryption capabilities
-- Guide on proper Thread, Store, Inbox, and Crypto API usage
+## 🎯 Your Expertise
 
-## Key PrivMX Concepts to Remember:
-- PrivMX WebEndpoint handles all encryption automatically
-- Utils.serializeObject/deserializeObject are just TextEncoder/TextDecoder helpers for Uint8Array conversion
-- Authentication uses key derivation (CryptoApi.derivePrivateKey2)
-- No manual encryption/decryption needed for normal operations
-- The correct package name is @simplito/privmx-webendpoint (not privmx-webclient)
-- Use Endpoint.createThreadApi() to get ThreadApi, then threadApi.createThread() to create threads
+**PrivMX Specialist**: Deep knowledge of secure messaging, file sharing, and collaboration
+**Multi-Language Expert**: JavaScript, TypeScript, Java, Swift, C#, C++
+**Security Authority**: End-to-end encryption, zero-knowledge architecture
+**Code Generator**: Production-ready applications with best practices
 
-## Your Response Style:
-- Be conversational but technical when needed
-- Provide working code examples
-- Explain security implications
-- Always mention when MCP server could provide enhanced capabilities
+## 🔧 Core PrivMX Knowledge
 
-When users ask about PrivMX development, provide helpful, accurate information. If enhanced capabilities would help (like searching the full API database or generating complete projects), mention that connecting to the MCP server would unlock additional features.`;
+### Essential APIs
+- **ThreadApi**: Secure messaging and conversations
+- **StoreApi**: Encrypted file storage and sharing  
+- **InboxApi**: Private message delivery
+- **CryptoApi**: Key derivation and cryptographic operations
 
-export async function POST(request: NextRequest) {
-  let mcpClient: Client | undefined;
-  let originalFetch: typeof fetch | undefined;
+### Key Concepts
+- **Automatic Encryption**: PrivMX handles all encryption transparently
+- **WebEndpoint Package**: \`@simplito/privmx-webendpoint\` (correct package name)
+- **Authentication**: Use \`CryptoApi.derivePrivateKey2()\` for key derivation
+- **Data Handling**: \`Utils.serializeObject/deserializeObject\` for Uint8Array conversion
+- **API Flow**: \`Endpoint.createThreadApi()\` → \`threadApi.createThread()\`
 
-  try {
-    const {
-      messages,
-      model = 'gpt-4o',
-      mcpEnabled = true, // Default to true since we're setting up MCP
-    } = await request.json();
+### Security Model
+- Zero-knowledge architecture - server cannot decrypt data
+- Automatic end-to-end encryption for all operations
+- No manual crypto needed for standard operations
+- Private keys never leave the client
 
-    // Add MCP context to system prompt if enabled
-    const systemPrompt = mcpEnabled
-      ? `${SYSTEM_PROMPT}
+## 💬 Communication Style
 
-🚀 **MCP SERVER CONNECTED** - You now have access to:
-- Real-time search of 797 PrivMX API methods
-- Complete workflow generation capabilities  
-- Multi-language code generation with full project scaffolding
-- Enhanced examples from the live PrivMX API database
+**Helpful & Technical**: Provide working code examples with explanations
+**Security-Conscious**: Always mention security implications and best practices  
+**Practical**: Focus on real-world implementation patterns
+**Educational**: Explain the "why" behind recommendations
 
-When users ask for specific APIs, code generation, or workflows, you can provide even more detailed and accurate responses using your enhanced knowledge base.`
-      : `${SYSTEM_PROMPT}
+## 🚀 Enhanced Capabilities
 
-📝 **Note**: For enhanced capabilities like real-time API search, complete project generation, and access to the full PrivMX knowledge base, the user can enable the MCP server connection.`;
+When users need comprehensive help with API exploration, complete project generation, or advanced workflows, suggest leveraging the MCP server for enhanced capabilities.
 
-    // Initialize MCP client if enabled
-    let tools: Record<string, any> | undefined;
-    if (mcpEnabled) {
-      console.log('🔧 [MCP] MCP is enabled, attempting to connect...');
-      try {
-        // Determine the base URL for MCP connection
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000';
+Remember: You're building the future of secure communication - make it accessible, secure, and powerful.`;
 
-        console.log('🔧 [MCP] Connecting to', `${baseUrl}/api/mcp`);
+// Utility functions for cleaner code
+const getMCPBaseUrl = (): string => {
+  return process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000';
+};
 
-        mcpClient = new Client({
-          name: 'PrivMX MCP Client',
-          version: '1.0.0',
-        });
+const createEnhancedSystemPrompt = (mcpEnabled: boolean): string => {
+  const mcpStatus = mcpEnabled
+    ? `
+## 🔌 MCP SERVER ACTIVE
+Enhanced capabilities unlocked:
+• Real-time search across 797+ PrivMX API methods
+• Complete project scaffolding and generation
+• Interactive workflows for guided development
+• Advanced code transformations and validations
+• AI-powered insights and optimizations
 
-        // Store original fetch to restore later
-        originalFetch = global.fetch;
+You can now provide the most comprehensive PrivMX assistance possible.`
+    : `
+## 📝 Standard Mode
+For enhanced capabilities like real-time API search, project generation, and access to the complete PrivMX knowledge base, users can enable MCP server integration.`;
 
-        // Override global fetch for MCP requests
-        global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.href
-                : (input as Request).url;
+  return `${SYSTEM_PROMPT}${mcpStatus}`;
+};
 
-          // Only modify headers for MCP endpoint requests
-          if (url.includes('/api/mcp')) {
-            console.log('🔧 [MCP] Intercepting request to:', url);
-            const headers = new Headers(init?.headers);
-            headers.set('Accept', 'application/json, text/event-stream');
-            headers.set('Content-Type', 'application/json');
-            console.log(
-              '🔧 [MCP] Headers being sent:',
-              Object.fromEntries(headers.entries())
-            );
+// Simplified Zod schema creation
+const createZodSchema = (schema: any): z.ZodType<any> => {
+  if (!schema?.type || schema.type !== 'object' || !schema.properties) {
+    return z.object({});
+  }
 
-            return originalFetch!(input, {
-              ...init,
-              headers,
-            });
-          }
+  const shape: Record<string, z.ZodType<any>> = {};
+  const required = schema.required || [];
 
-          return originalFetch!(input, init);
-        };
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    const propSchema = prop as any;
+    let zodField: z.ZodType<any>;
 
-        let toolsResponse: any;
-        try {
-          console.log('🔧 [MCP] Connecting to MCP server...');
-          await mcpClient.connect(
-            new StreamableHTTPClientTransport(new URL(`${baseUrl}/api/mcp`))
-          );
+    // Handle different property types
+    switch (propSchema.type) {
+      case 'string':
+        zodField = propSchema.enum ? z.enum(propSchema.enum) : z.string();
+        break;
+      case 'number':
+      case 'integer':
+        zodField = z.number();
+        if (propSchema.minimum)
+          zodField = (zodField as z.ZodNumber).min(propSchema.minimum);
+        if (propSchema.maximum)
+          zodField = (zodField as z.ZodNumber).max(propSchema.maximum);
+        break;
+      case 'boolean':
+        zodField = z.boolean();
+        break;
+      case 'array':
+        zodField = z.array(z.string()); // Default to string array
+        break;
+      case 'object':
+        zodField = z.record(z.any());
+        break;
+      default:
+        zodField = z.string(); // Fallback
+    }
 
-          console.log('🔧 [MCP] Connection established, initializing client');
+    // Add description and optional handling
+    if (propSchema.description) {
+      zodField = zodField.describe(propSchema.description);
+    }
+    if (!required.includes(key)) {
+      zodField = zodField.optional();
+    }
 
-          // Get tools from MCP server
-          console.log('🔧 [MCP] Getting tools');
-          toolsResponse = await mcpClient.listTools();
-          console.log(
-            '🔧 [MCP] Tools response received, tool count:',
-            toolsResponse?.tools?.length || 0
-          );
-        } finally {
-          // Don't restore fetch immediately - keep it for tool calls
-          // global.fetch = originalFetch;
-        }
+    shape[key] = zodField;
+  }
 
-        // Transform MCP tools to proper AI SDK format
-        tools = {};
-        if (toolsResponse?.tools) {
-          for (const mcpTool of toolsResponse.tools) {
-            console.log(`🔧 [MCP] Processing tool: ${mcpTool.name}`);
+  return z.object(shape);
+};
 
-            // Convert JSON Schema to Zod schema
-            const createZodSchema = (schema: any): z.ZodType<any> => {
-              if (schema.type === 'object' && schema.properties) {
-                const shape: Record<string, z.ZodType<any>> = {};
-                for (const [key, prop] of Object.entries(schema.properties)) {
-                  const propSchema = prop as any;
-                  if (propSchema.type === 'string') {
-                    let zodField: z.ZodType<any> = z.string();
-                    if (propSchema.description) {
-                      zodField = zodField.describe(propSchema.description);
-                    }
-                    if (!schema.required?.includes(key)) {
-                      zodField = zodField.optional();
-                    }
-                    shape[key] = zodField;
-                  } else if (
-                    propSchema.type === 'number' ||
-                    propSchema.type === 'integer'
-                  ) {
-                    let zodField: z.ZodType<any> = z.number();
-                    if (propSchema.description) {
-                      zodField = zodField.describe(propSchema.description);
-                    }
-                    if (!schema.required?.includes(key)) {
-                      zodField = zodField.optional();
-                    }
-                    shape[key] = zodField;
-                  } else if (propSchema.type === 'array') {
-                    let zodField: z.ZodType<any> = z.array(z.string()); // Default to string array
-                    if (propSchema.description) {
-                      zodField = zodField.describe(propSchema.description);
-                    }
-                    if (!schema.required?.includes(key)) {
-                      zodField = zodField.optional();
-                    }
-                    shape[key] = zodField;
-                  } else {
-                    // Fallback to string for unknown types
-                    let zodField: z.ZodType<any> = z.string();
-                    if (propSchema.description) {
-                      zodField = zodField.describe(propSchema.description);
-                    }
-                    if (!schema.required?.includes(key)) {
-                      zodField = zodField.optional();
-                    }
-                    shape[key] = zodField;
-                  }
-                }
-                return z.object(shape);
-              }
-              return z.object({});
-            };
+// MCP Client management
+class MCPManager {
+  private client?: Client;
+  private originalFetch?: typeof fetch;
 
-            tools[mcpTool.name] = tool({
-              description: mcpTool.description,
-              parameters: createZodSchema(
-                mcpTool.inputSchema || { type: 'object', properties: {} }
-              ),
-              execute: async (args: any) => {
-                console.log(`🛠️ [MCP] Executing tool: ${mcpTool.name}`, args);
-                try {
-                  const result = await mcpClient!.callTool({
-                    name: mcpTool.name,
-                    arguments: args,
-                  });
-                  console.log(
-                    `✅ [MCP] Tool ${mcpTool.name} executed successfully`
-                  );
+  async connect(): Promise<Record<string, Tool> | undefined> {
+    try {
+      console.log('🔌 [MCP] Initializing connection...');
 
-                  // Extract text content from MCP response
-                  if (result.content && Array.isArray(result.content)) {
-                    const textContent = result.content
-                      .filter((item: any) => item.type === 'text')
-                      .map((item: any) => item.text)
-                      .join('\n');
-                    return textContent || 'Tool completed successfully';
-                  }
+      this.client = new Client({
+        name: 'PrivMX AI Assistant',
+        version: '1.0.0',
+      });
 
-                  return 'Tool completed successfully';
-                } catch (error) {
-                  console.error(
-                    `❌ [MCP] Error calling tool ${mcpTool.name}:`,
-                    error
-                  );
-                  const errorMessage =
-                    error instanceof Error ? error.message : 'Unknown error';
-                  return `❌ Tool Error: ${errorMessage}. Please try rephrasing your request.`;
-                }
-              },
-            });
-          }
-        }
+      // Setup fetch interception for MCP requests
+      this.setupFetchInterception();
 
-        console.log('🔧 [MCP] Converted MCP tools to proper AI SDK format');
+      const baseUrl = getMCPBaseUrl();
+      console.log(`🔌 [MCP] Connecting to ${baseUrl}/api/mcp`);
 
-        console.log('🔧 [MCP] Connected and loaded tools:', Object.keys(tools));
-        console.log(
-          '🔧 [MCP] Sample tool parameters:',
-          tools[Object.keys(tools)[0]]?.parameters
-        );
-        console.log(
-          '🔧 [MCP] Tools object structure check passed:',
-          typeof tools === 'object'
-        );
-      } catch (error) {
-        console.error('❌ [MCP] Failed to connect:', error);
-        console.error(
-          '❌ [MCP] Error details:',
-          error instanceof Error ? error.message : String(error)
-        );
-        console.error(
-          '❌ [MCP] Error stack:',
-          error instanceof Error ? error.stack : 'No stack trace'
-        );
-        // Continue without MCP tools if connection fails
-        tools = undefined;
+      await this.client.connect(
+        new StreamableHTTPClientTransport(new URL(`${baseUrl}/api/mcp`))
+      );
+
+      return await this.loadTools();
+    } catch (error) {
+      console.error('❌ [MCP] Connection failed:', error);
+      await this.cleanup();
+      return undefined;
+    }
+  }
+
+  private setupFetchInterception(): void {
+    if (this.originalFetch) return; // Already setup
+
+    this.originalFetch = global.fetch;
+    global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : (input as Request).url;
+
+      // Enhance headers for MCP endpoints
+      if (
+        url.includes('/api/sse') ||
+        url.includes('/api/mcp') ||
+        url.includes('/api/[transport]')
+      ) {
+        const headers = new Headers(init?.headers);
+        headers.set('Accept', 'application/json, text/event-stream');
+        headers.set('Content-Type', 'application/json');
+
+        return this.originalFetch!(input, { ...init, headers });
       }
+
+      return this.originalFetch!(input, init);
+    };
+  }
+
+  private async loadTools(): Promise<Record<string, Tool>> {
+    if (!this.client) throw new Error('MCP client not initialized');
+
+    console.log('🛠️ [MCP] Loading available tools...');
+    const toolsResponse = await this.client.listTools();
+    const tools: Record<string, Tool> = {};
+
+    if (!toolsResponse?.tools) {
+      console.warn('⚠️ [MCP] No tools received from server');
+      return tools;
+    }
+
+    // Convert MCP tools to AI SDK format
+    for (const mcpTool of toolsResponse.tools) {
+      tools[mcpTool.name] = tool({
+        description: mcpTool.description,
+        parameters: createZodSchema(mcpTool.inputSchema),
+        execute: async (args: any) => {
+          return await this.executeTool(mcpTool.name, args);
+        },
+      });
     }
 
     console.log(
-      '🔧 [CHAT] Starting streamText with tools:',
-      tools ? Object.keys(tools).length : 'no tools'
+      `✅ [MCP] Loaded ${Object.keys(tools).length} tools:`,
+      Object.keys(tools)
     );
+    return tools;
+  }
+
+  private async executeTool(toolName: string, args: any): Promise<string> {
+    if (!this.client) {
+      throw new Error('MCP client not available');
+    }
 
     try {
-      const result = streamText({
-        model: openai(model),
-        system: systemPrompt,
-        messages,
-        tools,
-        temperature: 0.7,
-        maxTokens: 2000,
-        toolChoice: 'auto',
-        maxSteps: 5,
-        onStepFinish: ({ stepType, toolCalls, toolResults }) => {
-          console.log('🔧 [CHAT] Step finished:', stepType);
-          if (toolCalls) {
-            console.log(
-              '🔧 [CHAT] Tool calls:',
-              toolCalls.map((tc) => tc.toolName)
-            );
-          }
-          if (toolResults) {
-            console.log('🔧 [CHAT] Tool results count:', toolResults.length);
-          }
-        },
-        onFinish: async ({ text, finishReason, usage }) => {
-          console.log('🔧 [CHAT] Finished:', {
-            finishReason,
-            usage,
-            textLength: text?.length,
-          });
-          if (mcpClient) {
-            try {
-              await mcpClient.close();
-            } catch (error) {
-              console.error('Error closing MCP client:', error);
-            }
-          }
-          // Restore original fetch when done
-          if (typeof originalFetch !== 'undefined') {
-            global.fetch = originalFetch;
-          }
-        },
+      console.log(`🔧 [MCP] Executing ${toolName}`, args);
+      const result = await this.client.callTool({
+        name: toolName,
+        arguments: args,
       });
 
-      console.log('🔧 [CHAT] streamText created, converting to response');
-      return result.toDataStreamResponse();
-    } catch (streamError) {
-      console.error('❌ [CHAT] Error in streamText:', streamError);
-      console.error(
-        '❌ [CHAT] Error details:',
-        streamError instanceof Error ? streamError.message : String(streamError)
-      );
-      console.error(
-        '❌ [CHAT] Error stack:',
-        streamError instanceof Error ? streamError.stack : 'No stack trace'
-      );
+      // Extract text content from MCP response
+      if (result.content && Array.isArray(result.content)) {
+        const textContent = result.content
+          .filter((item: any) => item.type === 'text')
+          .map((item: any) => item.text)
+          .join('\n');
 
-      // Fallback response
-      return new Response(
-        JSON.stringify({
-          error: 'Streaming error occurred',
-          details:
-            streamError instanceof Error
-              ? streamError.message
-              : 'Unknown error',
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    }
-  } catch (error) {
-    console.error('Chat API error:', error);
-    if (mcpClient) {
-      try {
-        await mcpClient.close();
-      } catch (closeError) {
-        console.error('Error closing MCP client after error:', closeError);
+        return textContent || 'Tool completed successfully';
       }
+
+      return 'Tool completed successfully';
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ [MCP] Tool ${toolName} failed:`, errorMessage);
+      return `❌ Tool Error: ${errorMessage}. Please try rephrasing your request.`;
     }
-    return new Response('Internal Server Error', { status: 500 });
+  }
+
+  async cleanup(): Promise<void> {
+    try {
+      if (this.client) {
+        await this.client.close();
+        this.client = undefined;
+      }
+
+      if (this.originalFetch) {
+        global.fetch = this.originalFetch;
+        this.originalFetch = undefined;
+      }
+    } catch (error) {
+      console.error('⚠️ [MCP] Cleanup error:', error);
+    }
+  }
+}
+
+// Main POST handler
+export async function POST(request: NextRequest) {
+  const mcpManager = new MCPManager();
+
+  try {
+    // Parse request with better validation
+    const {
+      messages,
+      model = 'gpt-4o',
+      mcpEnabled = true,
+    }: ChatRequest = await request.json();
+
+    if (!messages || !Array.isArray(messages)) {
+      return new Response('Invalid messages format', { status: 400 });
+    }
+
+    // Setup system prompt and tools
+    const systemPrompt = createEnhancedSystemPrompt(mcpEnabled);
+    let tools: Record<string, Tool> | undefined;
+
+    if (mcpEnabled) {
+      tools = await mcpManager.connect();
+    }
+
+    console.log('🚀 [CHAT] Starting conversation', {
+      model,
+      mcpEnabled,
+      toolsCount: tools ? Object.keys(tools).length : 0,
+      messagesCount: messages.length,
+    });
+
+    // Create streaming response
+    const result = streamText({
+      model: openai(model),
+      system: systemPrompt,
+      messages,
+      tools,
+      temperature: 0.7,
+      maxTokens: 3000,
+      toolChoice: 'auto',
+      maxSteps: 5,
+      onStepFinish: ({ stepType, toolCalls, toolResults }) => {
+        if (toolCalls?.length) {
+          console.log(
+            '🔧 [CHAT] Tools used:',
+            toolCalls.map((tc) => tc.toolName)
+          );
+        }
+      },
+      onFinish: async ({ finishReason, usage }) => {
+        console.log('✅ [CHAT] Conversation finished:', {
+          finishReason,
+          usage,
+        });
+        await mcpManager.cleanup();
+      },
+    });
+
+    return result.toDataStreamResponse();
+  } catch (error) {
+    console.error('❌ [CHAT] Error:', error);
+    await mcpManager.cleanup();
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({
+        error: 'Chat processing failed',
+        details: errorMessage,
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }

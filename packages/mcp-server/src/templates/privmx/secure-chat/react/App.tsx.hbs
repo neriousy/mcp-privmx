@@ -1,0 +1,230 @@
+{{#eq language 'typescript'}}import React, { useState, useEffect } from 'react';{{else}}import { useState, useEffect } from 'react';{{/eq}}
+import ChatRoom from './components/ChatRoom';
+import { usePrivMX } from './hooks/usePrivMX';
+{{#contains features 'notifications'}}
+import toast, { Toaster } from 'react-hot-toast';
+{{/contains}}
+import './App.css';
+
+{{#eq language 'typescript'}}
+interface User {
+  id: string;
+  name: string;
+  publicKey: string;
+}
+
+interface AppProps {}
+{{/eq}}
+
+const App{{#eq language 'typescript'}}: React.FC<AppProps>{{/eq}} = () => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [currentUser, setCurrentUser] = useState{{#eq language 'typescript'}}<User | null>{{/eq}}(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const {
+    endpoint,
+    connection,
+    threadApi,
+    {{#contains features 'file-sharing'}}
+    storeApi,
+    {{/contains}}
+    initialize,
+    connect,
+    disconnect,
+    error
+  } = usePrivMX();
+
+  useEffect(() => {
+    const initializePrivMX = async () => {
+      try {
+        setIsLoading(true);
+        await initialize();
+        
+        // Check for stored user credentials
+        const storedUser = localStorage.getItem('privmx-user');
+        if (storedUser) {
+          const user{{#eq language 'typescript'}}: User{{/eq}} = JSON.parse(storedUser);
+          await handleLogin(user);
+        }
+      } catch (err) {
+        console.error('Failed to initialize PrivMX:', err);
+        {{#contains features 'notifications'}}
+        toast.error('Failed to initialize secure connection');
+        {{/contains}}
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializePrivMX();
+  }, []);
+
+  const handleLogin = async (user{{#eq language 'typescript'}}: User{{/eq}}) => {
+    try {
+      await connect(user.id, user.publicKey);
+      setCurrentUser(user);
+      setIsConnected(true);
+      localStorage.setItem('privmx-user', JSON.stringify(user));
+      {{#contains features 'notifications'}}
+      toast.success(`Welcome back, ${user.name}!`);
+      {{/contains}}
+    } catch (err) {
+      console.error('Login failed:', err);
+      {{#contains features 'notifications'}}
+      toast.error('Login failed. Please check your credentials.');
+      {{/contains}}
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await disconnect();
+      setCurrentUser(null);
+      setIsConnected(false);
+      localStorage.removeItem('privmx-user');
+      {{#contains features 'notifications'}}
+      toast.success('Logged out successfully');
+      {{/contains}}
+    } catch (err) {
+      console.error('Logout failed:', err);
+      {{#contains features 'notifications'}}
+      toast.error('Logout failed');
+      {{/contains}}
+    }
+  };
+
+  const handleQuickConnect = async () => {
+    // Demo user for quick testing
+    const demoUser{{#eq language 'typescript'}}: User{{/eq}} = {
+      id: 'demo-user-' + Date.now(),
+      name: 'Demo User',
+      publicKey: 'demo-public-key' // In real app, this would be generated
+    };
+    
+    await handleLogin(demoUser);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner"></div>
+        <h2>Initializing PrivMX Secure Chat...</h2>
+        <p>Setting up end-to-end encryption...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-error">
+        <h2>Connection Error</h2>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
+  if (!isConnected || !currentUser) {
+    return (
+      <div className="app-login">
+        <div className="login-container">
+          <h1>🔐 {{properCase appName}}</h1>
+          <p>Secure, end-to-end encrypted messaging powered by PrivMX</p>
+          
+          <div className="login-options">
+            <button 
+              className="btn-primary"
+              onClick={handleQuickConnect}
+            >
+              Quick Demo Login
+            </button>
+            
+            <div className="login-form">
+              <h3>Custom Login</h3>
+              <input 
+                type="text" 
+                placeholder="User ID"
+                className="input-field"
+              />
+              <input 
+                type="text" 
+                placeholder="Public Key"
+                className="input-field"
+              />
+              <button className="btn-secondary">
+                Connect
+              </button>
+            </div>
+          </div>
+
+          <div className="features-list">
+            <h4>Features:</h4>
+            <ul>
+              {{#contains features 'messaging'}}
+              <li>✅ Real-time secure messaging</li>
+              {{/contains}}
+              {{#contains features 'encryption'}}
+              <li>✅ End-to-end encryption</li>
+              {{/contains}}
+              {{#contains features 'file-sharing'}}
+              <li>✅ Secure file sharing</li>
+              {{/contains}}
+              {{#contains features 'auth'}}
+              <li>✅ User authentication</li>
+              {{/contains}}
+              {{#contains features 'offline'}}
+              <li>✅ Offline support</li>
+              {{/contains}}
+            </ul>
+          </div>
+        </div>
+        {{#contains features 'notifications'}}
+        <Toaster position="top-right" />
+        {{/contains}}
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="header-left">
+          <h1>🔐 {{properCase appName}}</h1>
+          <span className="connection-status">
+            {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+          </span>
+        </div>
+        
+        <div className="header-right">
+          <span className="user-info">
+            👤 {currentUser.name}
+          </span>
+          <button 
+            className="btn-logout"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <main className="app-main">
+        <ChatRoom 
+          user={currentUser}
+          threadApi={threadApi}
+          {{#contains features 'file-sharing'}}
+          storeApi={storeApi}
+          {{/contains}}
+        />
+      </main>
+
+      {{#contains features 'notifications'}}
+      <Toaster position="top-right" />
+      {{/contains}}
+    </div>
+  );
+};
+
+export default App; 

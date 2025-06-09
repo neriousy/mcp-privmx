@@ -1,0 +1,157 @@
+{{#eq language 'typescript'}}import { useState, useCallback, useRef } from 'react';
+import { Endpoint, ThreadApi{{#contains features 'file-sharing'}}, StoreApi{{/contains}} } from '@simplito/privmx-webendpoint';
+
+interface UsePrivMXReturn {
+  endpoint: typeof Endpoint | null;
+  connection: any | null;
+  threadApi: ThreadApi | null;
+  {{#contains features 'file-sharing'}}
+  storeApi: StoreApi | null;
+  {{/contains}}
+  initialize: () => Promise<void>;
+  connect: (userId: string, userPrivKey: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  isInitialized: boolean;
+  isConnected: boolean;
+  error: string | null;
+}{{else}}import { useState, useCallback, useRef } from 'react';
+import { Endpoint } from '@simplito/privmx-webendpoint';{{/eq}}
+
+export const usePrivMX = (){{#eq language 'typescript'}}: UsePrivMXReturn{{/eq}} => {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState{{#eq language 'typescript'}}<string | null>{{/eq}}(null);
+  
+  const endpointRef = useRef{{#eq language 'typescript'}}<typeof Endpoint | null>{{/eq}}(null);
+  const connectionRef = useRef{{#eq language 'typescript'}}<any | null>{{/eq}}(null);
+  const threadApiRef = useRef{{#eq language 'typescript'}}<ThreadApi | null>{{/eq}}(null);
+  {{#contains features 'file-sharing'}}
+  const storeApiRef = useRef{{#eq language 'typescript'}}<StoreApi | null>{{/eq}}(null);
+  {{/contains}}
+
+  const initialize = useCallback(async () => {
+    try {
+      setError(null);
+      
+      if (isInitialized) {
+        console.log('PrivMX already initialized');
+        return;
+      }
+
+      console.log('Initializing PrivMX...');
+      
+      // Initialize PrivMX with WASM
+      await Endpoint.setup('/public'); // Adjust path as needed
+      
+      endpointRef.current = Endpoint;
+      setIsInitialized(true);
+      
+      console.log('PrivMX initialized successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error during initialization';
+      console.error('PrivMX initialization failed:', errorMessage);
+      setError(errorMessage);
+      throw err;
+    }
+  }, [isInitialized]);
+
+  const connect = useCallback(async (userId{{#eq language 'typescript'}}: string{{/eq}}, userPrivKey{{#eq language 'typescript'}}: string{{/eq}}) => {
+    try {
+      setError(null);
+      
+      if (!isInitialized || !endpointRef.current) {
+        throw new Error('PrivMX not initialized. Call initialize() first.');
+      }
+
+      if (isConnected) {
+        console.log('Already connected to PrivMX');
+        return;
+      }
+
+      console.log('Connecting to PrivMX...', { userId });
+
+      // Connect to PrivMX Bridge
+      const connection = await endpointRef.current.connect(
+        userPrivKey,
+        process.env.REACT_APP_PRIVMX_SOLUTION_ID || 'your-solution-id',
+        process.env.REACT_APP_PRIVMX_PLATFORM_URL || 'https://privmx.cloud'
+      );
+
+      connectionRef.current = connection;
+
+      // Create Thread API for messaging
+      const threadApi = await endpointRef.current.createThreadApi(connection);
+      threadApiRef.current = threadApi;
+
+      {{#contains features 'file-sharing'}}
+      // Create Store API for file sharing
+      const storeApi = await endpointRef.current.createStoreApi(connection);
+      storeApiRef.current = storeApi;
+      {{/contains}}
+
+      setIsConnected(true);
+      console.log('Connected to PrivMX successfully');
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error during connection';
+      console.error('PrivMX connection failed:', errorMessage);
+      setError(errorMessage);
+      throw err;
+    }
+  }, [isInitialized, isConnected]);
+
+  const disconnect = useCallback(async () => {
+    try {
+      setError(null);
+      
+      if (!isConnected) {
+        console.log('Not connected to PrivMX');
+        return;
+      }
+
+      console.log('Disconnecting from PrivMX...');
+
+      // Clean up APIs
+      if (threadApiRef.current) {
+        // Note: PrivMX APIs don't have explicit disconnect methods
+        // Connection cleanup is handled by the connection itself
+        threadApiRef.current = null;
+      }
+
+      {{#contains features 'file-sharing'}}
+      if (storeApiRef.current) {
+        storeApiRef.current = null;
+      }
+      {{/contains}}
+
+      if (connectionRef.current) {
+        // Connection cleanup - PrivMX handles this internally
+        connectionRef.current = null;
+      }
+
+      setIsConnected(false);
+      console.log('Disconnected from PrivMX');
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error during disconnection';
+      console.error('PrivMX disconnection failed:', errorMessage);
+      setError(errorMessage);
+      throw err;
+    }
+  }, [isConnected]);
+
+  return {
+    endpoint: endpointRef.current,
+    connection: connectionRef.current,
+    threadApi: threadApiRef.current,
+    {{#contains features 'file-sharing'}}
+    storeApi: storeApiRef.current,
+    {{/contains}}
+    initialize,
+    connect,
+    disconnect,
+    isInitialized,
+    isConnected,
+    error
+  };
+}; 

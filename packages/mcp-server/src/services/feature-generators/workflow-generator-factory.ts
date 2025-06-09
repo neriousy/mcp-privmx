@@ -4,10 +4,10 @@ import {
   WorkflowResponse,
   WorkflowFile,
 } from './workflow-types';
-import { messagingTemplates } from './templates/messaging-templates';
-import { fileSharingTemplates } from './templates/file-sharing-templates';
-import { feedbackTemplates } from './templates/feedback-templates';
-import { collaborationTemplates } from './templates/collaboration-templates';
+import { messagingTemplates } from './templates/messaging-templates.js';
+import { fileSharingTemplates } from './templates/file-sharing-templates.js';
+import { feedbackTemplates } from './templates/feedback-templates.js';
+import { collaborationTemplates } from './templates/collaboration-templates.js';
 import { BaseCodeGenerator } from '../code-generators/base-generator';
 import { JavaScriptGenerator } from '../code-generators/javascript-generator';
 import { JavaGenerator } from '../code-generators/java-generator';
