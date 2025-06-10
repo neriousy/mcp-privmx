@@ -182,7 +182,7 @@ async function findAPIFiles(specPath: string): Promise<string[]> {
         console.log(`🔍 Found JS API file: ${file}`);
       }
     }
-  } catch (error) {
+  } catch {
     console.warn(`⚠️  Could not read JS API directory: ${jsApiDir}`);
   }
 

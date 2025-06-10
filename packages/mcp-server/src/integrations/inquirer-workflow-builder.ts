@@ -5,13 +5,15 @@
  * while adding our unique PrivMX workflow intelligence
  */
 
-import inquirer from 'inquirer';
 import type {
   WorkflowBuildRequest,
   IntegrationResult,
   WorkflowStep,
   WorkflowSession,
 } from './types.js';
+import type { UserContext, JsonObject } from '../common/types.js';
+
+type InquirerAnswers = Record<string, unknown>;
 
 export class InquirerWorkflowBuilder {
   private workflowTemplates: Map<string, WorkflowStep[]> = new Map();
@@ -26,7 +28,7 @@ export class InquirerWorkflowBuilder {
    */
   async startWorkflow(
     request: WorkflowBuildRequest
-  ): Promise<IntegrationResult<{ sessionId: string; firstStep: any }>> {
+  ): Promise<IntegrationResult<{ sessionId: string; firstStep: JsonObject }>> {
     const startTime = Date.now();
 
     try {
@@ -82,10 +84,10 @@ export class InquirerWorkflowBuilder {
    */
   async continueWorkflow(
     sessionId: string,
-    answers: any
+    answers: InquirerAnswers
   ): Promise<
     IntegrationResult<{
-      nextStep?: any;
+      nextStep?: JsonObject;
       isComplete: boolean;
       generatedFiles?: string[];
     }>
@@ -168,8 +170,9 @@ export class InquirerWorkflowBuilder {
         id: 'project-setup',
         type: 'input',
         message: 'What is your project name?',
-        validate: (input: string) =>
-          input.length > 0 || 'Project name is required',
+        validate: (input: unknown) =>
+          (typeof input === 'string' && input.length > 0) ||
+          'Project name is required',
       },
       {
         id: 'framework-choice',
@@ -185,7 +188,8 @@ export class InquirerWorkflowBuilder {
         id: 'typescript-choice',
         type: 'confirm',
         message: 'Use TypeScript?',
-        when: (answers: any) => answers['framework-choice'] !== 'vanilla',
+        when: (answers: Record<string, unknown>) =>
+          answers['framework-choice'] !== 'vanilla',
       },
       {
         id: 'features-selection',
@@ -209,6 +213,17 @@ export class InquirerWorkflowBuilder {
           { name: 'High (Maximum security)', value: 'high' },
         ],
       },
+      {
+        id: 'privmx-config',
+        type: 'input',
+        message: 'Enter your PrivMX Platform URL:',
+        default: 'https://api.privmx.cloud',
+        validate: (input: unknown) => {
+          if (typeof input !== 'string') return 'Please enter a valid URL';
+          const urlPattern = /^https?:\/\/.+/;
+          return urlPattern.test(input) || 'Please enter a valid URL';
+        },
+      },
     ]);
 
     // File Sharing App Workflow
@@ -216,71 +231,54 @@ export class InquirerWorkflowBuilder {
       {
         id: 'project-setup',
         type: 'input',
-        message: 'What is your project name?',
-        validate: (input: string) =>
-          input.length > 0 || 'Project name is required',
+        message: 'What is your file sharing project name?',
+        validate: (input: unknown) =>
+          (typeof input === 'string' && input.length > 0) ||
+          'Project name is required',
       },
       {
-        id: 'app-type',
+        id: 'storage-type',
         type: 'list',
-        message: 'What type of file sharing app?',
+        message: 'Choose storage type:',
         choices: [
-          { name: 'Personal file storage', value: 'personal' },
-          { name: 'Team collaboration', value: 'team' },
-          { name: 'Public file sharing', value: 'public' },
+          { name: 'PrivMX Stores (Recommended)', value: 'stores' },
+          { name: 'Local File System', value: 'local' },
+          { name: 'Cloud Storage Integration', value: 'cloud' },
         ],
       },
       {
-        id: 'file-features',
+        id: 'file-types',
         type: 'checkbox',
-        message: 'Select file features:',
+        message: 'Select supported file types:',
         choices: [
-          { name: 'File upload with progress', value: 'upload-progress' },
-          { name: 'File preview', value: 'preview' },
-          { name: 'Download management', value: 'download-mgmt' },
-          { name: 'Access permissions', value: 'permissions' },
-          { name: 'Version control', value: 'versioning' },
+          { name: 'Documents (PDF, DOC, TXT)', value: 'documents' },
+          { name: 'Images (JPG, PNG, GIF)', value: 'images' },
+          { name: 'Videos (MP4, AVI, MOV)', value: 'videos' },
+          { name: 'Archives (ZIP, RAR)', value: 'archives' },
+          { name: 'All file types', value: 'all' },
         ],
-      },
-      {
-        id: 'storage-settings',
-        type: 'input',
-        message: 'Maximum file size (MB)?',
-        default: '100',
-        validate: (input: string) =>
-          !isNaN(Number(input)) || 'Must be a number',
       },
     ]);
 
-    // Feedback Inbox Workflow
-    this.workflowTemplates.set('feedback-inbox', [
+    // Feedback System Workflow
+    this.workflowTemplates.set('feedback-system', [
       {
         id: 'project-setup',
         type: 'input',
-        message: 'What is your project name?',
-        validate: (input: string) =>
-          input.length > 0 || 'Project name is required',
+        message: 'What is your feedback system project name?',
+        validate: (input: unknown) =>
+          (typeof input === 'string' && input.length > 0) ||
+          'Project name is required',
       },
       {
-        id: 'inbox-type',
-        type: 'list',
-        message: 'Type of feedback system?',
-        choices: [
-          { name: 'Anonymous feedback', value: 'anonymous' },
-          { name: 'Customer support', value: 'support' },
-          { name: 'Bug reports', value: 'bugs' },
-          { name: 'General contact form', value: 'contact' },
-        ],
-      },
-      {
-        id: 'admin-features',
+        id: 'feedback-types',
         type: 'checkbox',
-        message: 'Admin dashboard features:',
+        message: 'Select feedback collection methods:',
         choices: [
-          { name: 'Response management', value: 'responses' },
-          { name: 'Analytics & reporting', value: 'analytics' },
-          { name: 'Export functionality', value: 'export' },
-          { name: 'Auto-categorization', value: 'categorization' },
+          { name: 'Star ratings', value: 'ratings' },
+          { name: 'Text comments', value: 'comments' },
+          { name: 'File attachments', value: 'attachments' },
+          { name: 'Anonymous feedback', value: 'anonymous' },
         ],
       },
     ]);
@@ -289,110 +287,102 @@ export class InquirerWorkflowBuilder {
   }
 
   /**
-   * Select appropriate workflow based on goal
+   * Select workflow based on goal and user context
    */
-  private selectWorkflow(goal: string, userContext: any): WorkflowStep[] {
+  private selectWorkflow(
+    goal: string,
+    _userContext: UserContext
+  ): WorkflowStep[] {
     const goalLower = goal.toLowerCase();
 
-    if (goalLower.includes('chat') || goalLower.includes('message')) {
+    if (goalLower.includes('chat') || goalLower.includes('messaging')) {
       return this.workflowTemplates.get('secure-chat') || [];
-    } else if (
-      goalLower.includes('file') ||
-      goalLower.includes('share') ||
-      goalLower.includes('storage')
-    ) {
-      return this.workflowTemplates.get('file-sharing') || [];
-    } else if (
-      goalLower.includes('feedback') ||
-      goalLower.includes('form') ||
-      goalLower.includes('inbox')
-    ) {
-      return this.workflowTemplates.get('feedback-inbox') || [];
     }
 
-    // Default to secure chat if unclear
+    if (goalLower.includes('file') || goalLower.includes('sharing')) {
+      return this.workflowTemplates.get('file-sharing') || [];
+    }
+
+    if (goalLower.includes('feedback') || goalLower.includes('inbox')) {
+      return this.workflowTemplates.get('feedback-system') || [];
+    }
+
+    // Default to secure chat
     return this.workflowTemplates.get('secure-chat') || [];
   }
 
   /**
-   * Execute a workflow step using Inquirer
+   * Execute a specific workflow step using Inquirer
    */
   private async executeStep(
     session: WorkflowSession,
     stepIndex: number
-  ): Promise<any> {
+  ): Promise<JsonObject> {
     const step = session.steps[stepIndex];
     if (!step) {
       throw new Error(`Step ${stepIndex} not found`);
     }
 
-    // Create Inquirer prompt
-    const prompt = {
-      type: step.type,
-      name: step.id,
-      message: step.message,
-      choices: step.choices,
-      when: step.when,
-      validate: step.validate,
-    };
+    // Use current session answers as context for "when" conditions
+    const shouldAsk = !step.when || step.when(session.answers);
 
-    // Execute prompt with current session context
-    const answers = await inquirer.prompt([prompt], session.answers);
+    if (!shouldAsk) {
+      // Skip this step and move to next
+      return { skipped: true, stepId: step.id };
+    }
 
+    // Return step information for execution
     return {
       stepId: step.id,
-      prompt,
-      progress: {
-        current: stepIndex + 1,
-        total: session.steps.length,
-        percentage: Math.round(((stepIndex + 1) / session.steps.length) * 100),
-      },
+      type: step.type,
+      message: step.message,
+      choices: step.choices || [],
+      default: step.default || null,
     };
   }
 
   /**
-   * Generate files based on workflow answers
+   * Generate workflow files based on collected answers
    */
   private async generateWorkflowFiles(
     session: WorkflowSession
   ): Promise<string[]> {
-    const files: string[] = [];
+    const { goal, answers } = session;
 
-    // Generate files based on goal and answers
-    if (session.goal.toLowerCase().includes('chat')) {
-      files.push(...this.generateChatAppFiles(session.answers));
-    } else if (session.goal.toLowerCase().includes('file')) {
-      files.push(...this.generateFileAppFiles(session.answers));
-    } else if (session.goal.toLowerCase().includes('feedback')) {
-      files.push(...this.generateFeedbackAppFiles(session.answers));
+    if (goal.toLowerCase().includes('chat')) {
+      return this.generateChatAppFiles(answers);
+    } else if (goal.toLowerCase().includes('file')) {
+      return this.generateFileAppFiles(answers);
+    } else if (goal.toLowerCase().includes('feedback')) {
+      return this.generateFeedbackAppFiles(answers);
     }
 
-    return files;
+    return [];
   }
 
   /**
-   * Generate chat app files
+   * Generate files for chat application
    */
-  private generateChatAppFiles(answers: any): string[] {
-    const framework = answers['framework-choice'] || 'react';
-    const useTypeScript = answers['typescript-choice'] || false;
-    const features = answers['features-selection'] || [];
+  private generateChatAppFiles(answers: InquirerAnswers): string[] {
+    const framework = answers['framework-choice'] as string;
+    const projectName = answers['project-setup'] as string;
+    const features = answers['features-selection'] as string[];
 
     const files = [
-      `src/App.${useTypeScript ? 'tsx' : 'jsx'}`,
-      `src/components/ChatRoom.${useTypeScript ? 'tsx' : 'jsx'}`,
-      `src/services/privmxService.${useTypeScript ? 'ts' : 'js'}`,
-      'package.json',
-      '.env.example',
+      `${projectName}/package.json`,
+      `${projectName}/src/App.${framework === 'react' ? 'tsx' : 'js'}`,
+      `${projectName}/src/components/Chat.${framework === 'react' ? 'tsx' : 'js'}`,
     ];
 
-    // Add feature-specific files
-    if (features.includes('file-sharing')) {
-      files.push(`src/components/FileUpload.${useTypeScript ? 'tsx' : 'jsx'}`);
-    }
-    if (features.includes('presence')) {
+    if (features?.includes('file-sharing')) {
       files.push(
-        `src/components/UserPresence.${useTypeScript ? 'tsx' : 'jsx'}`
+        `${projectName}/src/components/FileUpload.${framework === 'react' ? 'tsx' : 'js'}`
+      );
+    }
+
+    if (features?.includes('presence')) {
+      files.push(
+        `${projectName}/src/components/UserPresence.${framework === 'react' ? 'tsx' : 'js'}`
       );
     }
 
@@ -400,56 +390,53 @@ export class InquirerWorkflowBuilder {
   }
 
   /**
-   * Generate file sharing app files
+   * Generate files for file sharing application
    */
-  private generateFileAppFiles(answers: any): string[] {
+  private generateFileAppFiles(answers: InquirerAnswers): string[] {
+    const projectName = answers['project-setup'] as string;
+    const storageType = answers['storage-type'] as string;
+
     const files = [
-      'src/App.tsx',
-      'src/components/FileUploader.tsx',
-      'src/components/FileList.tsx',
-      'src/services/fileService.ts',
-      'package.json',
-      '.env.example',
+      `${projectName}/package.json`,
+      `${projectName}/src/App.js`,
+      `${projectName}/src/components/FileManager.js`,
     ];
 
-    const features = answers['file-features'] || [];
-    if (features.includes('preview')) {
-      files.push('src/components/FilePreview.tsx');
-    }
-    if (features.includes('permissions')) {
-      files.push('src/components/PermissionManager.tsx');
+    if (storageType === 'stores') {
+      files.push(`${projectName}/src/services/PrivMXStoreService.js`);
     }
 
     return files;
   }
 
   /**
-   * Generate feedback app files
+   * Generate files for feedback system
    */
-  private generateFeedbackAppFiles(answers: any): string[] {
+  private generateFeedbackAppFiles(answers: InquirerAnswers): string[] {
+    const projectName = answers['project-setup'] as string;
+    const feedbackTypes = answers['feedback-types'] as string[];
+
     const files = [
-      'src/App.tsx',
-      'src/components/FeedbackForm.tsx',
-      'src/services/inboxService.ts',
-      'package.json',
-      '.env.example',
+      `${projectName}/package.json`,
+      `${projectName}/src/App.js`,
+      `${projectName}/src/components/FeedbackForm.js`,
     ];
 
-    const adminFeatures = answers['admin-features'] || [];
-    if (adminFeatures.includes('responses')) {
-      files.push('src/components/AdminDashboard.tsx');
+    if (feedbackTypes?.includes('ratings')) {
+      files.push(`${projectName}/src/components/StarRating.js`);
     }
-    if (adminFeatures.includes('analytics')) {
-      files.push('src/components/Analytics.tsx');
+
+    if (feedbackTypes?.includes('attachments')) {
+      files.push(`${projectName}/src/components/FileAttachment.js`);
     }
 
     return files;
   }
 
   /**
-   * Generate unique session ID
+   * Generate a unique session ID
    */
   private generateSessionId(): string {
-    return `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `wf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }

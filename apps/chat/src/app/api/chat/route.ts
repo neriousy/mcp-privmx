@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool, Tool } from 'ai';
+import { streamText, tool, Tool, Message } from 'ai';
 import { NextRequest } from 'next/server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 // Types for better type safety
 interface ChatRequest {
-  messages: any[];
+  messages: Message[];
   model?: string;
   mcpEnabled?: boolean;
 }
@@ -15,11 +15,12 @@ interface ChatRequest {
 interface MCPTool {
   name: string;
   description: string;
-  inputSchema: any;
-}
-
-interface ToolsMap {
-  [key: string]: Tool;
+  inputSchema: {
+    type: string;
+    properties?: Record<string, unknown>;
+    required?: string[];
+    [key: string]: unknown;
+  };
 }
 
 // Enhanced system prompt with better structure
@@ -68,6 +69,13 @@ Remember: You're building the future of secure communication - make it accessibl
 
 // Utility functions for cleaner code
 const getMCPBaseUrl = (): string => {
+  // Use a dedicated environment variable for the MCP server URL if available.
+  // This allows pointing to a separate, standalone server in production.
+  if (process.env.MCP_SERVER_URL) {
+    return process.env.MCP_SERVER_URL;
+  }
+
+  // Fallback for Vercel deployments or local development
   return process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : 'http://localhost:3000';
@@ -93,30 +101,38 @@ For enhanced capabilities like real-time API search, project generation, and acc
 };
 
 // Simplified Zod schema creation
-const createZodSchema = (schema: any): z.ZodType<any> => {
+const createZodSchema = (
+  schema: MCPTool['inputSchema']
+): z.ZodType<unknown> => {
   if (!schema?.type || schema.type !== 'object' || !schema.properties) {
     return z.object({});
   }
 
-  const shape: Record<string, z.ZodType<any>> = {};
+  const shape: Record<string, z.ZodType<unknown>> = {};
   const required = schema.required || [];
 
   for (const [key, prop] of Object.entries(schema.properties)) {
-    const propSchema = prop as any;
-    let zodField: z.ZodType<any>;
+    const propSchema = prop as Record<string, unknown>;
+    let zodField: z.ZodType<unknown>;
 
     // Handle different property types
     switch (propSchema.type) {
       case 'string':
-        zodField = propSchema.enum ? z.enum(propSchema.enum) : z.string();
+        zodField = propSchema.enum
+          ? z.enum(propSchema.enum as [string, ...string[]])
+          : z.string();
         break;
       case 'number':
       case 'integer':
         zodField = z.number();
         if (propSchema.minimum)
-          zodField = (zodField as z.ZodNumber).min(propSchema.minimum);
+          zodField = (zodField as z.ZodNumber).min(
+            propSchema.minimum as number
+          );
         if (propSchema.maximum)
-          zodField = (zodField as z.ZodNumber).max(propSchema.maximum);
+          zodField = (zodField as z.ZodNumber).max(
+            propSchema.maximum as number
+          );
         break;
       case 'boolean':
         zodField = z.boolean();
@@ -125,7 +141,7 @@ const createZodSchema = (schema: any): z.ZodType<any> => {
         zodField = z.array(z.string()); // Default to string array
         break;
       case 'object':
-        zodField = z.record(z.any());
+        zodField = z.record(z.unknown());
         break;
       default:
         zodField = z.string(); // Fallback
@@ -133,7 +149,7 @@ const createZodSchema = (schema: any): z.ZodType<any> => {
 
     // Add description and optional handling
     if (propSchema.description) {
-      zodField = zodField.describe(propSchema.description);
+      zodField = zodField.describe(propSchema.description as string);
     }
     if (!required.includes(key)) {
       zodField = zodField.optional();
@@ -181,7 +197,15 @@ class MCPManager {
     if (this.originalFetch) return; // Already setup
 
     this.originalFetch = global.fetch;
-    global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+
+    // This fetch interceptor is a workaround to ensure that requests from the
+    // MCP client to its server (which may be on the same host) have the correct
+    // headers for streaming responses. This is particularly important in serverless
+    // environments where the default headers may not be suitable.
+    global.fetch = async (
+      input: string | URL | Request,
+      init?: RequestInit
+    ) => {
       const url =
         typeof input === 'string'
           ? input
@@ -189,20 +213,20 @@ class MCPManager {
             ? input.href
             : (input as Request).url;
 
-      // Enhance headers for MCP endpoints
-      if (
-        url.includes('/api/sse') ||
-        url.includes('/api/mcp') ||
-        url.includes('/api/[transport]')
-      ) {
+      // Enhance headers only for the MCP API endpoints.
+      if (url.includes('/api/mcp') || url.includes('/api/sse')) {
         const headers = new Headers(init?.headers);
         headers.set('Accept', 'application/json, text/event-stream');
         headers.set('Content-Type', 'application/json');
 
-        return this.originalFetch!(input, { ...init, headers });
+        return this.originalFetch
+          ? this.originalFetch(input, { ...init, headers })
+          : fetch(input, { ...init, headers });
       }
 
-      return this.originalFetch!(input, init);
+      return this.originalFetch
+        ? this.originalFetch(input, init)
+        : fetch(input, init);
     };
   }
 
@@ -223,8 +247,11 @@ class MCPManager {
       tools[mcpTool.name] = tool({
         description: mcpTool.description,
         parameters: createZodSchema(mcpTool.inputSchema),
-        execute: async (args: any) => {
-          return await this.executeTool(mcpTool.name, args);
+        execute: async (args: unknown) => {
+          return await this.executeTool(
+            mcpTool.name,
+            args as Record<string, unknown>
+          );
         },
       });
     }
@@ -236,7 +263,10 @@ class MCPManager {
     return tools;
   }
 
-  private async executeTool(toolName: string, args: any): Promise<string> {
+  private async executeTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<string> {
     if (!this.client) {
       throw new Error('MCP client not available');
     }
@@ -251,8 +281,8 @@ class MCPManager {
       // Extract text content from MCP response
       if (result.content && Array.isArray(result.content)) {
         const textContent = result.content
-          .filter((item: any) => item.type === 'text')
-          .map((item: any) => item.text)
+          .filter((item) => item.type === 'text')
+          .map((item) => item.text)
           .join('\n');
 
         return textContent || 'Tool completed successfully';
@@ -285,7 +315,7 @@ class MCPManager {
 }
 
 // Main POST handler
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   const mcpManager = new MCPManager();
 
   try {
@@ -325,7 +355,7 @@ export async function POST(request: NextRequest) {
       maxTokens: 3000,
       toolChoice: 'auto',
       maxSteps: 5,
-      onStepFinish: ({ stepType, toolCalls, toolResults }) => {
+      onStepFinish: ({ toolCalls }) => {
         if (toolCalls?.length) {
           console.log(
             '🔧 [CHAT] Tools used:',

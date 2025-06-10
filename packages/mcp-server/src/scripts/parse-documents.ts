@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 interface ParsedDocuments {
-  documents: any[];
+  documents: unknown[];
   metadata: {
     totalDocuments: number;
     byType: Record<string, number>;

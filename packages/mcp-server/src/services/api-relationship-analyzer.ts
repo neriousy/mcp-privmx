@@ -169,7 +169,7 @@ export class APIRelationshipAnalyzer {
    */
   private extractErrorPatterns(method: APIMethod): ErrorHandler[] {
     const errorPatterns: ErrorHandler[] = [];
-    const description = method.description || '';
+    const _description = method.description || '';
 
     // Common PrivMX error patterns
     if (method.name.includes('connect') || method.name.includes('Connect')) {
@@ -311,7 +311,7 @@ String threadId = threadApi.createThread(
   users,
   managers,
   "public metadata".getBytes(),
-  "{\"name\": \"Thread Name\"}".getBytes()
+  ("{"name": "Thread Name"}").getBytes()
 );
 `;
       default:
@@ -339,7 +339,7 @@ await threadApi.sendMessage(
 threadApi.sendMessage(
   threadId,
   "message type".getBytes(),
-  ("{\"timestamp\": " + System.currentTimeMillis() + "}").getBytes(),
+  ("{"timestamp": " + System.currentTimeMillis() + "}").getBytes(),
   messageContent.getBytes()
 );
 `;

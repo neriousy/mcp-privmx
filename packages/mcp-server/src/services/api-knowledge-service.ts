@@ -7,22 +7,17 @@
  * No vector embeddings or semantic search - just structured data lookup.
  */
 
+import * as path from 'path';
+import logger from '../common/logger.js';
 import { APIParser } from '../api/parser.js';
 import { DocumentProcessor } from '../loaders/document-processor.js';
-import { SearchEngine } from './search/search-engine.js';
-import { EnhancedSearchEngine } from './search/enhanced-search-engine.js';
-import {
-  createCodeGenerator,
-  getSupportedLanguages,
-  isLanguageSupported,
-} from './code-generators/index.js';
-import { WorkflowGeneratorFactory } from './feature-generators/workflow-generator-factory.js';
+import { SearchService } from './search-service.js';
+import { TemplateService } from './template-service.js';
+import { KnowledgeBuilderService } from './knowledge-builder-service.js';
 import { SmartTemplateEngine } from './template-engine/smart-template-engine.js';
-import { InteractiveWorkflowBuilder } from './workflow-builder/interactive-workflow-builder.js';
 import { ReactAdapter } from './framework-adapters/react-adapter.js';
 import {
   SearchResult,
-  CodeGenerationOptions,
   APIKnowledgeServiceConfig,
   DocumentationStats,
   IndexingResult,
@@ -34,12 +29,14 @@ import {
   GeneratedCode,
   SkillLevel,
   ProjectType,
+  WorkflowTemplate,
+  GenerationResult,
 } from './types.js';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { ConfigObject } from '../common/types.js';
+import * as fsPromises from 'fs/promises';
 import {
-  PlopTemplateEngine,
-  WebCompatibleTemplateEngine,
+  PrecompiledTemplateEngine,
+  createTemplateEngine,
   JSCodeshiftTransformer,
   InquirerWorkflowBuilder,
   PrivMXIntelligenceEngine,
@@ -51,6 +48,10 @@ import type {
   PrivMXIntelligenceRequest,
   IntegrationResult,
 } from '../integrations/types.js';
+import { specRoot } from '../common/paths.js';
+import { WorkflowRequest } from './feature-generators/workflow-types.js';
+import { InteractiveWorkflowBuilder } from './workflow-builder/interactive-workflow-builder.js';
+import { WorkflowGeneratorFactory } from './feature-generators/workflow-generator-factory.js';
 
 /**
  * Modular API Knowledge Service
@@ -59,38 +60,38 @@ export class APIKnowledgeService {
   private config: APIKnowledgeServiceConfig;
   private apiParser: APIParser;
   private documentProcessor: DocumentProcessor;
-  private searchEngine: SearchEngine;
-  private enhancedSearchEngine: EnhancedSearchEngine;
+  private searchService: SearchService;
+  private templateService: TemplateService;
+  private knowledgeBuilderService: KnowledgeBuilderService;
   private workflowGenerator: WorkflowGeneratorFactory;
   private smartTemplateEngine: SmartTemplateEngine;
   private interactiveWorkflowBuilder: InteractiveWorkflowBuilder;
 
   // NEW: Integration layer with proven tools
-  private plopTemplateEngine: PlopTemplateEngine | WebCompatibleTemplateEngine;
+  private _plopTemplateEngine: PrecompiledTemplateEngine;
   private jscodeshiftTransformer: JSCodeshiftTransformer;
   private inquirerWorkflowBuilder: InquirerWorkflowBuilder;
   private privmxIntelligenceEngine: PrivMXIntelligenceEngine;
 
-  private apiData: Map<string, any> = new Map();
+  private apiData: Map<string, unknown> = new Map();
   private initialized = false;
 
   constructor(config: APIKnowledgeServiceConfig) {
     this.config = config;
     this.apiParser = new APIParser();
     this.documentProcessor = new DocumentProcessor();
-    this.searchEngine = new SearchEngine();
-    this.enhancedSearchEngine = new EnhancedSearchEngine();
+    this.searchService = new SearchService();
+    this.templateService = new TemplateService();
+    this.knowledgeBuilderService = new KnowledgeBuilderService();
     this.workflowGenerator = new WorkflowGeneratorFactory();
     this.smartTemplateEngine = new SmartTemplateEngine();
     this.interactiveWorkflowBuilder = new InteractiveWorkflowBuilder();
 
     // Initialize integration layer with proven tools
     // Use web-compatible template engine in webpack environments to avoid Handlebars issues
-    const isWebpack =
+    const _isWebpack =
       typeof window !== 'undefined' || process.env.WEBPACK === 'true';
-    this.plopTemplateEngine = isWebpack
-      ? new WebCompatibleTemplateEngine()
-      : new PlopTemplateEngine();
+    this._plopTemplateEngine = createTemplateEngine(); // Smart selection based on environment
     this.jscodeshiftTransformer = new JSCodeshiftTransformer();
     this.inquirerWorkflowBuilder = new InquirerWorkflowBuilder();
     this.privmxIntelligenceEngine = new PrivMXIntelligenceEngine();
@@ -105,25 +106,28 @@ export class APIKnowledgeService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.log('🏗️ Building API knowledge graph...');
+    logger.info('🏗️ Building API knowledge graph...');
 
     try {
-      await this.buildKnowledgeGraph();
-      this.searchEngine.buildIndices();
-
-      // Initialize enhanced search engine with API data
-      await this.enhancedSearchEngine.initialize(this.apiData);
+      const specPath = this.config.specPath || specRoot;
+      await this.knowledgeBuilderService.buildKnowledgeGraph(
+        specPath,
+        this.searchService,
+        this.apiData
+      );
+      // Initialize search engine with API data
+      await this.searchService.initialize(this.apiData);
 
       this.initialized = true;
 
-      const stats = this.searchEngine.getStats();
-      console.log('✅ API knowledge graph ready!');
-      console.log(`   📊 ${stats.namespaces} namespaces indexed`);
-      console.log(`   🔧 ${stats.methods} methods indexed`);
-      console.log(`   📋 ${stats.classes} classes indexed`);
-      console.log(`   🌍 ${stats.languages} languages supported`);
+      const stats = this.searchService.getStats();
+      logger.info('✅ API knowledge graph ready!');
+      logger.info(`   📊 ${stats.namespaces} namespaces indexed`);
+      logger.info(`   🔧 ${stats.methods} methods indexed`);
+      logger.info(`   📋 ${stats.classes} classes indexed`);
+      logger.info(`   🌍 ${stats.languages} languages supported`);
     } catch (error) {
-      console.error('❌ Failed to build knowledge graph:', error);
+      logger.error('❌ Failed to build knowledge graph:', error);
       throw error;
     }
   }
@@ -135,21 +139,14 @@ export class APIKnowledgeService {
     functionality: string,
     language?: string
   ): Promise<SearchResult[]> {
-    return this.searchEngine.search(functionality, language);
+    return this.searchService.search(functionality, language);
   }
 
   /**
    * Generate setup code for a specific language
    */
   public generateSetupCode(language: string, features: string[]): string {
-    if (!isLanguageSupported(language)) {
-      throw new Error(
-        `Language '${language}' is not supported. Supported languages: ${getSupportedLanguages().join(', ')}`
-      );
-    }
-
-    const generator = createCodeGenerator(language);
-    return generator.generateSetup(features);
+    return this.templateService.generateSetupCode(language, features);
   }
 
   /**
@@ -158,36 +155,39 @@ export class APIKnowledgeService {
   async generateWorkflow(
     templateId: string,
     language: string,
-    features?: string[],
-    customizations?: Record<string, any>
-  ): Promise<any> {
-    return this.workflowGenerator.generateWorkflow({
+    features: string[] = [],
+    customizations: Record<string, unknown> = {}
+  ): Promise<GenerationResult> {
+    const request: WorkflowRequest = {
       template: templateId,
       language,
       features,
       customizations,
-    });
+    };
+    const result = await this.workflowGenerator.generateWorkflow(request);
+    // The result from the generator is compatible with GenerationResult
+    return result;
   }
 
   /**
    * Get all available workflow templates
    */
-  getWorkflowTemplates(): any[] {
-    return this.workflowGenerator.getAvailableTemplates();
+  getWorkflowTemplates(): WorkflowTemplate[] {
+    return this.templateService.getWorkflowTemplates();
   }
 
   /**
    * Get workflow templates by category
    */
-  getWorkflowTemplatesByCategory(category: string): any[] {
-    return this.workflowGenerator.getTemplatesByCategory(category);
+  getWorkflowTemplatesByCategory(category: string): WorkflowTemplate[] {
+    return this.templateService.getWorkflowTemplatesByCategory(category);
   }
 
   /**
    * Get a specific workflow template
    */
-  getWorkflowTemplate(templateId: string): any {
-    return this.workflowGenerator.getTemplate(templateId);
+  getWorkflowTemplate(templateId: string): WorkflowTemplate | null {
+    return this.templateService.getWorkflowTemplate(templateId) || null;
   }
 
   /**
@@ -202,7 +202,7 @@ export class APIKnowledgeService {
     context?: SearchContext
   ): Promise<EnhancedSearchResult[]> {
     if (!this.initialized) await this.initialize();
-    return this.enhancedSearchEngine.searchWithContext(query, context);
+    return this.searchService.searchWithContext(query, context);
   }
 
   /**
@@ -213,7 +213,7 @@ export class APIKnowledgeService {
     language?: string
   ): Promise<WorkflowSuggestion[]> {
     if (!this.initialized) await this.initialize();
-    return this.enhancedSearchEngine.findWorkflowsForGoal(goal, language);
+    return this.searchService.findWorkflowsForGoal(goal, language);
   }
 
   /**
@@ -224,7 +224,7 @@ export class APIKnowledgeService {
     language: string
   ): Promise<NextStepSuggestion[]> {
     if (!this.initialized) await this.initialize();
-    return this.enhancedSearchEngine.suggestNextSteps(currentCode, language);
+    return this.searchService.suggestNextSteps(currentCode, language);
   }
 
   /**
@@ -236,9 +236,9 @@ export class APIKnowledgeService {
   ): Promise<GeneratedCode> {
     if (!this.initialized) await this.initialize();
     try {
-      return this.enhancedSearchEngine.generateCompleteCode(goal, context);
+      return this.searchService.generateCompleteCode(goal, context);
     } catch (error) {
-      console.error('Failed to generate complete code:', error);
+      logger.error('Failed to generate complete code:', error);
       // Fallback to basic code generation
       return {
         code: this.generateBasicCode(goal, context.language),
@@ -286,7 +286,7 @@ class BasicMessaging {
       
       return { connection, threadApi };
     } catch (error) {
-      console.error('Failed to initialize:', error);
+      logger.error('Failed to initialize:', error);
       throw error;
     }
   }
@@ -331,7 +331,7 @@ class BasicFileStorage {
       
       return { connection, storeApi };
     } catch (error) {
-      console.error('Failed to initialize:', error);
+      logger.error('Failed to initialize:', error);
       throw error;
     }
   }
@@ -376,10 +376,10 @@ class BasicPrivMXSetup {
       // Establish connection
       const connection = await Endpoint.connect(userPrivKey, solutionId, bridgeUrl);
       
-      console.log('PrivMX connection established successfully');
+      logger.info('PrivMX connection established successfully');
       return connection;
     } catch (error) {
-      console.error('Failed to establish connection:', error);
+      logger.error('Failed to establish connection:', error);
       throw error;
     }
   }
@@ -469,10 +469,10 @@ class BasicPrivMXSetup {
   async generateFromTemplate(
     templateId: string,
     context: CodeContext,
-    options?: {
+    _options?: {
       skillLevel?: 'beginner' | 'intermediate' | 'advanced';
       projectType?: 'prototype' | 'production' | 'learning';
-      customizations?: Record<string, any>;
+      customizations?: Record<string, unknown>;
     }
   ): Promise<GeneratedCode> {
     if (!this.initialized) await this.initialize();
@@ -570,7 +570,7 @@ class BasicPrivMXSetup {
         | 'validation'
         | 'completion';
       description: string;
-      options?: any[];
+      options?: unknown[];
     };
   }> {
     return this.interactiveWorkflowBuilder.startSession(goal, userContext);
@@ -581,7 +581,7 @@ class BasicPrivMXSetup {
    */
   async continueInteractiveSession(
     sessionId: string,
-    userResponse: any
+    userResponse: unknown
   ): Promise<{
     currentStep: number;
     totalSteps: number;
@@ -592,8 +592,8 @@ class BasicPrivMXSetup {
         | 'validation'
         | 'completion';
       description: string;
-      options?: any[];
-      result?: any;
+      options?: unknown[];
+      result?: unknown;
     };
     isComplete: boolean;
   }> {
@@ -695,33 +695,36 @@ class BasicPrivMXSetup {
   async searchDocumentation(
     query: string,
     filters?: { type?: string; namespace?: string },
-    limit = 5
+    _limit = 5
   ): Promise<SearchResult[]> {
-    return this.discoverAPI(query, filters?.namespace);
+    return this.searchService.search(query, filters?.type);
   }
 
   async searchApiMethods(
     query: string,
     className?: string,
-    limit = 10
+    _limit = 10
   ): Promise<SearchResult[]> {
-    return this.searchEngine.searchMethods(query, className, limit);
+    return this.searchService.searchMethods(query, className);
   }
 
   async searchClasses(
     query: string,
     namespace?: string,
-    limit = 10
+    _limit = 10
   ): Promise<SearchResult[]> {
-    return this.searchEngine.searchClasses(query, namespace, limit);
+    return this.searchService.searchClasses(query, namespace);
   }
 
-  async searchGuides(query: string, limit = 10): Promise<SearchResult[]> {
+  async searchGuides(query: string, _limit = 10): Promise<SearchResult[]> {
     // For now, return empty - guides will be handled separately
     return [];
   }
 
-  async getRelatedContent(content: string, limit = 5): Promise<SearchResult[]> {
+  async getRelatedContent(
+    content: string,
+    _limit = 5
+  ): Promise<SearchResult[]> {
     // Extract key terms and search
     const terms = content.split(/\s+/).slice(0, 5).join(' ');
     return this.discoverAPI(terms);
@@ -731,16 +734,16 @@ class BasicPrivMXSetup {
     path = '/spec',
     force = false
   ): Promise<IndexingResult> {
-    console.log(`📚 Re-indexing from: ${path} (force: ${force})`);
+    logger.info(`📚 Re-indexing from: ${path} (force: ${force})`);
 
     if (force) {
-      this.searchEngine.clear();
+      this.searchService.clear();
       this.initialized = false;
     }
 
     await this.initialize();
 
-    const stats = this.searchEngine.getStats();
+    const stats = this.searchService.getStats();
     return {
       indexed: stats.namespaces,
       updated: 0,
@@ -764,8 +767,8 @@ class BasicPrivMXSetup {
   }
 
   async clearCollection(): Promise<void> {
-    console.log('🗑️ Clearing API knowledge graph');
-    this.searchEngine.clear();
+    logger.info('🗑️ Clearing API knowledge graph');
+    this.searchService.clear();
     this.initialized = false;
   }
 
@@ -774,13 +777,13 @@ class BasicPrivMXSetup {
   }
 
   async processAndStoreDocuments(files: string[]): Promise<IndexingResult> {
-    console.log(`📄 Processing ${files.length} specific documents`);
+    logger.info(`📄 Processing ${files.length} specific documents`);
     // For now, just trigger full re-index
     return this.indexDocumentation();
   }
 
   async getDocumentationStats(): Promise<DocumentationStats> {
-    const stats = this.searchEngine.getStats();
+    const stats = this.searchService.getStats();
     return {
       total: stats.namespaces,
       byType: stats.byType,
@@ -791,118 +794,98 @@ class BasicPrivMXSetup {
    * Private implementation methods
    */
   private async buildKnowledgeGraph(): Promise<void> {
-    const specPath = this.config.specPath || 'spec';
+    const specPath = this.config.specPath || specRoot;
+    logger.info(`   🔍 Looking for API spec files in: ${specPath}`);
 
-    // Find all JSON API files
-    const apiFiles = await this.findAPIFiles(specPath);
+    // Find all privmx.spec.json files
+    const manifestFiles = await this.findManifestFiles(specPath);
+    logger.info(
+      `   📁 Found ${manifestFiles.length} manifest files:`,
+      manifestFiles
+    );
 
-    for (const apiFile of apiFiles) {
+    if (manifestFiles.length === 0) {
+      logger.warn(
+        `   ⚠️  No privmx.spec.json files found in ${specPath}. Check the path!`
+      );
+      return;
+    }
+
+    for (const manifestFile of manifestFiles) {
       try {
-        console.log(`   📄 Processing: ${apiFile}`);
+        logger.info(`   📄 Processing manifest: ${manifestFile}`);
+        const manifestContent = await fsPromises.readFile(
+          manifestFile,
+          'utf-8'
+        );
+        const manifest = JSON.parse(manifestContent);
+        const language = manifest.language;
 
-        // Determine language from file path
-        const language = this.extractLanguageFromPath(apiFile);
+        if (!language) {
+          logger.warn(
+            `   ⚠️  Manifest ${manifestFile} is missing language property.`
+          );
+          continue;
+        }
 
-        // Load and parse the API file
-        const content = await fs.readFile(apiFile, 'utf-8');
-        const namespaces = await this.apiParser.parseAPISpec(
-          content,
-          language,
-          apiFile
+        logger.info(`   🔤 Detected language: ${language}`);
+
+        const specDir = path.dirname(manifestFile);
+        const apiFiles = (await fsPromises.readdir(specDir)).filter(
+          (f) => f.endsWith('.json') && f !== 'privmx.spec.json'
         );
 
-        // Store in knowledge graph
-        for (const namespace of namespaces) {
-          this.searchEngine.addNamespace(namespace, language);
+        for (const apiFile of apiFiles) {
+          const apiFilePath = path.join(specDir, apiFile);
+          // Load and parse the API file
+          const content = await fsPromises.readFile(apiFilePath, 'utf-8');
+          const namespaces = await this.apiParser.parseAPISpec(
+            content,
+            language,
+            apiFilePath
+          );
 
-          // Store for enhanced search engine
-          const key = `${language}:${namespace.name}`;
-          this.apiData.set(key, namespace);
-        }
-      } catch (error) {
-        console.warn(`   ⚠️ Failed to process ${apiFile}:`, error);
-      }
-    }
-  }
+          logger.info(
+            `   📊 Parsed ${namespaces.length} namespaces from ${apiFilePath}`
+          );
 
-  private async findAPIFiles(basePath: string): Promise<string[]> {
-    const files: string[] = [];
+          // Store in knowledge graph
+          for (const namespace of namespaces) {
+            this.searchService.addNamespace(namespace, language);
 
-    const walkDir = async (dir: string): Promise<void> => {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-
-          if (entry.isDirectory() && entry.name !== 'node_modules') {
-            await walkDir(fullPath);
-          } else if (entry.isFile() && entry.name.endsWith('.json')) {
-            // Only include JSON files that look like API specs
-            if (fullPath.includes('api') || fullPath.includes('spec')) {
-              files.push(fullPath);
-            }
+            // Store for enhanced search engine
+            const key = `${language}:${namespace.name}`;
+            this.apiData.set(key, namespace);
+            logger.info(
+              `   ✅ Added namespace: ${key} (${namespace.classes.length} classes, ${namespace.functions.length} functions)`
+            );
           }
         }
       } catch (error) {
-        console.warn(`Cannot read directory ${dir}:`, error);
-      }
-    };
-
-    await walkDir(basePath);
-    return files;
-  }
-
-  private extractLanguageFromPath(filePath: string): string {
-    const pathParts = filePath.split(path.sep);
-
-    // Look for language indicators in path
-    for (const part of pathParts) {
-      if (
-        ['js', 'javascript', 'typescript', 'ts'].includes(part.toLowerCase())
-      ) {
-        return 'javascript';
-      }
-      if (['java', 'kotlin'].includes(part.toLowerCase())) {
-        return 'java';
-      }
-      if (['swift'].includes(part.toLowerCase())) {
-        return 'swift';
-      }
-      if (['cpp', 'c++', 'cxx'].includes(part.toLowerCase())) {
-        return 'cpp';
-      }
-      if (['csharp', 'c#', 'cs'].includes(part.toLowerCase())) {
-        return 'csharp';
+        logger.warn(`   ⚠️ Failed to process manifest ${manifestFile}:`, error);
       }
     }
-
-    return 'javascript'; // Default
   }
 
-  // Workflow generation stubs (to be moved to separate modules)
-  private generateSecureMessagingWorkflow(
-    language: string,
-    options: CodeGenerationOptions
-  ): string {
-    return `// Secure Messaging Workflow for ${language}
-// Implementation coming soon`;
-  }
-
-  private generateFileSharingWorkflow(
-    language: string,
-    options: CodeGenerationOptions
-  ): string {
-    return `// File Sharing Workflow for ${language}
-// Implementation coming soon`;
-  }
-
-  private generateDataStorageWorkflow(
-    language: string,
-    options: CodeGenerationOptions
-  ): string {
-    return `// Data Storage Workflow for ${language}
-// Implementation coming soon`;
+  private async findManifestFiles(basePath: string): Promise<string[]> {
+    const files: string[] = [];
+    const walkDir = async (dir: string): Promise<void> => {
+      try {
+        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory() && entry.name !== 'node_modules') {
+            await walkDir(fullPath);
+          } else if (entry.isFile() && entry.name === 'privmx.spec.json') {
+            files.push(fullPath);
+          }
+        }
+      } catch (error) {
+        logger.warn(`Cannot read directory ${dir}:`, error);
+      }
+    };
+    await walkDir(basePath);
+    return files;
   }
 
   private mapSkillLevel(
@@ -958,7 +941,7 @@ class BasicPrivMXSetup {
     };
     userContext: {
       skillLevel: 'beginner' | 'intermediate' | 'expert';
-      preferences?: Record<string, any>;
+      preferences?: ConfigObject;
     };
   }): Promise<
     IntegrationResult<{ files: Array<{ path: string; content: string }> }>
@@ -974,14 +957,20 @@ class BasicPrivMXSetup {
     };
 
     // Handle different interface signatures between PlopTemplateEngine and WebCompatibleTemplateEngine
-    if ('generateTemplates' in this.plopTemplateEngine) {
+    if ('generateTemplates' in this._plopTemplateEngine) {
       // WebCompatibleTemplateEngine uses generateTemplates method
-      return (this.plopTemplateEngine as any).generateTemplates(
-        templateRequest
-      );
+      return (
+        this._plopTemplateEngine as unknown as {
+          generateTemplates: (req: TemplateGenerationRequest) => Promise<
+            IntegrationResult<{
+              files: Array<{ path: string; content: string }>;
+            }>
+          >;
+        }
+      ).generateTemplates(templateRequest);
     } else {
       // PlopTemplateEngine uses generateFromTemplate method
-      return this.plopTemplateEngine.generateFromTemplate(templateRequest);
+      return this._plopTemplateEngine.generateFromTemplate(templateRequest);
     }
   }
 
@@ -995,7 +984,7 @@ class BasicPrivMXSetup {
       | 'upgrade-sdk'
       | 'add-security-patterns';
     targetFramework?: string;
-    options?: Record<string, any>;
+    options?: ConfigObject;
   }): Promise<IntegrationResult<{ transformedCode: string }>> {
     const transformRequest: CodeTransformationRequest = {
       sourceCode: request.sourceCode,
@@ -1017,7 +1006,7 @@ class BasicPrivMXSetup {
       preferredFramework?: string;
       projectType?: 'prototype' | 'production' | 'learning';
     };
-  }): Promise<IntegrationResult<{ sessionId: string; firstStep: any }>> {
+  }): Promise<IntegrationResult<{ sessionId: string; firstStep: unknown }>> {
     const workflowRequest: WorkflowBuildRequest = {
       goal: request.goal,
       userContext: request.userContext,
@@ -1031,10 +1020,10 @@ class BasicPrivMXSetup {
    */
   async continuePrivMXWorkflow(
     sessionId: string,
-    answers: any
+    answers: Record<string, unknown>
   ): Promise<
     IntegrationResult<{
-      nextStep?: any;
+      nextStep?: unknown;
       isComplete: boolean;
       generatedFiles?: string[];
     }>
@@ -1057,7 +1046,7 @@ class BasicPrivMXSetup {
       framework?: string;
       codeSnippet?: string;
     };
-  }): Promise<IntegrationResult<any>> {
+  }): Promise<IntegrationResult<unknown>> {
     const intelligenceRequest: PrivMXIntelligenceRequest = {
       query: request.query,
       type: request.type,
@@ -1081,35 +1070,23 @@ class BasicPrivMXSetup {
       features: string[];
     }>
   > {
-    const templates = await this.plopTemplateEngine.getAvailableTemplates();
+    const templates = await this._plopTemplateEngine.getAvailableTemplates();
 
-    // Handle different return types from different template engines
+    // Both template engines now return objects with name, description, path
     if (Array.isArray(templates) && templates.length > 0) {
-      if (typeof templates[0] === 'string') {
-        // WebCompatibleTemplateEngine returns string[]
-        return (templates as string[]).map((templateName) => ({
-          id: templateName,
-          name: templateName,
-          description: `PrivMX ${templateName} template`,
-          frameworks: ['react', 'vue', 'vanilla', 'nodejs'],
-          features: ['messaging', 'file-sharing', 'notifications'],
-        }));
-      } else {
-        // PlopTemplateEngine returns objects with name, description, path
-        return (
-          templates as Array<{
-            name: string;
-            description: string;
-            path: string;
-          }>
-        ).map((template) => ({
-          id: template.name,
-          name: template.name,
-          description: template.description,
-          frameworks: ['react', 'vue', 'vanilla', 'nodejs'],
-          features: ['messaging', 'file-sharing', 'notifications'],
-        }));
-      }
+      return (
+        templates as Array<{
+          name: string;
+          description: string;
+          path: string;
+        }>
+      ).map((template) => ({
+        id: template.name,
+        name: template.name,
+        description: template.description,
+        frameworks: ['react', 'vue', 'vanilla', 'nodejs'],
+        features: ['messaging', 'file-sharing', 'notifications'],
+      }));
     }
 
     // Fallback for empty arrays
@@ -1131,7 +1108,7 @@ class BasicPrivMXSetup {
   /**
    * Get workflow session status from Inquirer integration
    */
-  getPrivMXWorkflowStatus(sessionId: string): any {
+  getPrivMXWorkflowStatus(sessionId: string): unknown {
     return this.inquirerWorkflowBuilder.getSessionStatus(sessionId);
   }
 
@@ -1144,7 +1121,7 @@ class BasicPrivMXSetup {
       framework?: string;
       apis?: string[];
     }
-  ): Promise<IntegrationResult<any>> {
+  ): Promise<IntegrationResult<unknown>> {
     return this.privmxIntelligenceEngine.processIntelligenceRequest({
       query: code,
       type: 'pattern-validation',
@@ -1165,7 +1142,7 @@ class BasicPrivMXSetup {
       framework?: string;
       apis?: string[];
     }
-  ): Promise<IntegrationResult<any>> {
+  ): Promise<IntegrationResult<unknown>> {
     return this.privmxIntelligenceEngine.processIntelligenceRequest({
       query: code,
       type: 'optimization',
@@ -1186,7 +1163,7 @@ class BasicPrivMXSetup {
       framework?: string;
       apis?: string[];
     }
-  ): Promise<IntegrationResult<any>> {
+  ): Promise<IntegrationResult<unknown>> {
     return this.privmxIntelligenceEngine.processIntelligenceRequest({
       query: apiQuery,
       type: 'api-relationship',
@@ -1203,7 +1180,7 @@ class BasicPrivMXSetup {
       framework?: string;
       apis?: string[];
     }
-  ): Promise<IntegrationResult<any>> {
+  ): Promise<IntegrationResult<unknown>> {
     return this.privmxIntelligenceEngine.processIntelligenceRequest({
       query: goal,
       type: 'workflow-suggestion',

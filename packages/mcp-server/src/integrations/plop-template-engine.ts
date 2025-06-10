@@ -5,7 +5,8 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import Handlebars from 'handlebars';
+// Import handlebars dynamically to avoid webpack issues
+// import Handlebars from 'handlebars';
 import {
   TemplateGenerationRequest,
   IntegrationResult,
@@ -15,6 +16,7 @@ import {
 export class PlopTemplateEngine {
   private templatesPath: string;
   private outputPath: string;
+  private handlebars: unknown = null;
 
   constructor(
     templatesPath = './src/templates/privmx',
@@ -22,30 +24,75 @@ export class PlopTemplateEngine {
   ) {
     this.templatesPath = templatesPath;
     this.outputPath = outputPath;
-    this.registerHandlebarsHelpers();
+  }
+
+  /**
+   * Dynamically load Handlebars only when needed (server-side only)
+   */
+  private async loadHandlebars(): Promise<unknown> {
+    if (this.handlebars) return this.handlebars;
+
+    try {
+      // Only load in true Node.js environment (not webpack bundled)
+      const isNodeEnv =
+        typeof window === 'undefined' &&
+        typeof process !== 'undefined' &&
+        process.versions &&
+        process.versions.node;
+
+      if (isNodeEnv) {
+        const { default: Handlebars } = await import('handlebars');
+        this.handlebars = Handlebars;
+        this.registerHandlebarsHelpers();
+        return this.handlebars;
+      } else {
+        // Browser environment or webpack build - use simple processing
+        console.log(
+          '🔄 Using simple template processing (webpack/browser environment)'
+        );
+        return null;
+      }
+    } catch {
+      console.warn(
+        '⚠️  Handlebars not available, using simple template replacement'
+      );
+      return null;
+    }
   }
 
   /**
    * Register custom Handlebars helpers for PrivMX templates
    */
   private registerHandlebarsHelpers(): void {
+    if (!this.handlebars) return;
+
+    const Handlebars = this.handlebars as {
+      registerHelper: (
+        name: string,
+        helper: (...args: unknown[]) => unknown
+      ) => void;
+    };
+
     // String helpers
-    Handlebars.registerHelper('kebabCase', (str: string) => {
-      return str
-        ?.toLowerCase()
+    Handlebars.registerHelper('kebabCase', (str: unknown) => {
+      const strValue = String(str || '');
+      return strValue
+        .toLowerCase()
         .replace(/[^a-z0-9]/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
     });
 
-    Handlebars.registerHelper('camelCase', (str: string) => {
-      return str?.replace(/[-_\s]+(.)?/g, (_, char) =>
+    Handlebars.registerHelper('camelCase', (str: unknown) => {
+      const strValue = String(str || '');
+      return strValue.replace(/[-_\s]+(.)?/g, (_, char) =>
         char ? char.toUpperCase() : ''
       );
     });
 
-    Handlebars.registerHelper('pascalCase', (str: string) => {
-      const camelCase = str?.replace(/[-_\s]+(.)?/g, (_, char) =>
+    Handlebars.registerHelper('pascalCase', (str: unknown) => {
+      const strValue = String(str || '');
+      const camelCase = strValue.replace(/[-_\s]+(.)?/g, (_, char) =>
         char ? char.toUpperCase() : ''
       );
       return camelCase
@@ -54,8 +101,9 @@ export class PlopTemplateEngine {
     });
 
     // Alias for pascalCase
-    Handlebars.registerHelper('properCase', (str: string) => {
-      const camelCase = str?.replace(/[-_\s]+(.)?/g, (_, char) =>
+    Handlebars.registerHelper('properCase', (str: unknown) => {
+      const strValue = String(str || '');
+      const camelCase = strValue.replace(/[-_\s]+(.)?/g, (_, char) =>
         char ? char.toUpperCase() : ''
       );
       return camelCase
@@ -64,61 +112,93 @@ export class PlopTemplateEngine {
     });
 
     // Comparison helpers
-    Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
-    Handlebars.registerHelper('ne', (a: any, b: any) => a !== b);
-    Handlebars.registerHelper('gt', (a: any, b: any) => a > b);
-    Handlebars.registerHelper('gte', (a: any, b: any) => a >= b);
-    Handlebars.registerHelper('lt', (a: any, b: any) => a < b);
-    Handlebars.registerHelper('lte', (a: any, b: any) => a <= b);
+    Handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
+    Handlebars.registerHelper('ne', (a: unknown, b: unknown) => a !== b);
+    Handlebars.registerHelper(
+      'gt',
+      (a: unknown, b: unknown) => Number(a) > Number(b)
+    );
+    Handlebars.registerHelper(
+      'gte',
+      (a: unknown, b: unknown) => Number(a) >= Number(b)
+    );
+    Handlebars.registerHelper(
+      'lt',
+      (a: unknown, b: unknown) => Number(a) < Number(b)
+    );
+    Handlebars.registerHelper(
+      'lte',
+      (a: unknown, b: unknown) => Number(a) <= Number(b)
+    );
 
     // Array helpers
-    Handlebars.registerHelper('contains', (array: any[], item: any) => {
+    Handlebars.registerHelper('contains', (array: unknown, item: unknown) => {
       return Array.isArray(array) && array.includes(item);
     });
 
-    Handlebars.registerHelper('join', (array: any[], separator = ', ') => {
-      return Array.isArray(array) ? array.join(separator) : '';
-    });
+    Handlebars.registerHelper(
+      'join',
+      (array: unknown, separator: unknown = ', ') => {
+        return Array.isArray(array) ? array.join(String(separator)) : '';
+      }
+    );
 
     // Conditional helpers
     Handlebars.registerHelper(
       'if_eq',
-      function (this: any, a: any, b: any, options: any) {
-        return a === b ? options.fn(this) : options.inverse(this);
+      function (this: unknown, a: unknown, b: unknown, options: unknown) {
+        const opts = options as {
+          fn: (context: unknown) => string;
+          inverse: (context: unknown) => string;
+        };
+        return a === b ? opts.fn(this) : opts.inverse(this);
       }
     );
 
     Handlebars.registerHelper(
       'if_contains',
-      function (this: any, array: any[], item: any, options: any) {
+      function (
+        this: unknown,
+        array: unknown,
+        item: unknown,
+        options: unknown
+      ) {
+        const opts = options as {
+          fn: (context: unknown) => string;
+          inverse: (context: unknown) => string;
+        };
         return Array.isArray(array) && array.includes(item)
-          ? options.fn(this)
-          : options.inverse(this);
+          ? opts.fn(this)
+          : opts.inverse(this);
       }
     );
 
     // PrivMX-specific helpers
     Handlebars.registerHelper(
       'privmxDeps',
-      (framework: string, features: string[], language: string) => {
+      (framework: unknown, features: unknown, language: unknown) => {
+        const frameworkStr = String(framework);
+        const featuresArray = Array.isArray(features) ? features : [];
+        const languageStr = String(language);
+
         const deps: Record<string, string> = {
           '@privmx/privmx-webendpoint': '^2.0.0',
         };
 
-        if (framework === 'react') {
+        if (frameworkStr === 'react') {
           deps['react'] = '^18.0.0';
           deps['react-dom'] = '^18.0.0';
-          if (language === 'typescript') {
+          if (languageStr === 'typescript') {
             deps['@types/react'] = '^18.0.0';
             deps['@types/react-dom'] = '^18.0.0';
           }
         }
 
-        if (features.includes('notifications')) {
+        if (featuresArray.includes('notifications')) {
           deps['@privmx/privmx-notifications'] = '^1.0.0';
         }
 
-        if (features.includes('file-sharing')) {
+        if (featuresArray.includes('file-sharing')) {
           deps['@privmx/privmx-store'] = '^1.0.0';
         }
 
@@ -128,20 +208,49 @@ export class PlopTemplateEngine {
       }
     );
 
-    Handlebars.registerHelper('privmxImports', (features: string[]) => {
+    Handlebars.registerHelper('privmxImports', (features: unknown) => {
+      const featuresArray = Array.isArray(features) ? features : [];
       const imports = ['WebEndpoint'];
 
-      if (features.includes('messaging')) imports.push('ThreadApi');
-      if (features.includes('file-sharing')) imports.push('StoreApi');
-      if (features.includes('notifications')) imports.push('InboxApi');
+      if (featuresArray.includes('messaging')) imports.push('ThreadApi');
+      if (featuresArray.includes('file-sharing')) imports.push('StoreApi');
+      if (featuresArray.includes('notifications')) imports.push('InboxApi');
 
       return imports.join(', ');
     });
 
     // File extension helper
-    Handlebars.registerHelper('fileExtensions', (language: string) => {
-      return language === 'typescript' ? 'ts,tsx' : 'js,jsx';
+    Handlebars.registerHelper('fileExtensions', (language: unknown) => {
+      return String(language) === 'typescript' ? 'ts,tsx' : 'js,jsx';
     });
+  }
+
+  /**
+   * Fallback simple template processing when Handlebars is not available
+   */
+  private processSimpleTemplate(
+    content: string,
+    data: PlopTemplateData
+  ): string {
+    let result = content;
+
+    // Simple variable replacement
+    Object.entries(data).forEach(([key, value]) => {
+      const placeholder = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+      result = result.replace(placeholder, String(value));
+    });
+
+    // Handle simple conditionals
+    result = result.replace(
+      /{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g,
+      (match, condition, content) => {
+        return (data as unknown as Record<string, unknown>)[condition]
+          ? content
+          : '';
+      }
+    );
+
+    return result;
   }
 
   /**
@@ -172,6 +281,9 @@ export class PlopTemplateEngine {
         };
       }
 
+      // Try to load Handlebars, fall back to simple processing if not available
+      await this.loadHandlebars();
+
       // Prepare template data
       const templateData = this.prepareTemplateData(request);
 
@@ -199,7 +311,7 @@ export class PlopTemplateEngine {
         errors: [
           error instanceof Error
             ? error.message
-            : 'Unknown error during template generation',
+            : 'Unknown error in template generation',
         ],
         metadata: {
           toolUsed: 'plop',
@@ -239,8 +351,7 @@ export class PlopTemplateEngine {
         const processedFile = await this.processTemplateFile(
           fullPath,
           currentPath,
-          templateData,
-          request
+          templateData
         );
         if (processedFile) {
           files.push(processedFile);
@@ -257,8 +368,7 @@ export class PlopTemplateEngine {
   private async processTemplateFile(
     filePath: string,
     relativePath: string,
-    templateData: PlopTemplateData,
-    request: TemplateGenerationRequest
+    templateData: PlopTemplateData
   ): Promise<{ path: string; content: string } | null> {
     try {
       // Skip non-template files
@@ -278,16 +388,41 @@ export class PlopTemplateEngine {
 
       // Apply templating to filename if needed
       if (outputPath.includes('{{')) {
-        const filenameTemplate = Handlebars.compile(outputPath);
-        outputPath = filenameTemplate(templateData);
+        if (this.handlebars) {
+          const hb = this.handlebars as {
+            compile: (
+              template: string
+            ) => (data: Record<string, unknown>) => string;
+          };
+          const filenameTemplate = hb.compile(outputPath);
+          outputPath = filenameTemplate(
+            templateData as unknown as Record<string, unknown>
+          );
+        } else {
+          outputPath = this.processSimpleTemplate(outputPath, templateData);
+        }
       }
 
       // Process template content
       let processedContent: string;
       if (filePath.endsWith('.hbs')) {
-        // Process Handlebars template
-        const template = Handlebars.compile(templateContent);
-        processedContent = template(templateData);
+        // Process template (Handlebars or simple)
+        if (this.handlebars) {
+          const hb = this.handlebars as {
+            compile: (
+              template: string
+            ) => (data: Record<string, unknown>) => string;
+          };
+          const template = hb.compile(templateContent);
+          processedContent = template(
+            templateData as unknown as Record<string, unknown>
+          );
+        } else {
+          processedContent = this.processSimpleTemplate(
+            templateContent,
+            templateData
+          );
+        }
       } else {
         // Plain file, just copy
         processedContent = templateContent;
@@ -322,10 +457,6 @@ export class PlopTemplateEngine {
         solutionId: request.privmxConfig.solutionId || 'your-solution-id',
         platformUrl: request.privmxConfig.platformUrl || 'https://privmx.cloud',
         apiEndpoints: request.privmxConfig.apiEndpoints,
-        // Add computed properties
-        hasThreads: request.privmxConfig.apiEndpoints.includes('threads'),
-        hasStores: request.privmxConfig.apiEndpoints.includes('stores'),
-        hasInboxes: request.privmxConfig.apiEndpoints.includes('inboxes'),
       },
       // Additional computed properties
       isReact: request.framework === 'react',
@@ -341,8 +472,12 @@ export class PlopTemplateEngine {
       hasAuth: request.features.includes('auth'),
       // User context
       skillLevel: request.userContext.skillLevel,
-      includeTests: request.userContext.preferences?.includeTests ?? true,
-      includeComments: request.userContext.preferences?.includeComments ?? true,
+      includeTests: Boolean(
+        request.userContext.preferences?.includeTests ?? true
+      ),
+      includeComments: Boolean(
+        request.userContext.preferences?.includeComments ?? true
+      ),
     };
   }
 

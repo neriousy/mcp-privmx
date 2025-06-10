@@ -21,7 +21,7 @@ const loadConversations = (): Conversation[] => {
   if (!stored) return [];
   try {
     const conversations = JSON.parse(stored);
-    return conversations.map((conv: any) => ({
+    return conversations.map((conv: Conversation) => ({
       ...conv,
       updatedAt: new Date(conv.updatedAt),
     }));

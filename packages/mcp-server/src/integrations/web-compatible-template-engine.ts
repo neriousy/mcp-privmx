@@ -1,10 +1,8 @@
 /**
  * Web-Compatible Template Engine
- * Handles template processing without Handlebars dependency issues in webpack
+ * Simple template processing for webpack/browser environments
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
 import {
   TemplateGenerationRequest,
   IntegrationResult,
@@ -24,304 +22,302 @@ export class WebCompatibleTemplateEngine {
   }
 
   /**
-   * Simple template variable replacement without Handlebars
+   * Simple template processing without external dependencies
    */
-  private processTemplate(template: string, data: PlopTemplateData): string {
-    let result = template;
+  private processSimpleTemplate(
+    content: string,
+    data: PlopTemplateData
+  ): string {
+    let result = content;
 
-    // Simple variable substitution
+    // Simple variable replacement
+    Object.entries(data).forEach(([key, value]) => {
+      const placeholder = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+      result = result.replace(placeholder, String(value));
+    });
+
+    // Handle simple conditionals
     result = result.replace(
-      /\{\{kebabCase\s+([^}]+)\}\}/g,
-      (match, varName) => {
-        const value = this.getVariableValue(varName.trim(), data);
-        return this.kebabCase(value);
+      /{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g,
+      (match, condition, content) => {
+        return (data as unknown as Record<string, unknown>)[condition]
+          ? content
+          : '';
       }
     );
 
-    result = result.replace(/\{\{([^}]+)\}\}/g, (match, varName) => {
-      return this.getVariableValue(varName.trim(), data);
-    });
+    // Handle each loops
+    result = result.replace(
+      /{{#each\s+(\w+)}}([\s\S]*?){{\/each}}/g,
+      (match, arrayName, template) => {
+        const array = (data as unknown as Record<string, unknown>)[arrayName];
+        if (!Array.isArray(array)) return '';
 
-    // Simple conditionals for React
-    if (data.isReact) {
-      result = result.replace(/\{\{#if\s+isReact\}\}(.*?)\{\{\/if\}\}/gs, '$1');
-    } else {
-      result = result.replace(/\{\{#if\s+isReact\}\}(.*?)\{\{\/if\}\}/gs, '');
-    }
-
-    // Simple conditionals for TypeScript
-    if (data.isTypeScript) {
-      result = result.replace(
-        /\{\{#if\s+isTypeScript\}\}(.*?)\{\{\/if\}\}/gs,
-        '$1'
-      );
-    } else {
-      result = result.replace(
-        /\{\{#if\s+isTypeScript\}\}(.*?)\{\{\/if\}\}/gs,
-        ''
-      );
-    }
-
-    // Framework variable
-    result = result.replace(/\{\{framework\}\}/g, data.framework || 'react');
+        return array
+          .map((item) => {
+            let itemTemplate = template;
+            if (typeof item === 'object' && item !== null) {
+              Object.entries(item as Record<string, unknown>).forEach(
+                ([prop, val]) => {
+                  const propPlaceholder = new RegExp(
+                    `{{\\s*${prop}\\s*}}`,
+                    'g'
+                  );
+                  itemTemplate = itemTemplate.replace(
+                    propPlaceholder,
+                    String(val)
+                  );
+                }
+              );
+            } else {
+              itemTemplate = itemTemplate.replace(/{{this}}/g, String(item));
+            }
+            return itemTemplate;
+          })
+          .join('');
+      }
+    );
 
     return result;
   }
 
   /**
-   * Get variable value from data object
+   * Generate application from template (browser-compatible)
    */
-  private getVariableValue(varName: string, data: any): string {
-    const keys = varName.split('.');
-    let value = data;
-
-    for (const key of keys) {
-      value = value?.[key];
-    }
-
-    return value?.toString() || '';
-  }
-
-  /**
-   * Convert string to kebab-case
-   */
-  private kebabCase(str: string): string {
-    return (
-      str
-        ?.toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '') || ''
-    );
-  }
-
-  /**
-   * Generate templates using simplified processing
-   */
-  async generateTemplates(
+  async generateFromTemplate(
     request: TemplateGenerationRequest
-  ): Promise<IntegrationResult> {
+  ): Promise<
+    IntegrationResult<{ files: { path: string; content: string }[] }>
+  > {
     try {
-      const templateData: PlopTemplateData = {
-        projectName: request.projectName,
-        appName: request.projectName,
-        framework: request.framework,
-        language: request.language,
-        features: request.features || [],
-        privmxConfig: request.privmxConfig,
-        includeTests: true, // Default to true
-        isTypeScript: request.language === 'typescript',
-        isReact: request.framework === 'react',
-        isVue: request.framework === 'vue',
-        isNodejs: request.framework === 'nodejs',
-        hasMessaging: request.features?.includes('messaging') || false,
-        hasAuth: request.features?.includes('auth') || false,
-        hasFileSharing: request.features?.includes('file-sharing') || false,
-        hasNotifications: request.features?.includes('notifications') || false,
-        skillLevel: request.userContext.skillLevel,
-      };
+      console.log(
+        `🌐 Generating ${request.templateId} application (web-compatible)...`
+      );
 
-      // Generate a simple package.json for now
-      const packageJson = this.generatePackageJson(templateData);
+      // Prepare template data
+      const templateData = this.prepareTemplateData(request);
 
-      const files = [
-        {
-          path: 'package.json',
-          content: packageJson,
-        },
-        {
-          path: 'README.md',
-          content: `# ${templateData.appName}\n\nPrivMX ${templateData.framework} application`,
-        },
-      ];
+      // Generate basic template files for common PrivMX patterns
+      const files = this.generateBuiltInTemplates(request, templateData);
+
+      console.log(
+        `✅ Generated ${files.length} files successfully (web-compatible)`
+      );
 
       return {
         success: true,
         data: { files },
         metadata: {
           toolUsed: 'plop',
+          executionTime: Date.now(),
           filesGenerated: files.length,
         },
       };
     } catch (error) {
       return {
         success: false,
-        data: { files: [] },
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        errors: [
+          error instanceof Error
+            ? error.message
+            : 'Unknown error in web-compatible template generation',
+        ],
+        metadata: {
+          toolUsed: 'plop',
+          executionTime: 0,
+        },
       };
     }
   }
 
   /**
-   * Generate package.json without Handlebars
+   * Generate built-in templates for PrivMX applications
    */
-  private generatePackageJson(data: PlopTemplateData): string {
-    const packageObj = {
-      name: this.kebabCase(data.appName),
-      version: '1.0.0',
-      description: 'PrivMX Secure Chat Application',
-      main: data.isTypeScript ? 'dist/index.js' : 'src/index.js',
-      scripts: {
-        ...(data.isReact && {
-          dev: 'vite',
-          build: data.isTypeScript ? 'tsc && vite build' : 'vite build',
-          preview: 'vite preview',
-        }),
-        ...(data.isNodejs && {
-          dev: data.isTypeScript ? 'ts-node src/index.ts' : 'node src/index.js',
-          build: data.isTypeScript ? 'tsc' : 'echo "No build needed"',
-          start: data.isTypeScript ? 'node dist/index.js' : 'node src/index.js',
-        }),
-        ...(data.includeTests && {
-          test: 'jest',
-          'test:watch': 'jest --watch',
-        }),
-        lint: `eslint src --ext .${data.isTypeScript ? 'ts,tsx' : 'js,jsx'}`,
-        format: `prettier --write "src/**/*.{${data.isTypeScript ? 'ts,tsx' : 'js,jsx'},json,css,md}"`,
-      },
-      dependencies: {
-        '@simplito/privmx-webendpoint': '^2.0.0',
-        ...(data.isReact && {
-          react: '^18.3.0',
-          'react-dom': '^18.3.0',
-        }),
-        ...(data.hasFileSharing &&
-          data.isReact && {
-            'react-dropzone': '^14.2.0',
-          }),
-        ...(data.hasNotifications &&
-          data.isReact && {
-            'react-hot-toast': '^2.4.0',
-          }),
-        ...(data.isVue && {
-          vue: '^3.4.0',
-        }),
-        ...(data.isNodejs && {
-          express: '^4.19.0',
-          cors: '^2.8.5',
-          helmet: '^7.1.0',
-        }),
-        ...(data.hasAuth && {
-          jsonwebtoken: '^9.0.0',
-          bcryptjs: '^2.4.3',
-        }),
-        uuid: '^10.0.0',
-      },
-      devDependencies: {
-        ...(data.isTypeScript && {
-          typescript: '^5.5.0',
-          '@types/node': '^20.14.0',
-          ...(data.isReact && {
-            '@types/react': '^18.3.0',
-            '@types/react-dom': '^18.3.0',
-          }),
-          ...(data.isNodejs && {
-            '@types/express': '^4.17.0',
-            '@types/cors': '^2.8.0',
-          }),
-          ...(data.hasAuth && {
-            '@types/jsonwebtoken': '^9.0.0',
-            '@types/bcryptjs': '^2.4.0',
-          }),
-          '@types/uuid': '^10.0.0',
-          'ts-node': '^10.9.0',
-        }),
-        ...(data.isReact && {
-          '@vitejs/plugin-react': '^4.3.0',
-          vite: '^5.3.0',
-        }),
-        ...(data.isVue && {
-          '@vitejs/plugin-vue': '^5.0.0',
-          vite: '^5.3.0',
-        }),
-        eslint: '^8.57.0',
-        ...(data.isTypeScript && {
-          '@typescript-eslint/eslint-plugin': '^7.13.0',
-          '@typescript-eslint/parser': '^7.13.0',
-        }),
-        ...(data.isReact && {
-          'eslint-plugin-react': '^7.34.0',
-          'eslint-plugin-react-hooks': '^4.6.0',
-        }),
-        prettier: '^3.3.0',
-        ...(data.includeTests && {
-          jest: '^29.7.0',
-          ...(data.isTypeScript && {
-            '@types/jest': '^29.5.0',
-            'ts-jest': '^29.1.0',
-          }),
-          ...(data.isReact && {
-            '@testing-library/react': '^16.0.0',
-            '@testing-library/jest-dom': '^6.4.0',
-            '@testing-library/user-event': '^14.5.0',
-          }),
-        }),
-        concurrently: '^8.2.0',
-      },
-      keywords: [
-        'privmx',
-        'secure-chat',
-        'encryption',
-        'messaging',
-        ...(data.hasFileSharing ? ['file-sharing'] : []),
-        data.framework,
-      ],
-      author: '',
-      license: 'MIT',
-      private: true,
-      ...(data.isReact && {
-        type: 'module',
-      }),
-      engines: {
-        node: '>=18.0.0',
-      },
-    };
+  private generateBuiltInTemplates(
+    request: TemplateGenerationRequest,
+    data: PlopTemplateData
+  ): { path: string; content: string }[] {
+    const files: { path: string; content: string }[] = [];
 
-    return JSON.stringify(packageObj, null, 2);
-  }
-
-  /**
-   * List available templates
-   */
-  async getAvailableTemplates(): Promise<string[]> {
-    return ['secure-chat']; // Simple hardcoded list for now
-  }
-
-  /**
-   * Write files to output directory
-   */
-  async writeFiles(
-    files: Array<{ path: string; content: string }>,
-    outputDir: string
-  ): Promise<void> {
-    const fsExtra = await import('fs-extra');
-
-    // Ensure output directory exists
-    await fsExtra.ensureDir(outputDir);
-
-    // Write each file
-    for (const file of files) {
-      const filePath = path.join(outputDir, file.path);
-      await fsExtra.ensureDir(path.dirname(filePath));
-      await fsExtra.writeFile(filePath, file.content, 'utf8');
-    }
-  }
-
-  /**
-   * Generate from template (compatibility method)
-   */
-  async generateFromTemplate(
-    templateId: string,
-    data: any
-  ): Promise<IntegrationResult> {
-    return this.generateTemplates({
-      templateId,
-      projectName: data.projectName || 'app',
-      framework: data.framework || 'react',
-      language: data.language || 'typescript',
-      features: data.features || [],
-      privmxConfig: data.privmxConfig || { apiEndpoints: [] },
-      userContext: data.userContext || { skillLevel: 'intermediate' },
+    // Package.json
+    files.push({
+      path: 'package.json',
+      content: this.processSimpleTemplate(
+        `{
+  "name": "{{projectName}}",
+  "version": "1.0.0",
+  "description": "PrivMX {{framework}} application",
+  "main": "{{#if isNodejs}}index.js{{else}}src/main.{{#if isTypeScript}}ts{{else}}js{{/if}}{{/if}}",
+  "scripts": {
+    {{#if isReact}}"dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"{{/if}}
+    {{#if isNodejs}}"start": "node index.js",
+    "dev": "nodemon index.js"{{/if}}
+  },
+  "dependencies": {
+    "@privmx/privmx-webendpoint": "^2.0.0"{{#if isReact}},
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"{{/if}}
+    {{#if hasMessaging}},
+    "@privmx/privmx-threads": "^1.0.0"{{/if}}
+    {{#if hasFileSharing}},
+    "@privmx/privmx-stores": "^1.0.0"{{/if}}
+    {{#if hasNotifications}},
+    "@privmx/privmx-inboxes": "^1.0.0"{{/if}}
+  }{{#if isTypeScript}},
+  "devDependencies": {
+    "typescript": "^5.0.0"{{#if isReact}},
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^5.0.0"{{/if}}
+  }{{/if}}
+}`,
+        data
+      ),
     });
+
+    // Main application file
+    if (request.framework === 'react') {
+      files.push({
+        path: `src/App.${data.isTypeScript ? 'tsx' : 'jsx'}`,
+        content: this.processSimpleTemplate(
+          `import React from 'react';
+{{#if hasMessaging}}import { usePrivMXThreads } from './hooks/usePrivMXThreads';{{/if}}
+{{#if hasFileSharing}}import { usePrivMXStores } from './hooks/usePrivMXStores';{{/if}}
+
+function App() {
+  {{#if hasMessaging}}const { threads, sendMessage } = usePrivMXThreads();{{/if}}
+  {{#if hasFileSharing}}const { stores, uploadFile } = usePrivMXStores();{{/if}}
+
+  return (
+    <div className="App">
+      <h1>{{projectName}}</h1>
+      <p>PrivMX {{framework}} Application</p>
+      
+      {{#if hasMessaging}}<div>
+        <h2>Secure Messaging</h2>
+        {/* Add your messaging UI here */}
+      </div>{{/if}}
+      
+      {{#if hasFileSharing}}<div>
+        <h2>File Sharing</h2>
+        {/* Add your file sharing UI here */}
+      </div>{{/if}}
+    </div>
+  );
+}
+
+export default App;`,
+          data
+        ),
+      });
+    }
+
+    // Add README
+    files.push({
+      path: 'README.md',
+      content: this.processSimpleTemplate(
+        `# {{projectName}}
+
+A PrivMX {{framework}} application with the following features:
+{{#each features}}- {{this}}
+{{/each}}
+
+## Getting Started
+
+1. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. Configure your PrivMX connection in \`src/config/privmx.js\`
+
+3. Start the development server:
+   \`\`\`bash
+   {{#if isReact}}npm run dev{{/if}}
+   {{#if isNodejs}}npm run dev{{/if}}
+   \`\`\`
+
+## PrivMX Configuration
+
+Update your PrivMX configuration with your solution credentials:
+
+\`\`\`javascript
+export const privmxConfig = {
+  solutionId: '{{privmxConfig.solutionId}}',
+  platformUrl: '{{privmxConfig.platformUrl}}',
+  // Add your specific configuration here
+};
+\`\`\`
+
+Generated by PrivMX MCP Server with web-compatible templates.`,
+        data
+      ),
+    });
+
+    return files;
+  }
+
+  /**
+   * Prepare template data from request
+   */
+  private prepareTemplateData(
+    request: TemplateGenerationRequest
+  ): PlopTemplateData {
+    return {
+      projectName: request.projectName,
+      appName: request.projectName,
+      framework: request.framework,
+      language: request.language,
+      features: request.features,
+      privmxConfig: {
+        solutionId: request.privmxConfig.solutionId || 'your-solution-id',
+        platformUrl: request.privmxConfig.platformUrl || 'https://privmx.cloud',
+        apiEndpoints: request.privmxConfig.apiEndpoints,
+      },
+      // Framework flags
+      isReact: request.framework === 'react',
+      isVue: request.framework === 'vue',
+      isVanilla: request.framework === 'vanilla',
+      isNodejs: request.framework === 'nodejs',
+      // Language flags
+      isTypeScript: request.language === 'typescript',
+      isJavaScript: request.language === 'javascript',
+      // Feature flags
+      hasMessaging: request.features.includes('messaging'),
+      hasFileSharing: request.features.includes('file-sharing'),
+      hasNotifications: request.features.includes('notifications'),
+      hasAuth: request.features.includes('auth'),
+      // User context
+      skillLevel: request.userContext.skillLevel,
+      includeTests: request.userContext.skillLevel !== 'beginner',
+      includeComments: request.userContext.skillLevel === 'beginner',
+    };
+  }
+
+  /**
+   * Get available templates (built-in for web compatibility)
+   */
+  async getAvailableTemplates(): Promise<
+    Array<{ name: string; description: string; path: string }>
+  > {
+    return [
+      {
+        name: 'secure-chat',
+        description: 'Secure messaging application with PrivMX Threads',
+        path: 'built-in',
+      },
+      {
+        name: 'file-sharing',
+        description: 'File sharing application with PrivMX Stores',
+        path: 'built-in',
+      },
+      {
+        name: 'feedback-inbox',
+        description: 'Feedback collection system with PrivMX Inboxes',
+        path: 'built-in',
+      },
+    ];
   }
 }

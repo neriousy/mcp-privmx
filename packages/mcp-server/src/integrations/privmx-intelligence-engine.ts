@@ -28,11 +28,22 @@ export class PrivMXIntelligenceEngine {
    */
   async processIntelligenceRequest(
     request: PrivMXIntelligenceRequest
-  ): Promise<IntegrationResult<any>> {
+  ): Promise<
+    IntegrationResult<
+      | APIRelationship[]
+      | WorkflowSuggestion[]
+      | PatternValidation
+      | OptimizationSuggestion[]
+    >
+  > {
     const startTime = Date.now();
 
     try {
-      let result: any;
+      let result:
+        | APIRelationship[]
+        | WorkflowSuggestion[]
+        | PatternValidation
+        | OptimizationSuggestion[];
 
       switch (request.type) {
         case 'api-relationship':
@@ -81,7 +92,7 @@ export class PrivMXIntelligenceEngine {
    */
   private analyzeAPIRelationships(
     query: string,
-    context?: any
+    context?: { framework?: string; apis?: string[]; codeSnippet?: string }
   ): APIRelationship[] {
     const queryLower = query.toLowerCase();
     const relationships: APIRelationship[] = [];
@@ -109,7 +120,12 @@ export class PrivMXIntelligenceEngine {
    */
   private generateWorkflowSuggestions(
     goal: string,
-    context?: any
+    context?: {
+      framework?: string;
+      apis?: string[];
+      codeSnippet?: string;
+      skillLevel?: string;
+    }
   ): WorkflowSuggestion[] {
     const goalLower = goal.toLowerCase();
     let suggestions: WorkflowSuggestion[] = [];
@@ -148,7 +164,7 @@ export class PrivMXIntelligenceEngine {
    */
   private validatePrivMXPatterns(
     code: string,
-    context?: any
+    _context?: { framework?: string; apis?: string[]; codeSnippet?: string }
   ): PatternValidation {
     const issues: PatternValidation['issues'] = [];
 
@@ -225,7 +241,7 @@ export class PrivMXIntelligenceEngine {
    */
   private suggestOptimizations(
     code: string,
-    context?: any
+    _context?: { framework?: string; apis?: string[]; codeSnippet?: string }
   ): OptimizationSuggestion[] {
     const suggestions: OptimizationSuggestion[] = [];
 

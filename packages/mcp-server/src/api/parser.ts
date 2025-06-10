@@ -9,13 +9,21 @@ import {
   APIParameter,
   APIType,
   APIReturnType,
-  APIProperty,
   CodeExample,
 } from './types.js';
 
 /**
  * Raw JSON API structure (as parsed from spec files)
  */
+interface RawField {
+  name: string;
+  description: string;
+  type: {
+    name: string;
+    optional: boolean;
+  };
+}
+
 interface RawAPISpec {
   [namespace: string]: Array<{
     title: string;
@@ -23,7 +31,7 @@ interface RawAPISpec {
       type: 'class' | 'method' | 'function' | 'constant';
       name: string;
       description: string;
-      fields?: any[];
+      fields?: RawField[];
       methods?: RawMethod[];
       snippet?: string;
       methodType?: string;
@@ -98,7 +106,7 @@ export class APIParser {
    */
   private async parseNamespace(
     name: string,
-    content: any[],
+    content: RawAPISpec[string],
     language: string,
     filePath: string
   ): Promise<APINamespace> {
@@ -164,7 +172,7 @@ export class APIParser {
    * Parse a class definition
    */
   private async parseClass(
-    classData: any,
+    classData: RawAPISpec[string][0]['content'][0],
     namespace: string,
     language: string,
     filePath: string
@@ -213,7 +221,7 @@ export class APIParser {
    * Parse a method definition
    */
   private async parseMethod(
-    methodData: any,
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0],
     namespace: string,
     language: string,
     className?: string,
@@ -227,7 +235,9 @@ export class APIParser {
       description: methodData.description,
       snippet:
         methodData.snippet || this.generateSnippet(methodData, parameters),
-      methodType: methodData.methodType || 'method',
+      methodType:
+        (methodData.methodType as 'method' | 'static' | 'constructor') ||
+        'method',
       parameters,
       returns,
       language,
@@ -317,7 +327,10 @@ export class APIParser {
   /**
    * Generate method snippet if not provided
    */
-  private generateSnippet(methodData: any, parameters: APIParameter[]): string {
+  private generateSnippet(
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0],
+    parameters: APIParameter[]
+  ): string {
     const paramNames = parameters.map((p) => p.name).join(', ');
     return `${methodData.name}(${paramNames})`;
   }
@@ -325,7 +338,10 @@ export class APIParser {
   /**
    * Infer method prerequisites (what must be called first)
    */
-  private inferPrerequisites(methodData: any, className?: string): string[] {
+  private inferPrerequisites(
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0],
+    className?: string
+  ): string[] {
     const prerequisites: string[] = [];
 
     // Common patterns
@@ -354,7 +370,9 @@ export class APIParser {
   /**
    * Infer related methods (commonly used together)
    */
-  private inferRelatedMethods(methodData: any): string[] {
+  private inferRelatedMethods(
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0]
+  ): string[] {
     const related: string[] = [];
 
     // Common patterns
@@ -372,7 +390,9 @@ export class APIParser {
   /**
    * Infer usage patterns
    */
-  private inferUsagePatterns(methodData: any): string[] {
+  private inferUsagePatterns(
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0]
+  ): string[] {
     const patterns: string[] = [];
 
     if (methodData.name.includes('create')) {
@@ -403,7 +423,9 @@ export class APIParser {
   /**
    * Infer error handling patterns
    */
-  private inferErrorHandling(methodData: any): string[] {
+  private inferErrorHandling(
+    methodData: RawMethod | RawAPISpec[string][0]['content'][0]
+  ): string[] {
     const errorHandling: string[] = [];
 
     // Network operations
@@ -437,9 +459,9 @@ export class APIParser {
    * Find code examples for this method
    */
   private async findExamples(
-    methodData: any,
-    language: string,
-    filePath?: string
+    _methodData: RawMethod | RawAPISpec[string][0]['content'][0],
+    _language: string,
+    _filePath?: string
   ): Promise<CodeExample[]> {
     // TODO: Cross-reference with MDX documentation
     // For now, return empty array - will be populated by workflow extractor
@@ -502,7 +524,10 @@ export class APIParser {
   /**
    * Infer class dependencies
    */
-  private inferDependencies(classData: any, language: string): string[] {
+  private inferDependencies(
+    classData: RawAPISpec[string][0]['content'][0],
+    _language: string
+  ): string[] {
     const dependencies: string[] = [];
 
     // APIs typically depend on Connection
@@ -521,7 +546,9 @@ export class APIParser {
   /**
    * Infer usage relationships
    */
-  private inferUsageRelationships(classData: any): string[] {
+  private inferUsageRelationships(
+    classData: RawAPISpec[string][0]['content'][0]
+  ): string[] {
     const related: string[] = [];
 
     if (classData.name === 'ThreadApi') {
@@ -538,7 +565,10 @@ export class APIParser {
   /**
    * Generate creation pattern
    */
-  private generateCreationPattern(classData: any, language: string): string {
+  private generateCreationPattern(
+    classData: RawAPISpec[string][0]['content'][0],
+    _language: string
+  ): string {
     if (classData.name.includes('Api')) {
       return `await Endpoint.create${classData.name}(connection)`;
     }
@@ -549,7 +579,9 @@ export class APIParser {
   /**
    * Infer common workflows
    */
-  private inferWorkflows(classData: any): string[] {
+  private inferWorkflows(
+    classData: RawAPISpec[string][0]['content'][0]
+  ): string[] {
     const workflows: string[] = [];
 
     if (classData.name === 'ThreadApi') {

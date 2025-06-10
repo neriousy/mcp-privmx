@@ -5,8 +5,7 @@
  * jscodeshift AST transformation engine while adding PrivMX-specific transformations
  */
 
-import { readFile, writeFile } from 'fs-extra';
-import type { Transform } from 'jscodeshift';
+// import { readFile, writeFile } from 'fs-extra';
 import type {
   CodeTransformationRequest,
   IntegrationResult,
@@ -101,7 +100,11 @@ export class JSCodeshiftTransformer {
     this.transformations.set('add-privmx-integration', {
       name: 'Add PrivMX Integration',
       description: 'Adds PrivMX SDK integration to existing application',
-      transform: (source: string, api: any, options: any) => {
+      transform: (
+        source: string,
+        _api: Record<string, unknown>,
+        options: Record<string, unknown>
+      ) => {
         // Find import statements and add PrivMX import
         let transformed = source;
 
@@ -148,7 +151,11 @@ export class JSCodeshiftTransformer {
     this.transformations.set('upgrade-sdk', {
       name: 'Upgrade PrivMX SDK',
       description: 'Updates PrivMX SDK usage to latest version patterns',
-      transform: (source: string, api: any, options: any) => {
+      transform: (
+        source: string,
+        _api: Record<string, unknown>,
+        _options: Record<string, unknown>
+      ) => {
         let transformed = source;
 
         // Update deprecated API calls
@@ -178,7 +185,11 @@ export class JSCodeshiftTransformer {
     this.transformations.set('add-security-patterns', {
       name: 'Add Security Patterns',
       description: 'Adds PrivMX security best practices to code',
-      transform: (source: string, api: any, options: any) => {
+      transform: (
+        source: string,
+        _api: Record<string, unknown>,
+        _options: Record<string, unknown>
+      ) => {
         let transformed = source;
 
         // Add input validation
@@ -200,194 +211,205 @@ export class JSCodeshiftTransformer {
   /**
    * Add React-specific PrivMX setup
    */
-  private addReactPrivMXSetup(source: string, options: any): string {
-    const setupCode = `
-  // PrivMX Connection Setup
-  const [privmxConnection, setPrivmxConnection] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  private addReactPrivMXSetup(
+    source: string,
+    options: Record<string, unknown>
+  ): string {
+    // Look for React component patterns
+    const componentPattern = /function\s+(\w+)\s*\(/g;
+    const hookPattern = /const\s+\[[\w,\s]+\]\s*=\s*useState/g;
 
+    let transformed = source;
+
+    // Add PrivMX connection hook if React component detected
+    if (componentPattern.test(source) || hookPattern.test(source)) {
+      const privmxHook = `
+  // PrivMX connection setup
+  const [privmxConnection, setPrivmxConnection] = useState(null);
+  
   useEffect(() => {
-    const connectToPrivMX = async () => {
+    const initPrivMX = async () => {
       try {
-        setConnectionStatus('connecting');
-        const connection = await PrivMX.Connection.connect({
-          userPrivateKey: process.env.REACT_APP_USER_PRIVATE_KEY,
-          solutionId: process.env.REACT_APP_SOLUTION_ID,
-          platformUrl: process.env.REACT_APP_PLATFORM_URL,
+        const connection = await PrivMX.Endpoint.connect({
+          solutionId: "${options.solutionId || 'your-solution-id'}",
+          platformUrl: "${options.platformUrl || 'https://api.privmx.cloud'}",
+          userPrivateKey: process.env.REACT_APP_PRIVATE_KEY,
         });
         setPrivmxConnection(connection);
-        setConnectionStatus('connected');
       } catch (error) {
-        console.error('PrivMX connection failed:', error);
-        setConnectionStatus('error');
+        console.error('Failed to connect to PrivMX:', error);
       }
     };
-
-    connectToPrivMX();
+    
+    initPrivMX();
   }, []);
 `;
 
-    // Find React component function and insert setup
-    const functionMatch = source.match(
-      /(function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>)/
-    );
-    if (functionMatch) {
-      const insertIndex = source.indexOf('{', functionMatch.index!) + 1;
-      return (
-        source.slice(0, insertIndex) + setupCode + source.slice(insertIndex)
-      );
+      // Insert hook after first opening brace of component
+      const firstBraceIndex = transformed.indexOf('{');
+      if (firstBraceIndex !== -1) {
+        transformed =
+          transformed.slice(0, firstBraceIndex + 1) +
+          privmxHook +
+          transformed.slice(firstBraceIndex + 1);
+      }
     }
 
-    return source;
+    return transformed;
   }
 
   /**
    * Add error handling patterns
    */
-  private addErrorHandling(source: string, options: any): string {
-    // Add try-catch blocks around PrivMX API calls
-    const privmxCallRegex = /(PrivMX\.\w+\.\w+\([^)]*\))/g;
+  private addErrorHandling(
+    source: string,
+    _options: Record<string, unknown>
+  ): string {
+    let transformed = source;
 
-    return source.replace(privmxCallRegex, (match) => {
-      return `
+    // Add try-catch around async operations
+    const asyncPattern = /await\s+(\w+\.\w+\([^)]*\))/g;
+
+    const matches = transformed.match(asyncPattern);
+    if (matches) {
+      matches.forEach((match) => {
+        const tryBlock = `
 try {
-  ${match}
+  ${match};
 } catch (error) {
-  console.error('PrivMX API error:', error);
+  console.error('PrivMX operation failed:', error);
   // Handle error appropriately
-  throw error;
-}`.trim();
-    });
+}`;
+        transformed = transformed.replace(match, tryBlock);
+      });
+    }
+
+    return transformed;
   }
 
   /**
-   * Add input validation
+   * Add input validation patterns
    */
   private addInputValidation(source: string): string {
-    // Add validation before PrivMX API calls
-    const validationCode = `
-  // Input validation for PrivMX
-  const validateInput = (input, type) => {
-    if (!input) throw new Error(\`\${type} is required\`);
-    if (typeof input !== 'string') throw new Error(\`\${type} must be a string\`);
-    return input.trim();
-  };
+    let transformed = source;
+
+    // Add validation for form inputs
+    const validationFunction = `
+const validateInput = (input) => {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Invalid input provided');
+  }
+  // Sanitize input
+  return input.trim().replace(/[<>]/g, '');
+};
 `;
 
-    // Insert at beginning of function
-    const functionMatch = source.match(
-      /(function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>)/
-    );
-    if (functionMatch) {
-      const insertIndex = source.indexOf('{', functionMatch.index!) + 1;
-      return (
-        source.slice(0, insertIndex) +
-        validationCode +
-        source.slice(insertIndex)
-      );
+    // Add validation function at the beginning of component
+    const firstFunctionIndex = transformed.indexOf('function');
+    if (firstFunctionIndex !== -1) {
+      transformed =
+        transformed.slice(0, firstFunctionIndex) +
+        validationFunction +
+        transformed.slice(firstFunctionIndex);
     }
 
-    return source;
+    return transformed;
   }
 
   /**
    * Add encryption patterns
    */
   private addEncryptionPatterns(source: string): string {
-    const encryptionCode = `
-  // PrivMX encryption helpers
-  const encryptData = async (data) => {
-    // Use PrivMX built-in encryption
-    return await PrivMX.Crypto.encrypt(data);
-  };
+    let transformed = source;
 
-  const decryptData = async (encryptedData) => {
-    // Use PrivMX built-in decryption
-    return await PrivMX.Crypto.decrypt(encryptedData);
-  };
+    // Add encryption helper functions
+    const encryptionHelpers = `
+const encryptMessage = async (message, publicKey) => {
+  // Use PrivMX encryption
+  return await PrivMX.Crypto.encryptMessage(message, publicKey);
+};
+
+const decryptMessage = async (encryptedMessage, privateKey) => {
+  // Use PrivMX decryption  
+  return await PrivMX.Crypto.decryptMessage(encryptedMessage, privateKey);
+};
 `;
 
-    // Insert encryption helpers
-    const functionMatch = source.match(
-      /(function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>)/
-    );
-    if (functionMatch) {
-      const insertIndex = source.indexOf('{', functionMatch.index!) + 1;
-      return (
-        source.slice(0, insertIndex) +
-        encryptionCode +
-        source.slice(insertIndex)
-      );
+    // Add helpers before main component
+    const componentIndex = transformed.indexOf('export');
+    if (componentIndex !== -1) {
+      transformed =
+        transformed.slice(0, componentIndex) +
+        encryptionHelpers +
+        '\n' +
+        transformed.slice(componentIndex);
     }
 
-    return source;
+    return transformed;
   }
 
   /**
    * Add secure key management
    */
   private addSecureKeyManagement(source: string): string {
-    const keyManagementCode = `
-  // Secure key management
-  const getSecureConfig = () => {
-    // Never hardcode keys in source code
-    const config = {
-      userPrivateKey: process.env.PRIVMX_USER_PRIVATE_KEY,
-      solutionId: process.env.PRIVMX_SOLUTION_ID,
-      platformUrl: process.env.PRIVMX_PLATFORM_URL,
-    };
+    let transformed = source;
 
-    // Validate all required config
-    Object.entries(config).forEach(([key, value]) => {
-      if (!value) {
-        throw new Error(\`Missing required environment variable: \${key}\`);
-      }
-    });
+    // Add key management utilities
+    const keyManagement = `
+const generateKeyPair = async () => {
+  return await PrivMX.Crypto.generateKeyPair();
+};
 
-    return config;
-  };
+const storeKeySecurely = (key, keyId) => {
+  // Store in secure storage (not localStorage for production!)
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('Storing keys in localStorage - not for production!');
+    localStorage.setItem(\`privmx_key_\${keyId}\`, key);
+  }
+  // In production, use secure key management system
+};
 `;
 
-    // Insert key management
-    const functionMatch = source.match(
-      /(function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>)/
-    );
-    if (functionMatch) {
-      const insertIndex = source.indexOf('{', functionMatch.index!) + 1;
-      return (
-        source.slice(0, insertIndex) +
-        keyManagementCode +
-        source.slice(insertIndex)
-      );
+    // Add at the top of the file after imports
+    const lastImportIndex = transformed.lastIndexOf('import');
+    if (lastImportIndex !== -1) {
+      const nextLineIndex = transformed.indexOf('\n', lastImportIndex);
+      transformed =
+        transformed.slice(0, nextLineIndex + 1) +
+        keyManagement +
+        transformed.slice(nextLineIndex + 1);
     }
 
-    return source;
+    return transformed;
   }
 
   /**
-   * Get supported frameworks for transformation
+   * Get supported frameworks for a transformation
    */
   private getTransformationFrameworks(transformationId: string): string[] {
-    const frameworks: Record<string, string[]> = {
-      'add-privmx-integration': ['react', 'vue', 'vanilla', 'nodejs'],
+    const frameworkMap: Record<string, string[]> = {
+      'add-privmx-integration': ['react', 'vue', 'vanilla'],
       'upgrade-sdk': ['react', 'vue', 'vanilla', 'nodejs'],
-      'add-security-patterns': ['react', 'vue', 'vanilla', 'nodejs'],
+      'add-security-patterns': ['react', 'vue', 'vanilla'],
     };
 
-    return frameworks[transformationId] || ['react', 'vue', 'vanilla'];
+    return frameworkMap[transformationId] || ['react'];
   }
 
   /**
    * Create simplified jscodeshift API for our transformations
    */
-  private createJSCodeshiftAPI(): any {
-    // This would normally use the full jscodeshift API
-    // For now, we'll use our simplified string-based transformations
+  private createJSCodeshiftAPI(): Record<string, unknown> {
     return {
-      find: () => ({}),
-      replaceWith: () => ({}),
-      insertBefore: () => ({}),
-      insertAfter: () => ({}),
+      utils: {
+        getImports: (source: string) => {
+          const importRegex = /^import\s+.*?;$/gm;
+          return source.match(importRegex) || [];
+        },
+        addImport: (source: string, importStatement: string) => {
+          return importStatement + '\n' + source;
+        },
+      },
     };
   }
 }

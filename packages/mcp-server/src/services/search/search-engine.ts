@@ -6,6 +6,14 @@
 import { APINamespace, APIMethod, APIClass } from '../../api/types.js';
 import { SearchResult } from '../types.js';
 
+interface SearchStats {
+  namespaces: number;
+  methods: number;
+  classes: number;
+  languages: number;
+  byType: Record<string, number>;
+}
+
 export class SearchEngine {
   // In-memory knowledge stores
   private apiIndex: Map<string, APINamespace> = new Map();
@@ -36,7 +44,7 @@ export class SearchEngine {
     if (!this.languageIndex.has(language)) {
       this.languageIndex.set(language, []);
     }
-    this.languageIndex.get(language)!.push(namespace);
+    this.languageIndex.get(language)?.push(namespace);
   }
 
   /**
@@ -91,7 +99,14 @@ export class SearchEngine {
       const matches = this.keywordIndex.get(word) || [];
 
       for (const match of matches) {
-        if (language && match.metadata.language !== language) continue;
+        if (
+          language &&
+          !this.isLanguageCompatible(
+            language,
+            match.metadata.language as string
+          )
+        )
+          continue;
 
         const id = match.id;
         if (!results.has(id)) {
@@ -99,7 +114,7 @@ export class SearchEngine {
           scores.set(id, 0);
         }
 
-        scores.set(id, scores.get(id)! + 1);
+        scores.set(id, (scores.get(id) || 0) + 1);
       }
     }
 
@@ -107,7 +122,7 @@ export class SearchEngine {
     const sortedResults = Array.from(results.values())
       .map((result) => ({
         ...result,
-        score: scores.get(result.id)! / words.length,
+        score: (scores.get(result.id) || 0) / words.length,
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
@@ -146,19 +161,15 @@ export class SearchEngine {
   /**
    * Get statistics about indexed content
    */
-  getStats(): {
-    namespaces: number;
-    methods: number;
-    classes: number;
-    languages: number;
-    byType: Record<string, number>;
-  } {
+  getStats(): SearchStats {
     const byType: Record<string, number> = {};
 
     for (const [, results] of this.keywordIndex) {
       for (const result of results) {
-        const type = result.metadata.type;
-        byType[type] = (byType[type] || 0) + 1;
+        const type = result.metadata.type as string;
+        if (type) {
+          byType[type] = (byType[type] || 0) + 1;
+        }
       }
     }
 
@@ -186,12 +197,14 @@ export class SearchEngine {
       this.methodIndex.set(key, []);
     }
 
-    this.methodIndex.get(key)!.push(method);
+    this.methodIndex.get(key)?.push(method);
 
     // Add to keyword index
     const searchResult: SearchResult = {
       id: `method:${language}:${namespace}:${className || ''}:${method.name}`,
+      title: `${method.name}${className ? ` (${className})` : ''}`,
       content: this.formatMethodForSearch(method, className),
+      type: 'method',
       metadata: {
         type: 'method',
         namespace,
@@ -225,12 +238,14 @@ export class SearchEngine {
       this.classIndex.set(key, []);
     }
 
-    this.classIndex.get(key)!.push(apiClass);
+    this.classIndex.get(key)?.push(apiClass);
 
     // Add to keyword index
     const searchResult: SearchResult = {
       id: `class:${language}:${namespace}:${apiClass.name}`,
+      title: apiClass.name,
       content: this.formatClassForSearch(apiClass),
+      type: 'class',
       metadata: {
         type: 'class',
         namespace,
@@ -262,7 +277,7 @@ export class SearchEngine {
         this.keywordIndex.set(word, []);
       }
 
-      this.keywordIndex.get(word)!.push(result);
+      this.keywordIndex.get(word)?.push(result);
     }
   }
 
@@ -311,5 +326,46 @@ export class SearchEngine {
       total += classes.length;
     }
     return total;
+  }
+
+  /**
+   * Check if languages are compatible for search results
+   */
+  private isLanguageCompatible(
+    requestedLanguage: string,
+    resultLanguage: string
+  ): boolean {
+    // Exact match
+    if (requestedLanguage === resultLanguage) {
+      return true;
+    }
+
+    // TypeScript is compatible with JavaScript
+    if (requestedLanguage === 'typescript' && resultLanguage === 'javascript') {
+      return true;
+    }
+
+    // JavaScript is compatible with TypeScript
+    if (requestedLanguage === 'javascript' && resultLanguage === 'typescript') {
+      return true;
+    }
+
+    // Java and Kotlin are compatible
+    if (
+      (requestedLanguage === 'java' && resultLanguage === 'kotlin') ||
+      (requestedLanguage === 'kotlin' && resultLanguage === 'java')
+    ) {
+      return true;
+    }
+
+    // C# and .NET languages
+    if (
+      (requestedLanguage === 'csharp' && resultLanguage === 'dotnet') ||
+      (requestedLanguage === 'dotnet' && resultLanguage === 'csharp')
+    ) {
+      return true;
+    }
+
+    return false;
   }
 }

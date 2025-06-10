@@ -15,7 +15,22 @@ import {
   NextStepSuggestion,
   CodeContext,
   GeneratedCode,
+  CodeExample,
 } from '../types.js';
+
+interface CodeGeneratorOutput {
+  main: string;
+  imports: string[];
+  dependencies: string[];
+  warnings: string[];
+}
+
+interface CodeGenerator {
+  generateFromWorkflow: (
+    workflow: WorkflowSuggestion,
+    context: CodeContext
+  ) => CodeGeneratorOutput;
+}
 
 export class EnhancedSearchEngine extends SearchEngine {
   private relationshipAnalyzer: APIRelationshipAnalyzer;
@@ -29,13 +44,13 @@ export class EnhancedSearchEngine extends SearchEngine {
   /**
    * Initialize with relationship analysis
    */
-  async initialize(apiData: Map<string, any>): Promise<void> {
+  async initialize(apiData: Map<string, unknown>): Promise<void> {
     console.log('🧠 Building enhanced search intelligence...');
 
     // Build relationship graph from API data
     for (const [key, namespace] of apiData) {
       const [language] = key.split(':');
-      this.relationshipAnalyzer.analyzeNamespace(namespace, language);
+      this.relationshipAnalyzer.analyzeNamespace(namespace as never, language);
     }
 
     const stats = this.relationshipAnalyzer.getStats();
@@ -57,7 +72,7 @@ export class EnhancedSearchEngine extends SearchEngine {
 
     // Check cache first
     if (this.contextCache.has(cacheKey)) {
-      return this.contextCache.get(cacheKey)!;
+      return this.contextCache.get(cacheKey) || [];
     }
 
     // Get basic search results
@@ -99,11 +114,11 @@ export class EnhancedSearchEngine extends SearchEngine {
       goalLower.includes('upload') ||
       goalLower.includes('store')
     ) {
-      workflows.push(this.createFileStorageWorkflow(language));
+      workflows.push(this.createFileStorageWorkflow());
     }
 
     if (goalLower.includes('inbox') || goalLower.includes('notification')) {
-      workflows.push(this.createInboxWorkflow(language));
+      workflows.push(this.createInboxWorkflow());
     }
 
     if (
@@ -111,7 +126,7 @@ export class EnhancedSearchEngine extends SearchEngine {
       goalLower.includes('realtime') ||
       goalLower.includes('listen')
     ) {
-      workflows.push(this.createEventHandlingWorkflow(language));
+      workflows.push(this.createEventHandlingWorkflow());
     }
 
     return workflows;
@@ -180,7 +195,7 @@ export class EnhancedSearchEngine extends SearchEngine {
    * Generate complete working code for a specific use case
    */
   generateCompleteCode(goal: string, context: CodeContext): GeneratedCode {
-    const { language, targetFramework, userSkillLevel, projectType } = context;
+    const { language, targetFramework } = context;
 
     // Find matching workflow
     const workflows = this.findWorkflowsForGoal(goal, language);
@@ -198,9 +213,9 @@ export class EnhancedSearchEngine extends SearchEngine {
       code: code.main,
       imports: code.imports,
       dependencies: code.dependencies,
-      explanation: this.generateExplanation(workflow, userSkillLevel),
+      explanation: this.generateExplanation(workflow),
       warnings: code.warnings,
-      nextSteps: this.generateNextSteps(workflow, goal),
+      nextSteps: this.generateNextSteps(workflow),
     };
   }
 
@@ -212,18 +227,22 @@ export class EnhancedSearchEngine extends SearchEngine {
     context?: SearchContext
   ): EnhancedSearchResult {
     const methodKey = result.id;
+    const errorHandlers = this.relationshipAnalyzer.getErrorPatterns(methodKey);
 
     return {
       ...result,
-      contextScore: this.calculateContextScore(result, context),
-      completeness: this.calculateCompleteness(result),
+      relatedApis: this.findRelatedMethods(methodKey),
+      usagePatterns: [],
+      complexityScore: this.calculateComplexityScore(result),
       prerequisites: this.relationshipAnalyzer.getPrerequisites(methodKey),
-      relatedMethods: this.findRelatedMethods(methodKey),
-      codeExamples: this.generateCodeExamples(
+      codeExamples: this.generateTypedCodeExamples(
         result,
         context?.userContext?.language
       ),
-      errorPatterns: this.relationshipAnalyzer.getErrorPatterns(methodKey),
+      contextScore: this.calculateContextScore(result, context),
+      completeness: this.calculateCompleteness(result),
+      relatedMethods: this.findRelatedMethods(methodKey),
+      errorPatterns: errorHandlers.map((handler) => handler.errorType),
     };
   }
 
@@ -231,7 +250,7 @@ export class EnhancedSearchEngine extends SearchEngine {
    * Calculate context relevance score
    */
   private calculateContextScore(
-    result: SearchResult,
+    result: SearchResult | EnhancedSearchResult,
     context?: SearchContext
   ): number {
     let score = 0;
@@ -251,7 +270,10 @@ export class EnhancedSearchEngine extends SearchEngine {
 
     // Skill level appropriateness
     if (context?.userSkillLevel) {
-      const complexity = this.estimateComplexity(result);
+      // Convert to SearchResult if needed for complexity estimation
+      const searchResult = result as SearchResult;
+
+      const complexity = this.estimateComplexity(searchResult);
       if (context.userSkillLevel === 'beginner' && complexity === 'low')
         score += 1;
       if (context.userSkillLevel === 'intermediate' && complexity === 'medium')
@@ -280,7 +302,7 @@ export class EnhancedSearchEngine extends SearchEngine {
   /**
    * Create messaging workflow
    */
-  private createMessagingWorkflow(language?: string): WorkflowSuggestion {
+  private createMessagingWorkflow(_language?: string): WorkflowSuggestion {
     return {
       id: 'secure-messaging',
       name: 'Secure Messaging Application',
@@ -344,7 +366,7 @@ export class EnhancedSearchEngine extends SearchEngine {
   /**
    * Create workflow for other use cases
    */
-  private createFileStorageWorkflow(language?: string): WorkflowSuggestion {
+  private createFileStorageWorkflow(): WorkflowSuggestion {
     return {
       id: 'file-storage',
       name: 'Secure File Storage',
@@ -356,7 +378,7 @@ export class EnhancedSearchEngine extends SearchEngine {
     };
   }
 
-  private createInboxWorkflow(language?: string): WorkflowSuggestion {
+  private createInboxWorkflow(): WorkflowSuggestion {
     return {
       id: 'inbox-system',
       name: 'Inbox Notification System',
@@ -368,7 +390,7 @@ export class EnhancedSearchEngine extends SearchEngine {
     };
   }
 
-  private createEventHandlingWorkflow(language?: string): WorkflowSuggestion {
+  private createEventHandlingWorkflow(): WorkflowSuggestion {
     return {
       id: 'event-handling',
       name: 'Real-time Event Handling',
@@ -412,7 +434,10 @@ export class EnhancedSearchEngine extends SearchEngine {
     return patterns.map((pattern) => pattern.apiMethod);
   }
 
-  private generateCodeExamples(result: SearchResult, language?: string): any[] {
+  private generateCodeExamples(
+    result: SearchResult,
+    language?: string
+  ): CodeExample[] {
     // TODO: Generate contextual code examples based on result and language
     if (!language) return [];
 
@@ -434,12 +459,15 @@ export class EnhancedSearchEngine extends SearchEngine {
     return 'medium';
   }
 
-  private createCodeGenerator(language: string, framework?: string) {
+  private createCodeGenerator(
+    language: string,
+    framework?: string
+  ): CodeGenerator {
     return {
       generateFromWorkflow: (
         workflow: WorkflowSuggestion,
-        context: CodeContext
-      ) => {
+        _context: CodeContext
+      ): CodeGeneratorOutput => {
         const baseCode = this.generateWorkflowCode(
           workflow,
           language,
@@ -521,21 +549,48 @@ ${steps}
     return warnings;
   }
 
-  private generateExplanation(
-    workflow: WorkflowSuggestion,
-    skillLevel?: string
-  ): string {
+  private generateExplanation(workflow: WorkflowSuggestion): string {
     return `This workflow creates a ${workflow.name.toLowerCase()} with ${workflow.steps.length} steps.`;
   }
 
-  private generateNextSteps(
-    workflow: WorkflowSuggestion,
-    goal: string
-  ): string[] {
+  private generateNextSteps(workflow: WorkflowSuggestion): string[] {
     return [
       `Test the ${workflow.name}`,
       'Add error handling',
       'Implement UI components',
     ];
+  }
+
+  private calculateComplexityScore(result: SearchResult): number {
+    const complexity = this.estimateComplexity(result);
+    switch (complexity) {
+      case 'low':
+        return 1;
+      case 'medium':
+        return 2;
+      case 'high':
+        return 3;
+      default:
+        return 1;
+    }
+  }
+
+  private generateTypedCodeExamples(
+    result: SearchResult,
+    language?: string
+  ): CodeExample[] {
+    const examples = this.generateCodeExamples(result, language);
+    // Convert CodeExample[] to CodeExample[]
+    return examples.map((example) => {
+      if (typeof example === 'string') {
+        return {
+          language: language || 'javascript',
+          code: example,
+          description: `Example for ${result.title}`,
+          difficulty: 'beginner' as const,
+        };
+      }
+      return example as CodeExample;
+    });
   }
 }

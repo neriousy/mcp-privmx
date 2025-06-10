@@ -3,21 +3,27 @@
  * Types for integrating proven tools with PrivMX intelligence
  */
 
+import {
+  JsonValue,
+  ConfigObject,
+  UserContext as BaseUserContext,
+  SupportedFramework,
+  SupportedLanguage,
+  BaseResult,
+} from '../common/types.js';
+
 export interface TemplateGenerationRequest {
   templateId: string;
   projectName: string;
-  framework: 'react' | 'vue' | 'vanilla' | 'nodejs';
-  language: 'javascript' | 'typescript';
+  framework: SupportedFramework;
+  language: SupportedLanguage;
   features: string[];
   privmxConfig: {
     solutionId?: string;
     platformUrl?: string;
     apiEndpoints: string[];
   };
-  userContext: {
-    skillLevel: 'beginner' | 'intermediate' | 'expert';
-    preferences?: Record<string, any>;
-  };
+  userContext: BaseUserContext;
 }
 
 export interface CodeTransformationRequest {
@@ -27,16 +33,12 @@ export interface CodeTransformationRequest {
     | 'upgrade-sdk'
     | 'add-security-patterns';
   targetFramework?: string;
-  options?: Record<string, any>;
+  options?: ConfigObject;
 }
 
 export interface WorkflowBuildRequest {
   goal: string;
-  userContext: {
-    skillLevel: 'beginner' | 'intermediate' | 'expert';
-    preferredFramework?: string;
-    projectType?: 'prototype' | 'production' | 'learning';
-  };
+  userContext: BaseUserContext;
 }
 
 export interface PrivMXIntelligenceRequest {
@@ -53,15 +55,9 @@ export interface PrivMXIntelligenceRequest {
   };
 }
 
-export interface IntegrationResult<T = any> {
-  success: boolean;
-  data?: T;
-  errors?: string[];
-  warnings?: string[];
-  metadata?: {
+export interface IntegrationResult<T = JsonValue> extends BaseResult<T> {
+  metadata?: BaseResult<T>['metadata'] & {
     toolUsed: 'plop' | 'jscodeshift' | 'inquirer' | 'privmx-intelligence';
-    executionTime?: number;
-    filesGenerated?: number;
   };
 }
 
@@ -70,10 +66,26 @@ export interface PlopConfig {
   generators: Record<string, PlopGenerator>;
 }
 
+export interface PlopPrompt {
+  type: 'input' | 'list' | 'checkbox' | 'confirm';
+  name: string;
+  message: string;
+  choices?: string[] | { name: string; value: string }[];
+  default?: string | number | boolean;
+}
+
+export interface PlopAction {
+  type: 'add' | 'modify' | 'addMany';
+  path: string;
+  templateFile?: string;
+  template?: string;
+  data?: Record<string, unknown>;
+}
+
 export interface PlopGenerator {
   description: string;
-  prompts: any[];
-  actions: any[];
+  prompts: PlopPrompt[];
+  actions: PlopAction[];
 }
 
 export interface PlopTemplateData {
@@ -82,7 +94,11 @@ export interface PlopTemplateData {
   framework: string;
   language: string;
   features: string[];
-  privmxConfig: any;
+  privmxConfig: {
+    solutionId?: string;
+    platformUrl?: string;
+    apiEndpoints: string[];
+  };
   // Framework flags
   isReact?: boolean;
   isVue?: boolean;
@@ -106,7 +122,11 @@ export interface PlopTemplateData {
 export interface CodeTransformation {
   name: string;
   description: string;
-  transform: (source: string, api: any, options: any) => string;
+  transform: (
+    source: string,
+    api: Record<string, unknown>,
+    options: Record<string, unknown>
+  ) => string;
 }
 
 // Inquirer workflow types
@@ -114,9 +134,9 @@ export interface WorkflowStep {
   id: string;
   type: 'input' | 'list' | 'checkbox' | 'confirm';
   message: string;
-  choices?: string[] | { name: string; value: any }[];
-  when?: (answers: any) => boolean;
-  validate?: (input: any) => boolean | string;
+  choices?: string[] | { name: string; value: string | number | boolean }[];
+  when?: (answers: Record<string, unknown>) => boolean;
+  validate?: (input: unknown) => boolean | string;
   default?: string | number | boolean;
 }
 
@@ -125,7 +145,7 @@ export interface WorkflowSession {
   goal: string;
   steps: WorkflowStep[];
   currentStep: number;
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
   generatedFiles: string[];
   status: 'active' | 'completed' | 'failed';
 }

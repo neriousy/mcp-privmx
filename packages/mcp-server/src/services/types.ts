@@ -4,26 +4,25 @@
 
 export interface SearchResult {
   id: string;
+  title: string;
   content: string;
-  metadata: {
-    type: string;
-    namespace?: string;
-    title?: string;
-    path?: string;
-    language?: string;
-    methodType?: string;
-    className?: string;
-  };
-  score?: number;
+  type: 'api' | 'guide' | 'example' | 'class' | 'method';
+  language?: string;
+  namespace?: string;
+  score: number;
+  metadata: Record<string, unknown>;
+  codeExamples?: string[];
+  relatedTopics?: string[];
 }
 
 export interface CodeGenerationOptions {
   language: string;
+  framework?: string;
   features?: string[];
-  className?: string;
-  methodName?: string;
-  includeImports?: boolean;
-  includeErrorHandling?: boolean;
+  includeComments?: boolean;
+  includeTests?: boolean;
+  skillLevel?: 'beginner' | 'intermediate' | 'advanced';
+  targetEnvironment?: 'browser' | 'node' | 'mobile';
 }
 
 export interface APIKnowledgeServiceConfig {
@@ -52,15 +51,17 @@ export interface APIRelationshipGraph {
 }
 
 export interface CodeContext {
-  existingCode?: string; // What user already has
-  targetFramework?: string; // React, Node.js, Vue, etc.
-  framework?: string; // Alternative framework property for compatibility
+  language: string;
+  framework?: string;
+  targetFramework?: string;
+  projectName?: string;
+  projectType?: 'prototype' | 'production' | 'learning';
+  currentCode?: string;
   userSkillLevel?: 'beginner' | 'intermediate' | 'expert';
-  projectType?: 'web' | 'mobile' | 'desktop' | 'server';
-  language: string; // Programming language
-  projectName?: string; // Project name for generation
-  includeErrorHandling?: boolean;
-  includeComments?: boolean;
+  projectGoals?: string[];
+  existingDependencies?: string[];
+  targetEnvironment?: 'browser' | 'node' | 'mobile';
+  codeStyle?: Record<string, unknown>;
 }
 
 export interface WorkflowStep {
@@ -68,7 +69,7 @@ export interface WorkflowStep {
   name: string;
   description: string;
   apiMethod: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   prerequisites: string[];
   validation?: string;
   errorHandling?: string;
@@ -91,13 +92,17 @@ export interface GeneratedCode {
   nextSteps?: string[];
 }
 
-export interface EnhancedSearchResult extends SearchResult {
-  contextScore: number; // How relevant to user's context
-  completeness: number; // How complete the information is
-  prerequisites: string[]; // What needs to be set up first
-  relatedMethods: string[]; // Other methods commonly used with this
-  codeExamples: CodeExample[]; // Working code examples
-  errorPatterns: ErrorHandler[]; // Common errors and solutions
+export interface EnhancedSearchResult
+  extends Omit<SearchResult, 'codeExamples'> {
+  relatedApis: string[];
+  usagePatterns: string[];
+  complexityScore: number;
+  prerequisites: string[];
+  codeExamples: CodeExample[];
+  contextScore?: number;
+  completeness?: number;
+  relatedMethods?: string[];
+  errorPatterns?: string[];
 }
 
 export interface CodeExample {
@@ -109,10 +114,17 @@ export interface CodeExample {
 }
 
 export interface SearchContext {
-  userContext?: CodeContext;
-  currentCode?: string;
-  recentQueries?: string[];
+  language?: string;
+  framework?: string;
+  userLevel?: 'beginner' | 'intermediate' | 'advanced';
   userSkillLevel?: 'beginner' | 'intermediate' | 'expert';
+  projectType?: 'prototype' | 'production' | 'learning';
+  previousQueries?: string[];
+  codeContext?: string;
+  userContext?: {
+    language?: string;
+    targetFramework?: string;
+  };
 }
 
 export interface ValidationResult {
@@ -386,4 +398,49 @@ export interface TestCoverage {
   functions: number; // Percentage
   branches: number; // Percentage
   statements: number; // Percentage
+}
+
+export interface APISearchFilters {
+  namespace?: string;
+  type?: 'class' | 'method' | 'property' | 'guide' | 'example';
+  language?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  language: string;
+  features: TemplateFeature[];
+  dependencies: TemplateDependency[];
+}
+
+export interface TemplateFeature {
+  name: string;
+  description: string;
+  complexity: string;
+  apis: string[];
+}
+
+export interface TemplateDependency {
+  name: string;
+  version?: string;
+  type: string;
+}
+
+export interface GenerationResult {
+  success: boolean;
+  error?: string;
+  template: WorkflowTemplate;
+  generatedFiles: GeneratedTemplateFile[];
+  instructions: string;
+  nextSteps: string[];
+}
+
+export interface GeneratedTemplateFile {
+  path: string;
+  content: string;
+  type: string;
 }
