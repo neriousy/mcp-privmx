@@ -28,6 +28,7 @@ import {
   FILE_SIZE_LIMITS,
   UploadedFile,
 } from '../lib/file-utils';
+import { AttachedFile } from '@/app/page';
 
 interface ChatInputProps {
   input: string;
@@ -35,7 +36,10 @@ interface ChatInputProps {
   selectedModel: string;
   mcpConnected: boolean;
   onInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSubmit: (e: React.FormEvent, attachedFiles?: File[]) => Promise<void>;
+  onSubmit: (
+    e: React.FormEvent,
+    attachedFiles?: AttachedFile[]
+  ) => Promise<void>;
   onModelChange: (model: string) => void;
   onMcpToggle: () => void;
 }

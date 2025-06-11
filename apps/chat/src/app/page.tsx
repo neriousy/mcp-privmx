@@ -9,7 +9,7 @@ import { ChatArea } from '../components/ChatArea';
 import { ChatInput } from '../components/ChatInput';
 
 // Type definitions
-interface AttachedFile {
+export interface AttachedFile {
   name: string;
   type: string;
   size: number;

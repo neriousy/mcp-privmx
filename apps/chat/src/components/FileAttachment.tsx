@@ -1,4 +1,4 @@
-import { X, FileText, Image, FileSpreadsheet } from 'lucide-react';
+import { X, FileText, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import {
   UploadedFile,
@@ -6,6 +6,7 @@ import {
   SUPPORTED_FILE_TYPES,
 } from '../lib/file-utils';
 import { motion } from 'motion/react';
+import Image from 'next/image';
 
 interface FileAttachmentProps {
   file: UploadedFile;
@@ -22,7 +23,7 @@ export function FileAttachment({
 }: FileAttachmentProps) {
   const getFileIcon = () => {
     if (SUPPORTED_FILE_TYPES.IMAGE.includes(file.type)) {
-      return <Image className="w-4 h-4" />;
+      return <ImageIcon className="w-4 h-4" />;
     }
     if (SUPPORTED_FILE_TYPES.DOCUMENT.includes(file.type)) {
       return <FileSpreadsheet className="w-4 h-4" />;
@@ -71,7 +72,9 @@ export function FileAttachment({
       {/* Image Preview */}
       {file.url && SUPPORTED_FILE_TYPES.IMAGE.includes(file.type) && (
         <div className="flex-shrink-0">
-          <img
+          <Image
+            width={100}
+            height={100}
             src={file.url}
             alt={file.name}
             className="w-12 h-12 object-cover rounded border"

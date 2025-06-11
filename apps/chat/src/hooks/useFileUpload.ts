@@ -63,6 +63,7 @@ export function useFileUpload(maxFiles: number = 5): UseFileUploadReturn {
         setIsProcessing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [files.length, maxFiles]
   );
 
