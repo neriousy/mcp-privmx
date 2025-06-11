@@ -1,0 +1,125 @@
+{{#eq language 'typescript'}}
+import { ThreadApi } from '@simplito/privmx-webendpoint';
+
+export interface Message {
+  id: string;
+  threadId: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  timestamp: Date;
+  type: 'text' | 'file';
+}
+
+export class ChatService {
+  private threadApi: ThreadApi;
+  private messageListeners: ((message: Message) => void)[] = [];
+
+  constructor(threadApi: ThreadApi) {
+    this.threadApi = threadApi;
+  }
+
+  public onMessage(callback: (message: Message) => void): void {
+    this.messageListeners.push(callback);
+  }
+
+  public async createThread(name: string, users: string[], contextId: string): Promise<string> {
+    const publicMeta = Buffer.from(JSON.stringify({ name, type: 'chat' }));
+    const privateMeta = Buffer.from(JSON.stringify({ participants: users }));
+
+    return await this.threadApi.createThread(contextId, users, users, publicMeta, privateMeta);
+  }
+
+  public async sendMessage(threadId: string, content: string, authorId: string, authorName: string): Promise<string> {
+    const publicMeta = Buffer.from(JSON.stringify({ authorId, authorName, timestamp: new Date() }));
+    const privateMeta = Buffer.from(JSON.stringify({ encrypted: true }));
+
+    const messageId = await this.threadApi.sendMessage(threadId, publicMeta, privateMeta, Buffer.from(content));
+    
+    const message: Message = {
+      id: messageId,
+      threadId,
+      authorId,
+      authorName,
+      content,
+      timestamp: new Date(),
+      type: 'text'
+    };
+
+    this.messageListeners.forEach(callback => callback(message));
+    return messageId;
+  }
+
+  public async getMessages(threadId: string, limit: number = 50): Promise<Message[]> {
+    const messages = await this.threadApi.listMessages(threadId, 0, limit);
+    
+    return messages.readItems.map(msg => {
+      const publicMeta = JSON.parse(msg.publicMeta.toString());
+      return {
+        id: msg.messageId,
+        threadId,
+        authorId: publicMeta.authorId || 'unknown',
+        authorName: publicMeta.authorName || 'Unknown User',
+        content: msg.data.toString(),
+        timestamp: new Date(publicMeta.timestamp || msg.createDate),
+        type: 'text'
+      };
+    });
+  }
+}
+{{else}}
+export class ChatService {
+  constructor(threadApi) {
+    this.threadApi = threadApi;
+    this.messageListeners = [];
+  }
+
+  onMessage(callback) {
+    this.messageListeners.push(callback);
+  }
+
+  async createThread(name, users, contextId) {
+    const publicMeta = Buffer.from(JSON.stringify({ name, type: 'chat' }));
+    const privateMeta = Buffer.from(JSON.stringify({ participants: users }));
+
+    return await this.threadApi.createThread(contextId, users, users, publicMeta, privateMeta);
+  }
+
+  async sendMessage(threadId, content, authorId, authorName) {
+    const publicMeta = Buffer.from(JSON.stringify({ authorId, authorName, timestamp: new Date() }));
+    const privateMeta = Buffer.from(JSON.stringify({ encrypted: true }));
+
+    const messageId = await this.threadApi.sendMessage(threadId, publicMeta, privateMeta, Buffer.from(content));
+    
+    const message = {
+      id: messageId,
+      threadId,
+      authorId,
+      authorName,
+      content,
+      timestamp: new Date(),
+      type: 'text'
+    };
+
+    this.messageListeners.forEach(callback => callback(message));
+    return messageId;
+  }
+
+  async getMessages(threadId, limit = 50) {
+    const messages = await this.threadApi.listMessages(threadId, 0, limit);
+    
+    return messages.readItems.map(msg => {
+      const publicMeta = JSON.parse(msg.publicMeta.toString());
+      return {
+        id: msg.messageId,
+        threadId,
+        authorId: publicMeta.authorId || 'unknown',
+        authorName: publicMeta.authorName || 'Unknown User',
+        content: msg.data.toString(),
+        timestamp: new Date(publicMeta.timestamp || msg.createDate),
+        type: 'text'
+      };
+    });
+  }
+}
+{{/eq}} 

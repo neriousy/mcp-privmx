@@ -8,7 +8,7 @@ export interface APIParameter {
   description: string;
   type: APIType;
   optional: boolean;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean | null;
 }
 
 export interface APIType {
@@ -103,7 +103,7 @@ export interface APIConstant {
   name: string;
   description: string;
   type: APIType;
-  value: any;
+  value: string | number | boolean | null;
 }
 
 export interface APITypeDefinition {
@@ -164,7 +164,7 @@ export interface WorkflowStep {
   name: string;
   description: string;
   apiMethod: string; // Method to call
-  parameters: any; // Parameter mapping
+  parameters: Record<string, string | number | boolean>; // Parameter mapping
   validation?: string; // Validation logic
   errorHandling?: string; // Error handling approach
   nextSteps: string[]; // Possible next steps
@@ -175,7 +175,7 @@ export interface WorkflowParameter {
   description: string;
   type: string;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean | null;
   validation?: string;
 }
 
@@ -212,8 +212,8 @@ export interface APISearchResult {
 export interface CodeGenerationRequest {
   type: 'setup' | 'workflow' | 'method' | 'app';
   language: string;
-  parameters: Record<string, any>;
-  customization?: Record<string, any>;
+  parameters: Record<string, string | number | boolean>;
+  customization?: Record<string, string | number | boolean>;
 }
 
 export interface CodeGenerationResult {
@@ -241,6 +241,6 @@ export interface TemplateParameter {
   description: string;
   type: string;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean | null;
   validation?: string;
 }

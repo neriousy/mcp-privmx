@@ -1,29 +1,35 @@
 {
   "name": "privmx-mcp-workspace",
+  "type": "module",
   "private": true,
   "description": "PrivMX MCP Server monorepo workspace",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
     "clean": "turbo run clean",
     "mcp-server": "pnpm --filter @privmx/mcp-server",
     "mcp-server:dev": "pnpm --filter @privmx/mcp-server dev",
     "mcp-server:start": "pnpm --filter @privmx/mcp-server start",
-    "mcp-server:test": "pnpm --filter @privmx/mcp-server test-option-a",
-    "cli": "pnpm --filter @privmx/mcp-cli start",
-    "cli:status": "pnpm --filter @privmx/mcp-cli start status",
-    "cli:search": "pnpm --filter @privmx/mcp-cli start search",
-    "cli:clean": "pnpm --filter @privmx/mcp-cli start clean",
-    "setup": "pnpm install && pnpm build"
+    "mcp-server:test": "pnpm --filter @privmx/mcp-server test",
+    "setup": "pnpm install && pnpm build",
+    "prepare": "husky",
+    "inspector": "npx @modelcontextprotocol/inspector@latest --config mcp.json --server default-server"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.33.1",
     "@typescript-eslint/parser": "^8.33.1",
     "eslint": "^9.28.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.2.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "5.8.3"
@@ -37,5 +43,14 @@
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",
     "unist-util-visit": "^5.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

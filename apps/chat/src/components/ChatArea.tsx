@@ -9,8 +9,8 @@ interface ChatAreaProps {
 
 export function ChatArea({ messages, isLoading }: ChatAreaProps) {
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="flex-1 overflow-y-auto h-full custom-scrollbar">
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 pb-32">
         {messages.map((message) => (
           <div key={message.id} className="group">
             <ChatMessage message={message} />

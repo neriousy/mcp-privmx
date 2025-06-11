@@ -22,7 +22,7 @@ export function ChatSidebar({
   return (
     <div className="w-64 h-full bg-sidebar-background border-r border-sidebar-border flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
             <MessageSquare className="w-4 h-4 text-sidebar-primary-foreground" />
@@ -44,7 +44,7 @@ export function ChatSidebar({
       </div>
 
       {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 custom-scrollbar-thin">
         <div className="space-y-1">
           {conversations.length === 0 ? (
             <div className="text-center py-8">
@@ -73,18 +73,16 @@ export function ChatSidebar({
                   </div>
                 </div>
 
-                {/* Delete Button */}
-                {conversations.length > 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteConversation(conversation.id);
-                    }}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-sidebar-border rounded"
-                  >
-                    <Trash2 className="w-3 h-3 text-sidebar-foreground/60 hover:text-red-500" />
-                  </button>
-                )}
+                {/* Delete Button - Now always visible */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteConversation(conversation.id);
+                  }}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-sidebar-border rounded"
+                >
+                  <Trash2 className="w-3 h-3 text-sidebar-foreground/60 hover:text-red-500" />
+                </button>
               </div>
             ))
           )}

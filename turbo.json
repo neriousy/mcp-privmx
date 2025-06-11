@@ -3,13 +3,16 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
+      "outputs": ["dist/**", ".next/**", "tsconfig.tsbuildinfo"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {
+      "dependsOn": ["^build"]
+    },
+    "lint:fix": {
       "dependsOn": ["^build"]
     },
     "check-types": {
