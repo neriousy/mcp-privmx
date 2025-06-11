@@ -33,11 +33,12 @@
     "lint-staged": "^15.2.10",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "pnpm": "9.0.0"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
     "remark": "^15.0.1",
