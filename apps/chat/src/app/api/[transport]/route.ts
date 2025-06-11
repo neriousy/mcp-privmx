@@ -1,6 +1,9 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
 import path from 'path';
-import { APIKnowledgeService } from '@privmx/mcp-server/services/api-knowledge-service';
+import { APISearchService } from '@privmx/mcp-server/services/api/api-search-service';
+import { CodeGenerationService } from '@privmx/mcp-server/services/generation/code-generation-service';
+import { InteractiveSessionService } from '@privmx/mcp-server/services/workflow/interactive-session-service';
+import { KnowledgeService } from '@privmx/mcp-server/services/knowledge/knowledge-service';
 import { getTools } from '@privmx/mcp-server/tools';
 
 const logger = {
@@ -47,17 +50,19 @@ const handleToolError = (
   };
 };
 
-const apiKnowledgeService = new APIKnowledgeService({
-  specPath: path.join(process.cwd(), 'spec'),
-  supportedLanguages: [
-    'javascript',
-    'typescript',
-    'java',
-    'swift',
-    'cpp',
-    'csharp',
-  ],
-});
+// Initialize focused services
+const searchService = new APISearchService();
+const codeGenerationService = new CodeGenerationService();
+const sessionService = new InteractiveSessionService();
+const knowledgeService = new KnowledgeService();
+
+// Create service container for dependency injection
+const serviceContainer = {
+  searchService,
+  codeGenerationService,
+  sessionService,
+  knowledgeService,
+};
 
 let initPromise: Promise<void> | null = null;
 const ensureInitialized = async (): Promise<void> => {
@@ -66,7 +71,20 @@ const ensureInitialized = async (): Promise<void> => {
     try {
       logger.info('Initializing PrivMX MCP Server...');
       const startTime = Date.now();
-      await apiKnowledgeService.initialize();
+
+      // Initialize knowledge service (this will handle all the complex initialization)
+      const specPath = path.join(process.cwd(), 'spec');
+
+      logger.info('📚 Initializing knowledge service...');
+      await knowledgeService.initialize(specPath);
+
+      // Other services are initialized by the knowledge service or directly
+      logger.info('🏗️ Initializing code generation service...');
+      await codeGenerationService.initialize();
+
+      logger.info('🔄 Initializing session service...');
+      await sessionService.initialize();
+
       logger.performance('Service initialization', startTime);
       logger.info('✅ PrivMX MCP Server initialized successfully');
     } catch (error) {
@@ -78,7 +96,7 @@ const ensureInitialized = async (): Promise<void> => {
   return initPromise;
 };
 
-const tools = getTools(apiKnowledgeService);
+const tools = getTools(serviceContainer);
 const capabilities = {
   tools: tools.reduce(
     (acc, tool) => {
@@ -105,8 +123,9 @@ const handler = createMcpHandler(
           const startTime = Date.now();
           logger.tool(tool.name, args);
           try {
-            // The tool.handler expects destructured arguments, so we pass args directly
-            // since our tools are defined with destructuring: ({ query, filters, limit }: any)
+            // Cast args to any to handle the flexible tool parameter types
+
+            // @ts-expect-error the tool.handler expects the args to be properly typed
             const result = await tool.handler(args);
             logger.performance(tool.name, startTime);
             return result as unknown as {

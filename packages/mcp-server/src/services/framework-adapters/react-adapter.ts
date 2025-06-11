@@ -3,14 +3,40 @@
  * Adapts generic PrivMX code to React-specific patterns and best practices
  */
 
-import {
-  FrameworkAdapter,
-  CodeContext,
-  ConfigFile,
-  ProjectStructure,
-  ValidationResult,
-  CodeConvention,
-} from '../types.js';
+import { CodeContext, ValidationResult } from '../../types/index.js';
+
+// Local type definitions for framework adapter
+interface ConfigFile {
+  filename: string;
+  content: string;
+  description: string;
+}
+
+interface ProjectStructure {
+  directories: string[];
+  requiredFiles: string[];
+  conventions: CodeConvention[];
+}
+
+interface CodeConvention {
+  rule: string;
+  description: string;
+  example?: string;
+}
+
+interface FrameworkAdapter {
+  name: string;
+  supportedLanguages: string[];
+  adaptCode(code: string, context: CodeContext): Promise<string>;
+  generateImports(dependencies: string[]): string;
+  generateConfig(): ConfigFile[];
+  generateProjectConfiguration(
+    projectName: string,
+    context: CodeContext
+  ): Promise<Record<string, string>>;
+  validateCode(code: string): Promise<ValidationResult>;
+  getProjectStructure(): ProjectStructure;
+}
 
 export class ReactAdapter implements FrameworkAdapter {
   name = 'React';
@@ -137,8 +163,7 @@ export class ReactAdapter implements FrameworkAdapter {
 
     return {
       isValid: errors.length === 0,
-      errors,
-      warnings,
+      issues: [...errors, ...warnings],
       suggestions,
     };
   }

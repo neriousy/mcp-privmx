@@ -5,8 +5,7 @@
  * and intelligent workflow suggestions.
  */
 
-import { SearchEngine } from './search-engine.js';
-import { APIRelationshipAnalyzer } from '../api-relationship-analyzer.js';
+import { APIAnalysisService } from '../api/api-analysis-service.js';
 import {
   SearchResult,
   EnhancedSearchResult,
@@ -16,7 +15,8 @@ import {
   CodeContext,
   GeneratedCode,
   CodeExample,
-} from '../types.js';
+} from '../../types/index.js';
+import { SearchEngine } from './basic-search-engine.js';
 
 interface CodeGeneratorOutput {
   main: string;
@@ -33,12 +33,12 @@ interface CodeGenerator {
 }
 
 export class EnhancedSearchEngine extends SearchEngine {
-  private relationshipAnalyzer: APIRelationshipAnalyzer;
+  private relationshipAnalyzer: APIAnalysisService;
   private contextCache: Map<string, EnhancedSearchResult[]> = new Map();
 
   constructor() {
     super();
-    this.relationshipAnalyzer = new APIRelationshipAnalyzer();
+    this.relationshipAnalyzer = new APIAnalysisService();
   }
 
   /**
@@ -278,7 +278,7 @@ export class EnhancedSearchEngine extends SearchEngine {
         score += 1;
       if (context.userSkillLevel === 'intermediate' && complexity === 'medium')
         score += 1;
-      if (context.userSkillLevel === 'expert' && complexity === 'high')
+      if (context.userSkillLevel === 'advanced' && complexity === 'high')
         score += 1;
     }
 

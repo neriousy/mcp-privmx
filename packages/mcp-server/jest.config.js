@@ -1,38 +1,22 @@
 /** @type {import('jest').Config} */
 export default {
   preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  testMatch: [
-    '**/__tests__/**/*.+(test|spec).+(ts|tsx|js)',
-    '**/*.(test|spec).+(ts|tsx|js)',
-  ],
   transform: {
-    '^.+\\.(ts|tsx)$': [
+    '^.+\\.ts$': [
       'ts-jest',
       {
         useESM: true,
-        tsconfig: {
-          module: 'esnext',
-          moduleResolution: 'node',
-        },
       },
     ],
   },
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/__tests__/**',
-    '!src/**/*.test.{ts,tsx}',
-    '!src/**/*.spec.{ts,tsx}',
-  ],
+  testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/__tests__/**/*'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
-  testTimeout: 30000,
 };

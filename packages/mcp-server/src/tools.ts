@@ -1,21 +1,39 @@
 import { z } from 'zod';
-import { APIKnowledgeService } from './services/api-knowledge-service.js';
+// Import our new focused services
+import { APISearchService } from './services/api/api-search-service.js';
+import { CodeGenerationService } from './services/generation/code-generation-service.js';
+import { InteractiveSessionService } from './services/workflow/interactive-session-service.js';
+import { KnowledgeService } from './services/knowledge/knowledge-service.js';
 import {
   LanguageSchema,
   SkillLevelSchema,
   FrameworkSchema,
 } from './common/schemas.js';
-import { SearchResult } from './services/types.js';
-import { ConfigObject } from './common/types.js';
+import { SearchResult } from './types/index.js';
+import { MCPToolResponse, PrivMXAppRequest } from './types/mcp-types.js';
+import type {
+  DocumentationResult,
+  DocumentationSearchFilters,
+} from './types/documentation-types.js';
 
 // Define proper types for tool handlers
 interface SearchDocumentationParams {
   query: string;
-  filters?: {
-    type?: 'json-api' | 'mdx' | 'markdown';
-    namespace?: string;
-  };
+  filters?: DocumentationSearchFilters;
   limit?: number;
+}
+
+interface GetGettingStartedParams {
+  language: string;
+}
+
+interface GetCodeExamplesParams {
+  apiMethod: string;
+  language: string;
+}
+
+interface GetDocumentsByLanguageParams {
+  language: string;
 }
 
 interface SearchApiMethodsParams {
@@ -29,61 +47,68 @@ interface GenerateSetupParams {
   features: string[];
 }
 
-interface GeneratePrivMXAppParams {
-  templateId: string;
-  projectName: string;
-  framework: 'react' | 'vue' | 'vanilla' | 'nodejs';
-  language: 'javascript' | 'typescript';
-  features: string[];
-  privmxConfig: {
-    solutionId?: string;
-    platformUrl?: string;
-    apiEndpoints: string[];
-  };
-  userContext: {
-    skillLevel: 'beginner' | 'intermediate' | 'expert';
-    preferences?: ConfigObject;
-  };
+type GeneratePrivMXAppParams = PrivMXAppRequest;
+
+type ToolResponse = MCPToolResponse;
+
+/**
+ * Service composition interface for dependency injection
+ *
+ * Updated to include the new KnowledgeService as the main orchestrator
+ */
+interface ServiceContainer {
+  searchService: APISearchService;
+  codeGenerationService: CodeGenerationService;
+  sessionService: InteractiveSessionService;
+  // NEW: Main knowledge orchestration service
+  knowledgeService?: KnowledgeService;
 }
 
-interface ToolResponse {
-  content: Array<{
-    type: 'text';
-    text: string;
-    [key: string]: unknown;
-  }>;
-}
-
-// This function defines all the tools and will be used by both the standalone server
-// and the Vercel adapter to avoid duplication.
-export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
+/**
+ * Defines all MCP tools available to AI assistants for PrivMX development
+ *
+ * Updated to use focused services instead of monolithic APIKnowledgeService
+ *
+ * @param services - Container with focused service instances
+ * @returns Array of MCP tool definitions with schemas and handlers
+ */
+export const getTools = (services: ServiceContainer) =>
   [
     {
       name: 'search_documentation',
-      description: '🔍 Search PrivMX documentation using semantic AI',
+      description:
+        '🔍 Search PrivMX documentation using semantic AI with enhanced MDX support',
       schema: {
         query: z
           .string()
           .describe('What you want to find in the PrivMX documentation'),
         filters: z
           .object({
-            type: z
-              .enum(['json-api', 'mdx', 'markdown'])
+            language: z
+              .string()
               .optional()
-              .describe('Filter by document type'),
+              .describe('Programming language filter'),
+            framework: z.string().optional().describe('Framework filter'),
+            skillLevel: z
+              .enum(['beginner', 'intermediate', 'advanced'])
+              .optional(),
+            category: z.string().optional().describe('Document category'),
             namespace: z
               .string()
               .optional()
-              .describe(
-                'Filter by namespace (e.g., "Core", "Threads", "Stores")'
-              ),
+              .describe('Namespace (Core, Threads, Stores, etc.)'),
+            hasCodeExamples: z
+              .boolean()
+              .optional()
+              .describe('Only documents with code examples'),
+            tags: z.array(z.string()).optional().describe('Filter by tags'),
           })
           .optional(),
         limit: z
           .number()
           .int()
           .min(1)
-          .max(50)
+          .max(20)
           .optional()
           .default(5)
           .describe('Maximum number of results'),
@@ -91,25 +116,303 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
       handler: async (
         params: SearchDocumentationParams
       ): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
         const { query, filters, limit = 5 } = params;
-        const results = await apiKnowledgeService.searchDocumentation(
+        const results = await services.knowledgeService.searchDocumentation(
           query,
           filters,
           limit
         );
+
         return {
           content: [
             {
               type: 'text',
               text: `Found ${results.length} documentation results for "${query}":\n\n${results
                 .map(
-                  (result: SearchResult, i: number) =>
-                    `${i + 1}. **${result.metadata.title || result.metadata.className || 'Untitled'}**\n` +
-                    `   Type: ${result.metadata.type}\n` +
+                  (result: DocumentationResult, i: number) =>
+                    `${i + 1}. **${result.title}**\n` +
+                    `   Summary: ${result.summary}\n` +
+                    `   Language: ${result.metadata.language || 'N/A'}\n` +
                     `   Namespace: ${result.metadata.namespace || 'General'}\n` +
+                    `   Code Examples: ${result.codeExamples.length}\n` +
+                    `   Key Insights: ${result.aiInsights.keyTakeaways.join(', ')}\n` +
                     `   Content: ${result.content.substring(0, 200)}...\n`
                 )
                 .join('\n')}`,
+            },
+          ],
+        };
+      },
+    },
+    {
+      name: 'get_getting_started_guide',
+      description:
+        '📚 Get the getting started guide for a specific programming language',
+      schema: {
+        language: z
+          .string()
+          .describe('Programming language (js, cpp, java, csharp, etc.)'),
+      },
+      handler: async (
+        params: GetGettingStartedParams
+      ): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
+        const { language } = params;
+        const guide =
+          await services.knowledgeService.getGettingStartedGuide(language);
+
+        if (!guide) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No getting started guide found for ${language}. Try searching with search_documentation instead.`,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `# Getting Started with PrivMX (${language})\n\n` +
+                `**${guide.title}**\n\n` +
+                `${guide.summary}\n\n` +
+                `## Key Takeaways\n${guide.aiInsights.keyTakeaways.map((t) => `• ${t}`).join('\n')}\n\n` +
+                `## Prerequisites\n${guide.aiInsights.prerequisites.map((p) => `• ${p}`).join('\n')}\n\n` +
+                `## Code Examples\n${guide.codeExamples.length} examples available\n\n` +
+                `## Content Preview\n${guide.content.substring(0, 500)}...`,
+            },
+          ],
+        };
+      },
+    },
+    {
+      name: 'get_code_examples',
+      description:
+        '💻 Get code examples for specific API methods and programming language',
+      schema: {
+        apiMethod: z
+          .string()
+          .describe(
+            'API method name (e.g., "createThread", "Endpoint.connect")'
+          ),
+        language: z.string().describe('Programming language'),
+      },
+      handler: async (params: GetCodeExamplesParams): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
+        const { apiMethod, language } = params;
+        const examples = await services.knowledgeService.getCodeExamples(
+          apiMethod,
+          language
+        );
+
+        if (examples.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No code examples found for "${apiMethod}" in ${language}. Try a broader search with search_documentation.`,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `# Code Examples for ${apiMethod} (${language})\n\n` +
+                `Found ${examples.length} examples:\n\n` +
+                examples
+                  .map(
+                    (example, i) =>
+                      `## Example ${i + 1}: ${example.title || 'Code Example'}\n` +
+                      `**Complexity:** ${example.complexity}\n` +
+                      `**Runnable:** ${example.isRunnable ? 'Yes' : 'No'}\n` +
+                      `**Source:** ${example.sourceDocument}\n\n` +
+                      `\`\`\`${example.language}\n${example.code}\n\`\`\`\n`
+                  )
+                  .join('\n'),
+            },
+          ],
+        };
+      },
+    },
+    {
+      name: 'get_docs_by_language',
+      description:
+        '🌐 Get all documentation for a specific programming language',
+      schema: {
+        language: z
+          .string()
+          .describe('Programming language (js, cpp, java, csharp, etc.)'),
+      },
+      handler: async (
+        params: GetDocumentsByLanguageParams
+      ): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
+        const { language } = params;
+        const docs =
+          await services.knowledgeService.getDocumentsByLanguage(language);
+
+        if (docs.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No documentation found for ${language}. Available languages might include: js, cpp, java, csharp, swift, kotlin.`,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `# PrivMX Documentation for ${language}\n\n` +
+                `Found ${docs.length} documents:\n\n` +
+                docs
+                  .slice(0, 10)
+                  .map(
+                    (doc, i) =>
+                      `${i + 1}. **${doc.title}**\n` +
+                      `   Category: ${doc.metadata.category}\n` +
+                      `   Namespace: ${doc.metadata.namespace}\n` +
+                      `   Skill Level: ${doc.metadata.skillLevel || 'N/A'}\n` +
+                      `   Code Examples: ${doc.codeExamples.length}\n`
+                  )
+                  .join('\n') +
+                (docs.length > 10
+                  ? `\n... and ${docs.length - 10} more documents`
+                  : ''),
+            },
+          ],
+        };
+      },
+    },
+    {
+      name: 'semantic_documentation_search',
+      description:
+        '🧠 Advanced semantic search with AI-powered document discovery and insights',
+      schema: {
+        query: z
+          .string()
+          .describe(
+            'Natural language query describing what you want to learn or find'
+          ),
+        filters: z
+          .object({
+            language: z
+              .string()
+              .optional()
+              .describe('Programming language filter'),
+            namespace: z
+              .string()
+              .optional()
+              .describe('PrivMX namespace (Threads, Stores, Inboxes, etc.)'),
+            skillLevel: z
+              .enum(['beginner', 'intermediate', 'advanced'])
+              .optional(),
+            includeCodeExamples: z
+              .boolean()
+              .optional()
+              .describe('Prioritize results with code examples'),
+          })
+          .optional(),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10)
+          .optional()
+          .default(3)
+          .describe('Maximum number of results'),
+      },
+      handler: async (params: {
+        query: string;
+        filters?: {
+          language?: string;
+          namespace?: string;
+          skillLevel?: 'beginner' | 'intermediate' | 'advanced';
+          includeCodeExamples?: boolean;
+        };
+        limit?: number;
+      }): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
+        const { query, filters, limit = 3 } = params;
+
+        // Convert filters to documentation search filters
+        const docFilters = filters
+          ? {
+              language: filters.language,
+              namespace: filters.namespace,
+              skillLevel: filters.skillLevel,
+              hasCodeExamples: filters.includeCodeExamples,
+            }
+          : undefined;
+
+        const results = await services.knowledgeService.searchDocumentation(
+          query,
+          docFilters,
+          limit
+        );
+
+        if (results.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `No semantic search results found for "${query}". Try:\n• Using different keywords\n• Broadening your search terms\n• Using the basic search_documentation tool`,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `# 🧠 Semantic Search Results for "${query}"\n\n` +
+                `Found ${results.length} highly relevant results using AI-powered semantic matching:\n\n` +
+                results
+                  .map(
+                    (result, i) =>
+                      `## ${i + 1}. ${result.title}\n` +
+                      `**Language:** ${result.metadata.language || 'General'} | ` +
+                      `**Namespace:** ${result.metadata.namespace || 'Core'} | ` +
+                      `**Level:** ${result.metadata.skillLevel || 'All levels'}\n\n` +
+                      `**Summary:** ${result.summary}\n\n` +
+                      `**🎯 Key Insights:**\n${result.aiInsights.keyTakeaways.map((t) => `• ${t}`).join('\n')}\n\n` +
+                      `**📚 Prerequisites:**\n${result.aiInsights.prerequisites.map((p) => `• ${p}`).join('\n')}\n\n` +
+                      `**💻 Code Examples Available:** ${result.codeExamples.length}\n\n` +
+                      `**📖 Content Preview:**\n${result.content.substring(0, 300)}...\n\n` +
+                      `**🚀 Next Steps:**\n${result.aiInsights.nextSteps.map((s) => `• ${s}`).join('\n')}\n\n` +
+                      `---\n`
+                  )
+                  .join('\n'),
             },
           ],
         };
@@ -139,7 +442,7 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
         params: SearchApiMethodsParams
       ): Promise<ToolResponse> => {
         const { query, className, limit = 10 } = params;
-        const results = await apiKnowledgeService.searchApiMethods(
+        const results = await services.searchService.searchApiMethods(
           query,
           className,
           limit
@@ -172,7 +475,7 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
       },
       handler: async (params: GenerateSetupParams): Promise<ToolResponse> => {
         const { language, features } = params;
-        const setupCode = apiKnowledgeService.generateSetupCode(
+        const setupCode = services.codeGenerationService.generateSetupCode(
           language,
           features
         );
@@ -228,7 +531,8 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
       handler: async (
         params: GeneratePrivMXAppParams
       ): Promise<ToolResponse> => {
-        const result = await apiKnowledgeService.generatePrivMXApp(params);
+        const result =
+          await services.codeGenerationService.generatePrivMXApp(params);
         if (!result.success) {
           return {
             content: [
@@ -273,7 +577,7 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
       schema: {},
       handler: async (): Promise<ToolResponse> => {
         const templates =
-          await apiKnowledgeService.getAvailablePrivMXTemplates();
+          await services.codeGenerationService.getAvailablePrivMXTemplates();
         return {
           content: [
             {
@@ -293,5 +597,84 @@ export const getTools = (apiKnowledgeService: APIKnowledgeService) =>
         };
       },
     },
-    // Add other tools here...
+    {
+      name: 'force_reindex_documentation',
+      description:
+        '🔄 Force a complete re-indexing of all documentation embeddings (expensive operation)',
+      schema: {
+        reason: z
+          .string()
+          .optional()
+          .describe('Reason for forcing re-indexing (optional)'),
+      },
+      handler: async (params: { reason?: string }): Promise<ToolResponse> => {
+        if (!services.knowledgeService) {
+          throw new Error('KnowledgeService not available');
+        }
+
+        const { reason } = params;
+
+        console.log(
+          `🔄 Force re-indexing documentation${reason ? ` - Reason: ${reason}` : ''}`
+        );
+
+        try {
+          // Access the documentation service through knowledge service
+          const docService = (services.knowledgeService as any)
+            .documentationService;
+
+          if (!docService) {
+            throw new Error('DocumentationIndexService not available');
+          }
+
+          // Force re-index with the flag
+          const result = await docService.indexDocuments('spec/mdx', true);
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    status: 'success',
+                    message: 'Documentation re-indexing completed',
+                    reason: reason || 'Manual refresh requested',
+                    timestamp: new Date().toISOString(),
+                    documentsIndexed: result.documentsIndexed,
+                    codeExamplesExtracted: result.codeExamplesExtracted,
+                    indexingTime: result.indexingTime,
+                    warnings:
+                      result.errors.length > 0 ? result.errors : undefined,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Re-indexing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              },
+            ],
+          };
+        }
+      },
+    },
   ] as const;
+
+/**
+ * Legacy compatibility function for backward compatibility
+ * This allows existing code to continue working while migrating to focused services
+ */
+export const getToolsLegacy = (apiKnowledgeService: any) => {
+  // This is a temporary bridge function that will need proper service composition
+  // For now, we'll throw an error indicating migration is needed
+  throw new Error(
+    'Legacy APIKnowledgeService usage detected. Please update to use focused services. ' +
+      'Use getTools() with ServiceContainer instead of getToolsLegacy().'
+  );
+};

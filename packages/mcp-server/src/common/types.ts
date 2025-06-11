@@ -15,7 +15,7 @@ export type OptionsObject = Record<string, unknown>;
 
 // User and context types
 export interface UserContext {
-  skillLevel: 'beginner' | 'intermediate' | 'expert';
+  skillLevel: 'beginner' | 'intermediate' | 'advanced';
   preferences?: ConfigObject;
   projectType?: 'prototype' | 'production' | 'learning';
   preferredFramework?: string;

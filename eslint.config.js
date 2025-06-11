@@ -96,6 +96,8 @@ export default [
         Request: 'readonly',
         Response: 'readonly',
         URL: 'readonly',
+        SpeechRecognition: 'readonly',
+        webkitSpeechRecognition: 'readonly',
       },
     },
     plugins: {

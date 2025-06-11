@@ -9,6 +9,10 @@ export const LanguageSchema = z.enum([
   'csharp',
 ]);
 
-export const SkillLevelSchema = z.enum(['beginner', 'intermediate', 'expert']);
+export const SkillLevelSchema = z.enum([
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
 
 export const FrameworkSchema = z.enum(['react', 'vue', 'vanilla', 'nodejs']);

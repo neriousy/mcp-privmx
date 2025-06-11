@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Message } from 'ai';
 
 // Types
@@ -86,27 +86,10 @@ const createInitialConversation = (
   model: string,
   mcpEnabled: boolean
 ): Conversation => {
-  const initialMessages: Message[] = [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `# Welcome to PrivMX AI Assistant! 🚀
-
-I'm here to help you with PrivMX development. I can assist with:
-
-• **Code Generation** - Generate PrivMX code in multiple languages
-• **API Discovery** - Find and understand PrivMX APIs  
-• **Architecture Design** - Build secure applications
-• **Best Practices** - Security and implementation guidance
-
-What would you like to build today?`,
-    },
-  ];
-
   return {
     id: Date.now().toString(),
     title: 'New Chat',
-    messages: initialMessages,
+    messages: [],
     updatedAt: new Date(),
     model,
     mcpEnabled,
@@ -117,8 +100,15 @@ export function useConversations(
   initialModel: string,
   initialMcpEnabled: boolean
 ) {
-  // Initialize state with localStorage data or create first conversation
-  const [state, setState] = useState(() => {
+  // Initialize with empty state first to avoid hydration issues
+  const [state, setState] = useState(() => ({
+    conversations: [] as Conversation[],
+    currentConversationId: null as string | null,
+    isLoaded: false,
+  }));
+
+  // Load from localStorage after component mounts (client-side only)
+  useEffect(() => {
     const savedConversations = loadConversations();
     const savedCurrentId = loadCurrentConversationId();
 
@@ -129,20 +119,22 @@ export function useConversations(
       );
       saveConversations([newConversation]);
       saveCurrentConversationId(newConversation.id);
-      return {
+      setState({
         conversations: [newConversation],
         currentConversationId: newConversation.id,
-      };
+        isLoaded: true,
+      });
+    } else {
+      const currentId = savedCurrentId || savedConversations[0].id;
+      setState({
+        conversations: savedConversations,
+        currentConversationId: currentId,
+        isLoaded: true,
+      });
     }
+  }, [initialModel, initialMcpEnabled]);
 
-    const currentId = savedCurrentId || savedConversations[0].id;
-    return {
-      conversations: savedConversations,
-      currentConversationId: currentId,
-    };
-  });
-
-  const { conversations, currentConversationId } = state;
+  const { conversations, currentConversationId, isLoaded } = state;
 
   // Derived state
   const currentConversation = useMemo(
@@ -164,10 +156,11 @@ export function useConversations(
       const newConversation = createInitialConversation(model, mcpEnabled);
       const updatedConversations = [newConversation, ...conversations];
 
-      setState({
+      setState((prev) => ({
+        ...prev,
         conversations: updatedConversations,
         currentConversationId: newConversation.id,
-      });
+      }));
 
       saveConversations(updatedConversations);
       saveCurrentConversationId(newConversation.id);
@@ -228,27 +221,27 @@ export function useConversations(
         (c) => c.id !== conversationId
       );
 
-      if (updatedConversations.length === 0) {
-        // If no conversations left, create a new one
-        const newConversation = createInitialConversation('gpt-4o', false);
-        saveConversations([newConversation]);
-        saveCurrentConversationId(newConversation.id);
-        return {
-          conversations: [newConversation],
-          currentConversationId: newConversation.id,
-        };
-      }
-
+      // Save the updated conversations (even if empty)
       saveConversations(updatedConversations);
 
       let newCurrentId = prev.currentConversationId;
       if (prev.currentConversationId === conversationId) {
-        // Switch to the first conversation if we deleted the current one
-        newCurrentId = updatedConversations[0].id;
-        saveCurrentConversationId(newCurrentId);
+        // If we deleted the current conversation, switch to the first remaining one
+        // Or set to null if no conversations left
+        newCurrentId =
+          updatedConversations.length > 0 ? updatedConversations[0].id : null;
+        if (newCurrentId) {
+          saveCurrentConversationId(newCurrentId);
+        } else {
+          // Clear current conversation from localStorage when no conversations left
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(CURRENT_CONVERSATION_KEY);
+          }
+        }
       }
 
       return {
+        ...prev,
         conversations: updatedConversations,
         currentConversationId: newCurrentId,
       };
@@ -264,5 +257,6 @@ export function useConversations(
     switchToConversation,
     updateConversation,
     deleteConversation,
+    isLoaded,
   };
 }

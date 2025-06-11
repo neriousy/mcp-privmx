@@ -28,7 +28,7 @@ interface RawAPISpec {
   [namespace: string]: Array<{
     title: string;
     content: Array<{
-      type: 'class' | 'method' | 'function' | 'constant';
+      type: 'class' | 'method' | 'function' | 'constant' | 'type';
       name: string;
       description: string;
       fields?: RawField[];
@@ -113,11 +113,27 @@ export class APIParser {
     const classes: APIClass[] = [];
     const functions: APIMethod[] = [];
 
-    // The content is an array of sections with title and content
+    // Handle _meta namespace (skip it as it's metadata, not API content)
+    if (name === '_meta') {
+      console.log(`   ⏭️  Skipping metadata namespace: ${name}`);
+      return {
+        name,
+        description: 'Metadata information',
+        language,
+        classes: [],
+        functions: [],
+        constants: [],
+        types: [],
+        commonPatterns: [],
+      };
+    }
+
+    // The content should be an array of sections with title and content
     if (!Array.isArray(content)) {
       console.warn(
-        `Warning: content for namespace ${name} is not an array:`,
-        typeof content
+        `   ⚠️  Warning: content for namespace ${name} is not an array:`,
+        typeof content,
+        '- skipping'
       );
       return {
         name,
@@ -131,10 +147,23 @@ export class APIParser {
       };
     }
 
+    let itemsProcessed = 0;
+    let typesFound = 0;
+    let methodsFound = 0;
+    let classesFound = 0;
+    let totalClassMethods = 0;
+
     for (const section of content) {
       if (section.content && Array.isArray(section.content)) {
+        console.log(
+          `      📋 Processing section: "${section.title}" (${section.content.length} items)`
+        );
+
         for (const item of section.content) {
+          itemsProcessed++;
+
           if (item.type === 'class') {
+            classesFound++;
             const apiClass = await this.parseClass(
               item,
               name,
@@ -142,7 +171,14 @@ export class APIParser {
               filePath
             );
             classes.push(apiClass);
+
+            // Count methods from this class
+            totalClassMethods +=
+              apiClass.methods.length +
+              apiClass.staticMethods.length +
+              apiClass.constructors.length;
           } else if (item.type === 'method' || item.type === 'function') {
+            methodsFound++;
             const method = await this.parseMethod(
               item,
               name,
@@ -151,10 +187,20 @@ export class APIParser {
               filePath
             );
             functions.push(method);
+          } else if (item.type === 'type') {
+            typesFound++;
+            // TODO: Parse type definitions properly
+          } else if (item.type === 'constant') {
+            // TODO: Parse constants
           }
         }
       }
     }
+
+    const totalMethods = methodsFound + totalClassMethods;
+    console.log(
+      `      ✅ Processed ${itemsProcessed} items: ${classesFound} classes, ${totalMethods} methods (${methodsFound} standalone + ${totalClassMethods} in classes), ${typesFound} types`
+    );
 
     return {
       name,
@@ -182,6 +228,10 @@ export class APIParser {
     const constructors: APIMethod[] = [];
 
     if (classData.methods) {
+      console.log(
+        `        🔧 Parsing ${classData.methods.length} methods for class: ${classData.name}`
+      );
+
       for (const methodData of classData.methods) {
         const method = await this.parseMethod(
           methodData,

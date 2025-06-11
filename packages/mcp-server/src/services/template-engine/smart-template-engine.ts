@@ -4,18 +4,78 @@
  */
 
 import {
-  SmartTemplate,
-  TemplateFile,
-  GeneratedCode,
   CodeContext,
-  ValidationResult,
-  OptimizedCode,
-  SkillLevel,
-  ProjectType,
-  UserContext,
   GeneratedFile,
-  FrameworkAdapter,
-} from '../types.js';
+  UserContext,
+  ValidationResult,
+  GeneratedCode,
+} from '../../types/index.js';
+
+// Local minimal type definitions for template engine
+interface SmartTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: any;
+  frameworks: string[];
+  skillLevels: any[];
+  dependencies: any[];
+  files: TemplateFile[];
+  workflow: any[];
+  tags: string[];
+  complexity: number;
+}
+
+interface TemplateFile {
+  path: string;
+  content: string;
+  language: string;
+  framework?: string;
+  conditional?: string;
+  executable?: boolean;
+  description?: string;
+}
+
+interface OptimizedCode {
+  code: string;
+  optimizations: any[];
+  performanceImpact?: string;
+  securityImprovements?: string[];
+}
+
+enum SkillLevel {
+  BEGINNER = 'beginner',
+  INTERMEDIATE = 'intermediate',
+  ADVANCED = 'advanced',
+}
+
+enum ProjectType {
+  WEB_APP = 'web',
+  MOBILE_APP = 'mobile',
+  DESKTOP_APP = 'desktop',
+  API_SERVICE = 'api',
+  CLI_TOOL = 'cli',
+  LIBRARY = 'library',
+}
+
+interface FrameworkAdapter {
+  name: string;
+  supportedLanguages: string[];
+  adaptCode(code: string, context: CodeContext): Promise<string>;
+  generateImports(dependencies: string[]): string;
+  generateConfig(): any[];
+  generateProjectConfiguration(
+    projectName: string,
+    context: CodeContext
+  ): Promise<Record<string, string>>;
+  validateCode(code: string): Promise<ValidationResult>;
+  getProjectStructure(): any;
+}
+
+// Extended UserContext with additional properties for backward compatibility
+interface ExtendedUserContext extends UserContext {
+  preferredFramework?: string;
+}
 
 export class SmartTemplateEngine {
   private templates: Map<string, SmartTemplate> = new Map();
@@ -89,11 +149,7 @@ export class SmartTemplateEngine {
         generatedFiles.push({
           path: templateFile.path,
           content: processedContent,
-          language: templateFile.language,
-          framework: templateFile.framework,
-          dependencies: this.extractFileDependencies(templateFile),
           description: `Generated from template: ${template.name}`,
-          lastModified: new Date(),
         });
       }
     }
@@ -265,7 +321,7 @@ export class SmartTemplateEngine {
     switch (skillLevel) {
       case 'beginner':
         return this.addBeginnerComments(code);
-      case 'expert':
+      case 'advanced':
         return this.addAdvancedOptimizations(code);
       default:
         return code;
@@ -302,7 +358,7 @@ export class SmartTemplateEngine {
   }
 
   /**
-   * Add advanced optimizations for expert users
+   * Add advanced optimizations for advanced users
    */
   private addAdvancedOptimizations(code: string): string {
     // Add performance optimizations and advanced patterns
@@ -352,7 +408,8 @@ export class SmartTemplateEngine {
     // Check framework compatibility
     if (
       templateFile.framework &&
-      templateFile.framework !== context.preferredFramework
+      templateFile.framework !==
+        (context as ExtendedUserContext).preferredFramework
     ) {
       return false;
     }
@@ -380,7 +437,8 @@ export class SmartTemplateEngine {
       '{{packageManager}}': context.preferences?.packageManager || 'npm',
       '{{typescript}}': context.preferences?.typescript ? 'true' : 'false',
       '{{skillLevel}}': context.skillLevel,
-      '{{framework}}': context.preferredFramework || 'vanilla',
+      '{{framework}}':
+        (context as ExtendedUserContext).preferredFramework || 'vanilla',
     };
 
     for (const [placeholder, value] of Object.entries(replacements)) {
@@ -421,7 +479,7 @@ export class SmartTemplateEngine {
       case 'testing':
         return !!context.preferences?.testingFramework;
       case 'advanced':
-        return context.skillLevel === SkillLevel.EXPERT;
+        return context.skillLevel === SkillLevel.ADVANCED;
       default:
         return true;
     }
@@ -609,7 +667,7 @@ export class SmartTemplateEngine {
     // Apply skill level adaptations
     if (skillLevel === 'beginner') {
       content = this.addBeginnerComments(content);
-    } else if (skillLevel === SkillLevel.EXPERT) {
+    } else if (skillLevel === SkillLevel.ADVANCED) {
       content = this.addAdvancedOptimizations(content);
     }
 

@@ -8,5 +8,19 @@ services:
       - redis_data:/data # This will persist your Redis data
     command: redis-server --appendonly yes # Enables AOF persistence
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-instance
+    ports:
+      - '6333:6333' # REST API
+      - '6334:6334' # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage # Persist vector data
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+
 volumes:
   redis_data: # Define the named volume
+  qdrant_data: # Persist Qdrant vector database

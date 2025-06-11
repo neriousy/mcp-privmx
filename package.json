@@ -18,7 +18,8 @@
     "mcp-server:start": "pnpm --filter @privmx/mcp-server start",
     "mcp-server:test": "pnpm --filter @privmx/mcp-server test",
     "setup": "pnpm install && pnpm build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "inspector": "npx @modelcontextprotocol/inspector@latest --config mcp.json --server default-server"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.33.1",
