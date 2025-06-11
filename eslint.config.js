@@ -3,6 +3,7 @@ import typescriptParser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 const sharedRules = {
   ...typescript.configs.recommended.rules,
@@ -103,9 +104,11 @@ export default [
     plugins: {
       '@typescript-eslint': typescript,
       react,
+      'react-hooks': reactHooks,
     },
     rules: {
       ...sharedRules,
+      ...reactHooks.configs.recommended.rules,
       'react/prop-types': 'off', // Optional: if you use TypeScript for props
       'react/react-in-jsx-scope': 'off', // Optional: for Next.js/React 17+
     },
