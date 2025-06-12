@@ -1,5 +1,7 @@
 {
-  "build": {
-    "includeFiles": ["packages/mcp-server/dist/**/*"]
+  "functions": {
+    "api/**": {
+      "includeFiles": ["packages/mcp-server/dist/**/*"]
+    }
   }
 }
