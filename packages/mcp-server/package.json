@@ -4,9 +4,6 @@
   "description": "PrivMX Code Generation MCP Server - intelligent API discovery and code generation for PrivMX applications",
   "type": "module",
   "main": "dist/server.js",
-  "bin": {
-    "privmx-mcp-server": "dist/server.js"
-  },
   "exports": {
     ".": "./dist/server.js",
     "./tools": "./dist/tools.js",

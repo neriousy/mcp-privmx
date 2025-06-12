@@ -124,9 +124,8 @@ const handler = createMcpHandler(
           logger.tool(tool.name, args);
           try {
             // Cast args to any to handle the flexible tool parameter types
-
-            // @ts-expect-error the tool.handler expects the args to be properly typed
-            const result = await tool.handler(args);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await tool.handler(args as any);
             logger.performance(tool.name, startTime);
             return result as unknown as {
               [x: string]: unknown;
