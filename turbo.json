@@ -26,14 +26,5 @@
       "cache": false
     }
   },
-  "globalEnv": ["NODE_ENV"],
-  "tasks": {
-    "@privmx/mcp-server#build": {
-      "outputs": ["dist/**"]
-    },
-    "@mcp-privmx/ai-chat#build": {
-      "dependsOn": ["@privmx/mcp-server#build"],
-      "outputs": [".next/**"]
-    }
-  }
+  "globalEnv": ["NODE_ENV"]
 }
