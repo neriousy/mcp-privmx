@@ -1,0 +1,5 @@
+{
+  "build": {
+    "includeFiles": ["packages/mcp-server/dist/**/*"]
+  }
+}
