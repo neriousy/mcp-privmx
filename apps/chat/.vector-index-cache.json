@@ -1,0 +1,552 @@
+{
+  "spec/mdx/cpp/context-users.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "2cfb869ab6dc4729",
+    "indexed": true
+  },
+  "spec/mdx/cpp/custom-events.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "eb0b6ab2584b87e8",
+    "indexed": true
+  },
+  "spec/mdx/cpp/custom-fields-and-queries.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "247d484c5d2c171c",
+    "indexed": true
+  },
+  "spec/mdx/cpp/entries.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "9bbca914374ee7e7",
+    "indexed": true
+  },
+  "spec/mdx/cpp/events.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "2814d8fe42b8a2e7",
+    "indexed": true
+  },
+  "spec/mdx/cpp/files.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "7572c7833137edad",
+    "indexed": true
+  },
+  "spec/mdx/cpp/first-app.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "bec2bd6e73bee163",
+    "indexed": true
+  },
+  "spec/mdx/cpp/inboxes.mdx": {
+    "lastModified": 1749448164723.4788,
+    "contentHash": "e97a8d878027a6b2",
+    "indexed": true
+  },
+  "spec/mdx/cpp/introduction.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "ac61bbea31b01d04",
+    "indexed": true
+  },
+  "spec/mdx/cpp/messages.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "7f3226efe12eedb7",
+    "indexed": true
+  },
+  "spec/mdx/cpp/stores.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "a362d74ee0ccad22",
+    "indexed": true
+  },
+  "spec/mdx/cpp/threads.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "e72dc1e73b8926db",
+    "indexed": true
+  },
+  "spec/mdx/csharp/getting-started.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "55a83da409dcbf90",
+    "indexed": true
+  },
+  "spec/mdx/csharp/installation.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "44c3817503472b68",
+    "indexed": true
+  },
+  "spec/mdx/csharp/introduction.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "82f05fa06384abe4",
+    "indexed": true
+  },
+  "spec/mdx/java/downloading-files.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "4e89491e290a05b5",
+    "indexed": true
+  },
+  "spec/mdx/java/entries.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "e2521cacdaf3b3d0",
+    "indexed": true
+  },
+  "spec/mdx/java/events.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "3f99d0d4f460f8da",
+    "indexed": true
+  },
+  "spec/mdx/java/files.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "408803f251bd298f",
+    "indexed": true
+  },
+  "spec/mdx/java/getting-started.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "be804f75c6dbbb3b",
+    "indexed": true
+  },
+  "spec/mdx/java/handling-events.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "ceba0a8d42de14c1",
+    "indexed": true
+  },
+  "spec/mdx/java/inboxes.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "78eb10c941a01b61",
+    "indexed": true
+  },
+  "spec/mdx/java/introduction.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "49e3842a0b8be3b7",
+    "indexed": true
+  },
+  "spec/mdx/java/messages.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "f65dad1717944894",
+    "indexed": true
+  },
+  "spec/mdx/java/plugin-configuration.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "44c500d4d716ed75",
+    "indexed": true
+  },
+  "spec/mdx/java/policy-builders.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "ffd93b4368b7f48b",
+    "indexed": true
+  },
+  "spec/mdx/java/stores.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "fca7b8481f1b2387",
+    "indexed": true
+  },
+  "spec/mdx/java/threads.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "8d66e2ecd948e551",
+    "indexed": true
+  },
+  "spec/mdx/js/application-server.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "b88f30ca32bdeaeb",
+    "indexed": true
+  },
+  "spec/mdx/js/entries.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "1165be8469faf520",
+    "indexed": true
+  },
+  "spec/mdx/js/events.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "2c6f5670c74f7994",
+    "indexed": true
+  },
+  "spec/mdx/js/files.mdx": {
+    "lastModified": 1749448164724.4788,
+    "contentHash": "f390dcf11a7fb18e",
+    "indexed": true
+  },
+  "spec/mdx/js/first-app.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "4051cf0b22a75951",
+    "indexed": true
+  },
+  "spec/mdx/js/handling-events.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "f2f770f4894fd72b",
+    "indexed": true
+  },
+  "spec/mdx/js/inboxes.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "c2a4b0e311fdf21d",
+    "indexed": true
+  },
+  "spec/mdx/js/introduction.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "4f8b438af2f0185e",
+    "indexed": true
+  },
+  "spec/mdx/js/messages.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "39e1da6a9efe86d0",
+    "indexed": true
+  },
+  "spec/mdx/js/next/01-introduction.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "143bd06321bfd900",
+    "indexed": true
+  },
+  "spec/mdx/js/next/02-privmx-bridge.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "78dc61aa5538cbcb",
+    "indexed": true
+  },
+  "spec/mdx/js/next/app/03-create-app.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "de3e9b330447362e",
+    "indexed": true
+  },
+  "spec/mdx/js/next/app/04-sign-up.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "a269e24252bda47c",
+    "indexed": true
+  },
+  "spec/mdx/js/next/app/05-sign-in.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "a720b86a4afd8849",
+    "indexed": true
+  },
+  "spec/mdx/js/next/app/06-setup-events.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "b9a0d901a544e17a",
+    "indexed": true
+  },
+  "spec/mdx/js/next/app/07-list-notes.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "5a109b34056ed04d",
+    "indexed": true
+  },
+  "spec/mdx/js/stores.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "785e26ddf1853251",
+    "indexed": true
+  },
+  "spec/mdx/js/threads.mdx": {
+    "lastModified": 1749448164725.4788,
+    "contentHash": "d90302bfb66b1ec3",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/downloading-files.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "e191e7bd574e0be1",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/entries.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "608e9cbdfce0effb",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/events.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "1a02e7c5733e182c",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/files.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "d90b30b211c7ffe0",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/getting-started.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "770e4aa7e48cc52e",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/handling-events.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "08888a6300a12a63",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/inboxes.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "59dc6bfdde30d284",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/introduction.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "b9aa94936ef83761",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/messages.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "cccb0cfcd64877dd",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/policy-builders.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "ba9c2ec052a1c0e2",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/stores.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "efae40114b4c9dd4",
+    "indexed": true
+  },
+  "spec/mdx/kotlin/threads.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "b92f807b327c68dc",
+    "indexed": true
+  },
+  "spec/mdx/start/api-reference.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "0ce9b5120fa12e29",
+    "indexed": true
+  },
+  "spec/mdx/start/architecture.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "44bcd966ccc57ae5",
+    "indexed": true
+  },
+  "spec/mdx/start/authorization.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "937b42bce19d9ae3",
+    "indexed": true
+  },
+  "spec/mdx/start/certificates.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "c23b0f1b8d8acbe4",
+    "indexed": true
+  },
+  "spec/mdx/start/concepts/acl.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "ce6d4acd962819c1",
+    "indexed": true
+  },
+  "spec/mdx/start/concepts/metrics.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "a1683da00973bb75",
+    "indexed": true
+  },
+  "spec/mdx/start/concepts/policies.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "d3bde7b48e2079e8",
+    "indexed": true
+  },
+  "spec/mdx/start/encryption.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "7e0a5d3d5f3e2427",
+    "indexed": true
+  },
+  "spec/mdx/start/events.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "c71603082190f7c6",
+    "indexed": true
+  },
+  "spec/mdx/start/features.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "b1a34b5accc7cecc",
+    "indexed": true
+  },
+  "spec/mdx/start/generating-keys.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "25d21e67556de97d",
+    "indexed": true
+  },
+  "spec/mdx/start/guides/managing-keys.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "ae30e5abc6fbc52d",
+    "indexed": true
+  },
+  "spec/mdx/start/guides/sms-notifications.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "048f9764bce0b371",
+    "indexed": true
+  },
+  "spec/mdx/start/guides/user-management.mdx": {
+    "lastModified": 1749448164726.4788,
+    "contentHash": "8d7216b54d3a22ca",
+    "indexed": true
+  },
+  "spec/mdx/start/inboxes/inbox-entries.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "1aa26f4ccf723553",
+    "indexed": true
+  },
+  "spec/mdx/start/inboxes/inbox-updates.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "ee7e8ff1073f8185",
+    "indexed": true
+  },
+  "spec/mdx/start/inboxes/overview.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "fc1b5eff58ec06a7",
+    "indexed": true
+  },
+  "spec/mdx/start/inboxes/usage.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "79081597b487882e",
+    "indexed": true
+  },
+  "spec/mdx/start/index.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "1c8aa44d43589a65",
+    "indexed": true
+  },
+  "spec/mdx/start/installation.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "50697685d2a17b62",
+    "indexed": true
+  },
+  "spec/mdx/start/managing-users.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "c5b0e499a231e1ce",
+    "indexed": true
+  },
+  "spec/mdx/start/pagination.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "7fa7458de08e185d",
+    "indexed": true
+  },
+  "spec/mdx/start/performance.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "7dd20acf2dd59289",
+    "indexed": true
+  },
+  "spec/mdx/start/privmx-bridge.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "362b68c9b5d7eb82",
+    "indexed": true
+  },
+  "spec/mdx/start/production/deploy-to-vps.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "0d62c2828d95c5ed",
+    "indexed": true
+  },
+  "spec/mdx/start/project-map.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "5ac23ed8cc6180bf",
+    "indexed": true
+  },
+  "spec/mdx/start/public-private-meta.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "63e90376864bd9b3",
+    "indexed": true
+  },
+  "spec/mdx/start/quick-start.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "e91c6a59fe8141f6",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/downloading-files.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "8a0c2bb7121943a9",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/encryption.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "cc2760ff83494709",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/handling-files.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "8740cda70a3ca05f",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/instant-updating.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "cb3c76bcf8df3f2e",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/managing.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "c641552bd1d6580c",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/overview.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "252044a2197f6730",
+    "indexed": true
+  },
+  "spec/mdx/start/stores/uploading-files.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "c3643136446eb0b7",
+    "indexed": true
+  },
+  "spec/mdx/start/threads/encryption.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "b8dfe285329f4615",
+    "indexed": true
+  },
+  "spec/mdx/start/threads/listening-for-changes.mdx": {
+    "lastModified": 1749448164727.4788,
+    "contentHash": "2628a13934e63671",
+    "indexed": true
+  },
+  "spec/mdx/start/threads/managing.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "fea65f350858a21c",
+    "indexed": true
+  },
+  "spec/mdx/start/threads/messages.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "63e7ae08b5cfcaab",
+    "indexed": true
+  },
+  "spec/mdx/start/threads/overview.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "002158d7103a4017",
+    "indexed": true
+  },
+  "spec/mdx/start/versioning.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "ed2620923798b1ba",
+    "indexed": true
+  },
+  "spec/mdx/swift/entries.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "8ced448566a0709c",
+    "indexed": true
+  },
+  "spec/mdx/swift/events.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "8ab188c39ac019ae",
+    "indexed": true
+  },
+  "spec/mdx/swift/files.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "bd9e0d7e55d6abda",
+    "indexed": true
+  },
+  "spec/mdx/swift/getting-started.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "cc84282aa86696dc",
+    "indexed": true
+  },
+  "spec/mdx/swift/handling-events.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "d292f496f2952c7f",
+    "indexed": true
+  },
+  "spec/mdx/swift/inboxes.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "c4d13343b5ba14ae",
+    "indexed": true
+  },
+  "spec/mdx/swift/index.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "46446b072edebacb",
+    "indexed": true
+  },
+  "spec/mdx/swift/messages.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "3879b42ce92f47eb",
+    "indexed": true
+  },
+  "spec/mdx/swift/policy-builders.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "50a386d730306e4d",
+    "indexed": true
+  },
+  "spec/mdx/swift/stores.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "6eda3e4eb8086d86",
+    "indexed": true
+  },
+  "spec/mdx/swift/threads.mdx": {
+    "lastModified": 1749448164728.4788,
+    "contentHash": "2cf824c0d5aab49e",
+    "indexed": true
+  }
+}

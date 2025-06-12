@@ -115,9 +115,9 @@ class PrivMXMCPServer {
       this.initialized = true;
       logger.info('✅ All PrivMX services initialized successfully');
 
-      // Log service statistics
-      const knowledgeStats = this.knowledgeService.getStats();
-      const apiStats = knowledgeStats.apiSearchStats;
+      // Get knowledge service stats
+      const knowledgeStats = await this.knowledgeService.getStats();
+      const apiStats = knowledgeStats.api;
       logger.info(`   📊 ${apiStats.namespaces} namespaces indexed`);
       logger.info(`   🔧 ${apiStats.methods} methods indexed`);
       logger.info(`   📋 ${apiStats.classes} classes indexed`);

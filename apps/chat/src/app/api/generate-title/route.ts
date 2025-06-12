@@ -9,6 +9,12 @@ interface MessageInput {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if OpenAI API key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not found for title generation');
+      return NextResponse.json({ title: 'New Chat' });
+    }
+
     const { messages } = await request.json();
 
     if (!messages || messages.length === 0) {
@@ -44,6 +50,28 @@ Generate only the title, nothing else:`;
     });
   } catch (error) {
     console.error('Error generating title:', error);
+
+    // Fallback: Create title from first user message
+    try {
+      const { messages } = await request.json();
+      if (messages && messages.length > 0) {
+        const firstUserMessage = messages.find(
+          (m: MessageInput) => m.role === 'user'
+        );
+        if (firstUserMessage) {
+          const content = firstUserMessage.content.trim();
+          if (content.length > 50) {
+            return NextResponse.json({
+              title: content.substring(0, 47) + '...',
+            });
+          }
+          return NextResponse.json({ title: content });
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback title generation failed:', fallbackError);
+    }
+
     return NextResponse.json({ title: 'New Chat' });
   }
 }

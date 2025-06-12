@@ -165,8 +165,13 @@ export const getTools = (services: ServiceContainer) =>
         }
 
         const { language } = params;
-        const guide =
-          await services.knowledgeService.getGettingStartedGuide(language);
+        // Search for comprehensive getting started guide
+        const docs = await services.knowledgeService.searchDocumentation(
+          'getting started introduction',
+          { language, category: 'getting-started' },
+          1
+        );
+        const guide = docs.length > 0 ? docs[0] : null;
 
         if (!guide) {
           return {
@@ -187,8 +192,8 @@ export const getTools = (services: ServiceContainer) =>
                 `# Getting Started with PrivMX (${language})\n\n` +
                 `**${guide.title}**\n\n` +
                 `${guide.summary}\n\n` +
-                `## Key Takeaways\n${guide.aiInsights.keyTakeaways.map((t) => `• ${t}`).join('\n')}\n\n` +
-                `## Prerequisites\n${guide.aiInsights.prerequisites.map((p) => `• ${p}`).join('\n')}\n\n` +
+                `## Key Takeaways\n${guide.aiInsights.keyTakeaways.map((t: string) => `• ${t}`).join('\n')}\n\n` +
+                `## Prerequisites\n${guide.aiInsights.prerequisites.map((p: string) => `• ${p}`).join('\n')}\n\n` +
                 `## Code Examples\n${guide.codeExamples.length} examples available\n\n` +
                 `## Content Preview\n${guide.content.substring(0, 500)}...`,
             },
@@ -214,10 +219,13 @@ export const getTools = (services: ServiceContainer) =>
         }
 
         const { apiMethod, language } = params;
-        const examples = await services.knowledgeService.getCodeExamples(
-          apiMethod,
-          language
+        // Search for code examples
+        const docs = await services.knowledgeService.searchDocumentation(
+          `${apiMethod} code examples`,
+          { language, hasCodeExamples: true },
+          5
         );
+        const examples = docs.flatMap((doc) => doc.codeExamples);
 
         if (examples.length === 0) {
           return {
@@ -239,7 +247,7 @@ export const getTools = (services: ServiceContainer) =>
                 `Found ${examples.length} examples:\n\n` +
                 examples
                   .map(
-                    (example, i) =>
+                    (example: any, i: number) =>
                       `## Example ${i + 1}: ${example.title || 'Code Example'}\n` +
                       `**Complexity:** ${example.complexity}\n` +
                       `**Runnable:** ${example.isRunnable ? 'Yes' : 'No'}\n` +
@@ -269,8 +277,12 @@ export const getTools = (services: ServiceContainer) =>
         }
 
         const { language } = params;
-        const docs =
-          await services.knowledgeService.getDocumentsByLanguage(language);
+        // Search for language-specific documentation
+        const docs = await services.knowledgeService.searchDocumentation(
+          `${language} documentation`,
+          { language },
+          10
+        );
 
         if (docs.length === 0) {
           return {
@@ -293,7 +305,7 @@ export const getTools = (services: ServiceContainer) =>
                 docs
                   .slice(0, 10)
                   .map(
-                    (doc, i) =>
+                    (doc: any, i: number) =>
                       `${i + 1}. **${doc.title}**\n` +
                       `   Category: ${doc.metadata.category}\n` +
                       `   Namespace: ${doc.metadata.namespace}\n` +

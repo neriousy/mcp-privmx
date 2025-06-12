@@ -63,6 +63,15 @@ export default function ChatPage() {
     onFinish: (message) => {
       // Update conversation with all current messages (including both user and assistant)
       if (currentConversationId) {
+        console.log(
+          '📝 onFinish: Updating conversation with',
+          messages.length + 1,
+          'messages'
+        );
+        console.log(
+          '📝 onFinish: Messages roles:',
+          [...messages, message].map((m) => m.role)
+        );
         updateConversation(currentConversationId, {
           messages: [...messages, message],
           model: selectedModel,
@@ -73,7 +82,7 @@ export default function ChatPage() {
     onError: (error) => {
       console.error('Chat error:', error);
       // Still save messages even if there's an error
-      if (currentConversationId) {
+      if (currentConversationId && messages.length > 0) {
         updateConversation(currentConversationId, {
           messages: messages,
           model: selectedModel,
@@ -218,16 +227,8 @@ export default function ChatPage() {
       } as React.ChangeEvent<HTMLInputElement>);
 
       // Use the append function to add the message
+      // The conversation will be saved in onFinish callback
       await append(messageObject);
-
-      // Save the user message immediately
-      if (currentConversationId) {
-        updateConversation(currentConversationId, {
-          messages: [...messages, messageObject],
-          model: selectedModel,
-          mcpEnabled: mcpConnected,
-        });
-      }
     } catch (error) {
       console.error('Failed to send message:', error);
     }

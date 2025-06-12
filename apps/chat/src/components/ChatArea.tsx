@@ -1,6 +1,7 @@
 import { Sparkles } from 'lucide-react';
 import { Message } from 'ai';
 import { ChatMessage } from './ChatMessage';
+import { useEffect, useRef } from 'react';
 
 interface ChatAreaProps {
   messages: Message[];
@@ -8,8 +9,21 @@ interface ChatAreaProps {
 }
 
 export function ChatArea({ messages, isLoading }: ChatAreaProps) {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive or loading state changes
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isLoading]);
+
   return (
-    <div className="flex-1 overflow-y-auto h-full custom-scrollbar">
+    <div
+      ref={scrollAreaRef}
+      className="flex-1 overflow-y-auto h-full custom-scrollbar"
+    >
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 pb-32">
         {messages.map((message) => (
           <div key={message.id} className="group">
@@ -18,9 +32,9 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
         ))}
 
         {isLoading && (
-          <div className="flex gap-3">
+          <div className="flex gap-3 animate-fade-in">
             <div className="w-6 h-6 bg-sidebar-accent rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-              <Sparkles className="w-3 h-3 text-muted-foreground" />
+              <Sparkles className="w-3 h-3 text-muted-foreground animate-pulse" />
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="flex space-x-1">
@@ -37,10 +51,13 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
                   style={{ animationDelay: '300ms' }}
                 ></div>
               </div>
-              <span className="text-xs">Thinking...</span>
+              <span className="text-xs animate-pulse">Thinking...</span>
             </div>
           </div>
         )}
+
+        {/* Invisible element to maintain scroll position */}
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );

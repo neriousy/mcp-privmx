@@ -64,7 +64,13 @@ const generateConversationTitle = async (
 
     if (response.ok) {
       const { title } = await response.json();
-      return title;
+      return title || 'New Chat';
+    } else {
+      console.error(
+        'Generate title API failed:',
+        response.status,
+        response.statusText
+      );
     }
   } catch (error) {
     console.error('Failed to generate title:', error);
@@ -94,6 +100,28 @@ const createInitialConversation = (
     model,
     mcpEnabled,
   };
+};
+
+// Helper function to check if conversation should get a title
+const shouldGenerateTitle = (
+  conversation: Conversation,
+  newMessages: Message[]
+): boolean => {
+  // Only generate if title is still "New Chat"
+  if (conversation.title !== 'New Chat') {
+    return false;
+  }
+
+  // Need at least 2 messages
+  if (newMessages.length < 2) {
+    return false;
+  }
+
+  // Check if we have both user and assistant messages
+  const hasUserMessage = newMessages.some((m) => m.role === 'user');
+  const hasAssistantMessage = newMessages.some((m) => m.role === 'assistant');
+
+  return hasUserMessage && hasAssistantMessage;
 };
 
 export function useConversations(
@@ -181,6 +209,13 @@ export function useConversations(
   const updateConversation = useCallback(
     (conversationId: string, updates: Partial<Omit<Conversation, 'id'>>) => {
       setState((prev) => {
+        const conversationToUpdate = prev.conversations.find(
+          (c) => c.id === conversationId
+        );
+        if (!conversationToUpdate) {
+          return prev;
+        }
+
         const updatedConversations = prev.conversations.map((conv) => {
           if (conv.id === conversationId) {
             const updatedConv = {
@@ -189,14 +224,42 @@ export function useConversations(
               updatedAt: new Date(),
             };
 
-            // Auto-generate title if it's still "New Chat" and we have messages
-            if (conv.title === 'New Chat' && updates.messages) {
+            // Check if we should generate a title
+            if (
+              updates.messages &&
+              shouldGenerateTitle(conv, updates.messages)
+            ) {
+              console.log(
+                '🏷️ Triggering title generation for conversation:',
+                conversationId,
+                'with',
+                updates.messages.length,
+                'messages'
+              );
+
               // Generate title asynchronously
-              generateConversationTitle(updates.messages).then((newTitle) => {
-                if (newTitle !== 'New Chat') {
-                  updateConversation(conversationId, { title: newTitle });
-                }
-              });
+              generateConversationTitle(updates.messages)
+                .then((newTitle) => {
+                  console.log('🏷️ Generated title:', newTitle);
+                  if (newTitle !== 'New Chat') {
+                    setState((currentState) => {
+                      const finalUpdatedConversations =
+                        currentState.conversations.map((c) =>
+                          c.id === conversationId && c.title === 'New Chat'
+                            ? { ...c, title: newTitle, updatedAt: new Date() }
+                            : c
+                        );
+                      saveConversations(finalUpdatedConversations);
+                      return {
+                        ...currentState,
+                        conversations: finalUpdatedConversations,
+                      };
+                    });
+                  }
+                })
+                .catch((error) => {
+                  console.error('🏷️ Title generation failed:', error);
+                });
             }
 
             return updatedConv;

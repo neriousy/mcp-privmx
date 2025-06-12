@@ -31,8 +31,6 @@ dist
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 
-# Vector Service Cache (Cold Start Optimization)
-.vector-index-cache.json
 
 # Debug
 npm-debug.log*
