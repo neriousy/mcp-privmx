@@ -3,6 +3,5 @@
   "installCommand": "pnpm install",
   "devCommand": "pnpm --filter @mcp-privmx/ai-chat dev",
   "framework": "nextjs",
-  "outputDirectory": "apps/chat/.next",
   "crons": []
 }
