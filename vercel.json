@@ -5,6 +5,5 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/chat",
   "framework": null,
   "outputDirectory": "apps/chat/.next",
-  "nodeVersion": "22",
   "crons": []
 }
