@@ -27,6 +27,8 @@ out/
 build
 dist
 
+# Vector Service Cache (Cold Start Optimization)
+.vector-index-cache.json
 
 # Debug
 npm-debug.log*

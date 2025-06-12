@@ -24,6 +24,11 @@ export interface VectorConfig {
     chunkOverlap: number;
     separators: string[];
   };
+  caching: {
+    indexCacheFile: string;
+    forceReindex: boolean;
+    enablePersistentCache: boolean;
+  };
 }
 
 export const defaultVectorConfig: VectorConfig = {
@@ -36,7 +41,8 @@ export const defaultVectorConfig: VectorConfig = {
   qdrant: {
     url: process.env.QDRANT_URL || 'http://localhost:6333',
     apiKey: process.env.QDRANT_API_KEY,
-    collectionName: process.env.QDRANT_COLLECTION || 'privmx_documentation',
+    collectionName:
+      process.env.QDRANT_COLLECTION_NAME || 'privmx_documentation',
     vectorSize: 1536, // text-embedding-3-small dimension
     distance: 'Cosine',
   },
@@ -44,6 +50,12 @@ export const defaultVectorConfig: VectorConfig = {
     chunkSize: parseInt(process.env.CHUNK_SIZE || '1000'),
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || '200'),
     separators: ['\n\n', '\n', ' ', ''],
+  },
+  caching: {
+    indexCacheFile:
+      process.env.VECTOR_INDEX_CACHE_FILE || '.vector-index-cache.json',
+    forceReindex: process.env.FORCE_VECTOR_REINDEX === 'true',
+    enablePersistentCache: process.env.DISABLE_VECTOR_CACHE !== 'true',
   },
 };
 
@@ -105,11 +117,16 @@ export OPENAI_API_KEY="your-openai-api-key"
 ## Optional Environment Variables:
 export QDRANT_URL="http://localhost:6333"              # Default: localhost
 export QDRANT_API_KEY="your-qdrant-api-key"           # Optional for local Qdrant
-export QDRANT_COLLECTION="privmx_documentation"       # Default collection name
+export QDRANT_COLLECTION_NAME="privmx-docs"           # Default collection name
 export OPENAI_EMBEDDING_MODEL="text-embedding-3-small" # Default model
 export OPENAI_BATCH_SIZE="512"                        # Default batch size
 export CHUNK_SIZE="1000"                               # Default chunk size
 export CHUNK_OVERLAP="200"                             # Default overlap
+
+## Cold Start Optimization:
+export VECTOR_INDEX_CACHE_FILE=".vector-index-cache.json"  # Cache file location
+export FORCE_VECTOR_REINDEX="false"                       # Force re-indexing
+export DISABLE_VECTOR_CACHE="false"                       # Disable persistent cache
 
 ## Qdrant Docker Setup (if needed):
 docker run -p 6333:6333 qdrant/qdrant
@@ -120,5 +137,19 @@ docker run -p 6333:6333 qdrant/qdrant
 ✅ Advanced filtering and similarity matching
 ✅ Code-aware semantic understanding
 ✅ Multi-language documentation search
+✅ Cold start optimization with persistent index caching
+✅ Content hash-based change detection
+
+## Cold Start Performance:
+- First run: Full indexing (slower)
+- Subsequent runs: Cache-based validation (much faster)
+- Only re-indexes documents that have changed
+- Automatically detects if Qdrant collection is missing
+
+## Cache Management:
+- Cache file tracks document states across cold starts
+- Automatically validates Qdrant collection existence
+- Content hash detection prevents unnecessary re-indexing
+- Force refresh: rm .vector-index-cache.json or set FORCE_VECTOR_REINDEX=true
 `;
 }

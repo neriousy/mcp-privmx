@@ -15,6 +15,11 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { QdrantVectorStore } from '@langchain/qdrant';
 import { Document } from '@langchain/core/documents';
 import fs from 'fs';
+import path from 'path';
+import {
+  getVectorConfig,
+  type VectorConfig,
+} from '../../config/vector-config.js';
 
 export interface VectorServiceConfig {
   openaiApiKey?: string;
@@ -23,6 +28,7 @@ export interface VectorServiceConfig {
   embeddingModel?: string;
   collectionName?: string;
   forceReindex?: boolean; // Option to force full re-indexing
+  indexCacheFile?: string; // File to persist document index
 }
 
 export interface DocumentIndexStatus {
@@ -30,6 +36,7 @@ export interface DocumentIndexStatus {
   lastModified: number;
   indexed: boolean;
   needsUpdate: boolean;
+  contentHash?: string; // Add content hash for better change detection
 }
 
 export class VectorService {
@@ -38,18 +45,36 @@ export class VectorService {
   public config: VectorServiceConfig; // Made public for configuration access
   private initialized = false;
   private documentIndex: Map<string, DocumentIndexStatus> = new Map();
+  private indexCacheFile: string;
 
   constructor(config: VectorServiceConfig = {}) {
+    // Use the centralized configuration with fallback to passed config
+    const defaultConfig = getVectorConfig();
+
     this.config = {
-      openaiApiKey: config.openaiApiKey || process.env.OPENAI_API_KEY,
-      qdrantUrl:
-        config.qdrantUrl || process.env.QDRANT_URL || 'http://localhost:6333',
-      qdrantApiKey: config.qdrantApiKey || process.env.QDRANT_API_KEY,
-      embeddingModel: config.embeddingModel || 'text-embedding-3-small',
-      collectionName: config.collectionName || 'privmx-docs',
-      forceReindex: false,
-      ...config,
+      openaiApiKey: config.openaiApiKey || defaultConfig.openai.apiKey,
+      qdrantUrl: config.qdrantUrl || defaultConfig.qdrant.url,
+      qdrantApiKey: config.qdrantApiKey || defaultConfig.qdrant.apiKey,
+      embeddingModel: config.embeddingModel || defaultConfig.openai.model,
+      collectionName:
+        config.collectionName || defaultConfig.qdrant.collectionName,
+      forceReindex: config.forceReindex || defaultConfig.caching.forceReindex,
+      indexCacheFile:
+        config.indexCacheFile || defaultConfig.caching.indexCacheFile,
     };
+
+    // Set up cache file path relative to the project root
+    this.indexCacheFile = path.resolve(
+      process.cwd(),
+      this.config.indexCacheFile!
+    );
+
+    // Log configuration for debugging
+    console.log(`🔧 Vector service configured:`);
+    console.log(`   - Collection: ${this.config.collectionName}`);
+    console.log(`   - Cache file: ${this.indexCacheFile}`);
+    console.log(`   - Force reindex: ${this.config.forceReindex}`);
+    console.log(`   - OpenAI enabled: ${!!this.config.openaiApiKey}`);
   }
 
   /**
@@ -110,13 +135,19 @@ export class VectorService {
     }
 
     try {
-      // First, check what's already indexed
+      // First, check what's already indexed (load from persistent storage)
       await this.loadDocumentIndex();
+
+      // Check if Qdrant collection exists and has documents
+      const collectionExists = await this.checkCollectionExists();
 
       // Determine which documents need indexing
       const documentsToIndex = this.config.forceReindex
         ? documents
-        : this.filterDocumentsNeedingIndexing(documents);
+        : await this.filterDocumentsNeedingIndexing(
+            documents,
+            collectionExists
+          );
 
       if (documentsToIndex.length === 0) {
         console.log('✅ All documents are up to date, no re-indexing needed');
@@ -180,8 +211,9 @@ export class VectorService {
       // Index all documents in Qdrant
       await this.vectorStore.addDocuments(langchainDocs);
 
-      // Update our document index
+      // Update our document index and persist it
       await this.updateDocumentIndex(documentsToIndex);
+      await this.saveDocumentIndex();
 
       console.log(
         `✅ Successfully indexed ${langchainDocs.length} document chunks in Qdrant`
@@ -414,40 +446,96 @@ export class VectorService {
         '⚠️ Clear collection not implemented - would need direct Qdrant client'
       );
       this.documentIndex.clear();
+      await this.saveDocumentIndex();
     } catch (error) {
       console.error('Failed to clear vector collection:', error);
     }
   }
 
   /**
-   * Load document index from storage or memory
+   * Load document index from persistent storage
    */
   private async loadDocumentIndex(): Promise<void> {
     try {
-      // For now, we use an in-memory index that tracks what's been indexed
-      // In production, this could be persisted to a file or database
-      if (this.documentIndex.size === 0) {
-        console.log('📋 Initializing fresh document index...');
-      } else {
-        console.log(
-          `📋 Loaded document index with ${this.documentIndex.size} entries`
+      if (fs.existsSync(this.indexCacheFile)) {
+        const indexData = await fs.promises.readFile(
+          this.indexCacheFile,
+          'utf-8'
         );
+        const indexObject = JSON.parse(indexData);
+
+        // Convert object back to Map
+        this.documentIndex = new Map(Object.entries(indexObject));
+
+        console.log(
+          `📋 Loaded persistent document index with ${this.documentIndex.size} entries from ${this.indexCacheFile}`
+        );
+      } else {
+        console.log('📋 No existing document index found, starting fresh');
       }
     } catch (error) {
-      console.warn('Failed to load document index:', error);
+      console.warn('Failed to load document index from file:', error);
+      console.log('📋 Starting with fresh document index');
+      this.documentIndex.clear();
     }
   }
 
   /**
-   * Filter documents that need indexing based on modification times
+   * Save document index to persistent storage
    */
-  private filterDocumentsNeedingIndexing(
-    documents: ParsedMDXDocument[]
-  ): ParsedMDXDocument[] {
+  private async saveDocumentIndex(): Promise<void> {
+    try {
+      // Convert Map to plain object for JSON serialization
+      const indexObject = Object.fromEntries(this.documentIndex);
+
+      await fs.promises.writeFile(
+        this.indexCacheFile,
+        JSON.stringify(indexObject, null, 2),
+        'utf-8'
+      );
+
+      console.log(
+        `💾 Saved document index with ${this.documentIndex.size} entries to ${this.indexCacheFile}`
+      );
+    } catch (error) {
+      console.warn('Failed to save document index to file:', error);
+    }
+  }
+
+  /**
+   * Check if Qdrant collection exists and has documents
+   */
+  private async checkCollectionExists(): Promise<boolean> {
+    try {
+      if (!this.vectorStore) return false;
+
+      // Try to perform a simple search to check if collection has data
+      const testResults = await this.vectorStore.similaritySearchWithScore(
+        'test',
+        1
+      );
+
+      return testResults.length > 0;
+    } catch (error) {
+      // Collection might not exist or be empty
+      console.log("📊 Qdrant collection appears to be empty or doesn't exist");
+      return false;
+    }
+  }
+
+  /**
+   * Filter documents that need indexing based on modification times and content hashes
+   */
+  private async filterDocumentsNeedingIndexing(
+    documents: ParsedMDXDocument[],
+    collectionExists: boolean
+  ): Promise<ParsedMDXDocument[]> {
     const needsIndexing: ParsedMDXDocument[] = [];
 
     for (const doc of documents) {
       const existingIndex = this.documentIndex.get(doc.id);
+      const fileModTime = this.getFileModificationTime(doc.metadata.filePath);
+      const currentContentHash = doc.contentHash; // Use the hash from parsed document
 
       if (!existingIndex) {
         // New document, needs indexing
@@ -456,10 +544,35 @@ export class VectorService {
       }
 
       // Check if file has been modified since last indexing
-      const fileModTime = this.getFileModificationTime(doc.metadata.filePath);
       if (fileModTime > existingIndex.lastModified) {
         needsIndexing.push(doc);
+        continue;
       }
+
+      // Check if content hash has changed (more reliable than file modification time)
+      if (currentContentHash !== existingIndex.contentHash) {
+        needsIndexing.push(doc);
+        continue;
+      }
+
+      // If collection doesn't exist in Qdrant, we need to reindex everything
+      if (!collectionExists && existingIndex.indexed) {
+        needsIndexing.push(doc);
+        continue;
+      }
+    }
+
+    // If we have no documents that need indexing but the collection doesn't exist,
+    // and we have indexed documents in our cache, we might have lost the Qdrant data
+    if (
+      needsIndexing.length === 0 &&
+      !collectionExists &&
+      this.documentIndex.size > 0
+    ) {
+      console.log(
+        '⚠️ Document index exists but Qdrant collection is empty. Re-indexing all documents.'
+      );
+      return documents;
     }
 
     return needsIndexing;
@@ -497,6 +610,7 @@ export class VectorService {
         lastModified: fileModTime,
         indexed: true,
         needsUpdate: false,
+        contentHash: doc.contentHash, // Store content hash for better change detection
       });
     }
   }

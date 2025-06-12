@@ -27,7 +27,7 @@
     }
   },
   "globalEnv": ["NODE_ENV"],
-  "pipeline": {
+  "tasks": {
     "@privmx/mcp-server#build": {
       "outputs": ["dist/**"]
     },

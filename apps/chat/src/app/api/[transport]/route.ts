@@ -69,13 +69,27 @@ const ensureInitialized = async (): Promise<void> => {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     try {
-      logger.info('Initializing PrivMX MCP Server...');
+      logger.info(
+        '🚀 Initializing PrivMX MCP Server (Cold Start Optimized)...'
+      );
       const startTime = Date.now();
 
       // Initialize knowledge service (this will handle all the complex initialization)
       const specPath = path.join(process.cwd(), 'spec');
 
-      logger.info('📚 Initializing knowledge service...');
+      logger.info(
+        '📚 Initializing knowledge service with persistent caching...'
+      );
+
+      // Check if vector indexing is enabled
+      if (process.env.OPENAI_API_KEY) {
+        logger.info(
+          '🧠 Vector search enabled - using persistent document index'
+        );
+      } else {
+        logger.info('📝 Vector search disabled - using text-based search only');
+      }
+
       await knowledgeService.initialize(specPath);
 
       // Other services are initialized by the knowledge service or directly
@@ -87,6 +101,12 @@ const ensureInitialized = async (): Promise<void> => {
 
       logger.performance('Service initialization', startTime);
       logger.info('✅ PrivMX MCP Server initialized successfully');
+
+      // Log vector service status
+      const vectorServiceStatus = process.env.OPENAI_API_KEY
+        ? '🧠 Vector search ready with persistent indexing'
+        : '📝 Text-based search only (set OPENAI_API_KEY for vector search)';
+      logger.info(vectorServiceStatus);
     } catch (error) {
       logger.error('Failed to initialize PrivMX MCP Server', error);
       initPromise = null;
