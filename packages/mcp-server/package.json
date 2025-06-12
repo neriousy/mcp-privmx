@@ -7,6 +7,7 @@
   "exports": {
     ".": "./dist/server.js",
     "./tools": "./dist/tools.js",
+    "./config/vector-config": "./dist/config/vector-config.js",
     "./services/api/api-search-service": "./dist/services/api/api-search-service.js",
     "./services/generation/code-generation-service": "./dist/services/generation/code-generation-service.js",
     "./services/workflow/interactive-session-service": "./dist/services/workflow/interactive-session-service.js",
