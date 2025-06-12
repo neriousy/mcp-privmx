@@ -1,181 +1,193 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
-import path from 'path';
-import { APISearchService } from '@privmx/mcp-server/services/api/api-search-service';
-import { CodeGenerationService } from '@privmx/mcp-server/services/generation/code-generation-service';
-import { InteractiveSessionService } from '@privmx/mcp-server/services/workflow/interactive-session-service';
-import { KnowledgeService } from '@privmx/mcp-server/services/knowledge/knowledge-service';
-import { getTools } from '@privmx/mcp-server/tools';
+import { MCPController } from '../../../lib/controllers/mcp-controller';
+import { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 
+/**
+ * Refactored MCP Route Handler
+ *
+ * Key improvements:
+ * - Uses singleton ServiceManager to prevent service recreation
+ * - Extracts business logic to MCPController
+ * - Eliminates embeddings recreation on cold starts
+ * - Implements proper error handling and logging
+ * - Optimizes performance through caching
+ * - Pre-defines capabilities (MCP adapter doesn't support dynamic capabilities)
+ * - Fixed race conditions and initialization timing issues
+ */
+
+// Singleton MCP controller instance
+let mcpController: MCPController | null = null;
+let initializationPromise: Promise<MCPController> | null = null;
+
+/**
+ * Get or create the MCP controller singleton with proper initialization
+ */
+async function getMCPController(): Promise<MCPController> {
+  // Return existing controller if already initialized
+  if (mcpController?.isReady()) {
+    return mcpController;
+  }
+
+  // Return existing initialization promise if in progress
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  // Start new initialization
+  initializationPromise = initializeController();
+
+  try {
+    mcpController = await initializationPromise;
+    return mcpController;
+  } catch (error) {
+    // Reset promise on failure to allow retry
+    initializationPromise = null;
+    throw error;
+  }
+}
+
+/**
+ * Initialize the MCP controller (called once)
+ */
+async function initializeController(): Promise<MCPController> {
+  const startTime = Date.now();
+  logger.info('🚀 Initializing PrivMX MCP Server (Singleton)...');
+
+  try {
+    if (!mcpController) {
+      mcpController = new MCPController();
+    }
+
+    // Initialize services (this will use cached instances if already initialized)
+    await mcpController.initialize();
+
+    // Verify controller is ready
+    if (!mcpController.isReady()) {
+      throw new Error('MCP Controller failed to initialize properly');
+    }
+
+    const tools = await mcpController.getTools();
+    logger.info(`🎯 MCP Server ready with ${tools.length} tools`);
+    logger.performance('MCP Server initialization', startTime);
+
+    return mcpController;
+  } catch (error) {
+    logger.error('Failed to initialize MCP Controller', error);
+    // Reset controller on failure
+    mcpController = null;
+    throw error;
+  }
+}
+
+/**
+ * Enhanced logger with performance tracking
+ */
 const logger = {
   info: (message: string, data?: unknown) =>
     console.log(
-      `🔍 [MCP INFO] ${message}`,
+      `🔍 [MCP REFACTORED] ${message}`,
       data ? JSON.stringify(data, null, 2) : ''
     ),
   error: (message: string, error?: unknown) => {
-    console.error(`❌ [MCP ERROR] ${message}`, error);
+    console.error(`❌ [MCP REFACTORED] ${message}`, error);
     if (error instanceof Error && error.stack)
       console.error('Stack trace:', error.stack);
   },
-  tool: (toolName: string, input: unknown) =>
+  performance: (operation: string, startTime: number) =>
     console.log(
-      `🛠️ [MCP TOOL] ${toolName}`,
-      `📥 INPUT:`,
-      JSON.stringify(input, null, 2)
-    ),
-  performance: (toolName: string, startTime: number) =>
-    console.log(
-      `⏱️ [MCP PERF] ${toolName} completed in ${Date.now() - startTime}ms`
+      `⏱️ [MCP REFACTORED] ${operation} completed in ${Date.now() - startTime}ms`
     ),
 };
 
-const handleToolError = (
-  toolName: string,
-  error: unknown,
-  context?: unknown
-) => {
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-  logger.error(`${toolName} failed`, {
-    message: errorMessage,
-    context,
-    ...(error instanceof Error && { stack: error.stack }),
-  });
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `❌ Error in ${toolName}: ${errorMessage}`,
-      },
-    ],
-  };
-};
-
-// Initialize focused services
-const searchService = new APISearchService();
-const codeGenerationService = new CodeGenerationService();
-const sessionService = new InteractiveSessionService();
-const knowledgeService = new KnowledgeService();
-
-// Create service container for dependency injection
-const serviceContainer = {
-  searchService,
-  codeGenerationService,
-  sessionService,
-  knowledgeService,
-};
-
-let initPromise: Promise<void> | null = null;
-const ensureInitialized = async (): Promise<void> => {
-  if (initPromise) return initPromise;
-  initPromise = (async () => {
-    try {
-      logger.info(
-        '🚀 Initializing PrivMX MCP Server (Cold Start Optimized)...'
-      );
-      const startTime = Date.now();
-
-      // Initialize knowledge service (this will handle all the complex initialization)
-      const specPath = path.join(process.cwd(), 'spec');
-
-      logger.info(
-        '📚 Initializing knowledge service with persistent caching...'
-      );
-
-      // Check if vector indexing is enabled
-      if (process.env.OPENAI_API_KEY) {
-        logger.info(
-          '🧠 Vector search enabled - using persistent document index'
-        );
-      } else {
-        logger.info('📝 Vector search disabled - using text-based search only');
-      }
-
-      await knowledgeService.initialize(specPath);
-
-      // Other services are initialized by the knowledge service or directly
-      logger.info('🏗️ Initializing code generation service...');
-      await codeGenerationService.initialize();
-
-      logger.info('🔄 Initializing session service...');
-      await sessionService.initialize();
-
-      logger.performance('Service initialization', startTime);
-      logger.info('✅ PrivMX MCP Server initialized successfully');
-
-      // Log vector service status
-      const vectorServiceStatus = process.env.OPENAI_API_KEY
-        ? '🧠 Vector search ready with persistent indexing'
-        : '📝 Text-based search only (set OPENAI_API_KEY for vector search)';
-      logger.info(vectorServiceStatus);
-    } catch (error) {
-      logger.error('Failed to initialize PrivMX MCP Server', error);
-      initPromise = null;
-      throw error;
-    }
-  })();
-  return initPromise;
-};
-
-const tools = getTools(serviceContainer);
-const capabilities = {
-  tools: tools.reduce(
-    (acc, tool) => {
-      acc[tool.name] = { description: tool.description };
-      return acc;
+/**
+ * Pre-defined server capabilities
+ * Note: MCP adapter requires static capabilities at creation time
+ */
+const serverCapabilities: ServerCapabilities = {
+  tools: {
+    listChanged: true, // Indicates tools can be dynamically loaded
+  },
+  completions: {
+    supports: {
+      model: 'gpt-4o-mini',
     },
-    {} as Record<string, { description: string }>
-  ),
+  },
+  // Add other capabilities that our services provide
+  prompts: {
+    listChanged: false,
+  },
+  resources: {
+    subscribe: false,
+    listChanged: false,
+  },
 };
 
+/**
+ * Main MCP handler with improved singleton architecture
+ */
 const handler = createMcpHandler(
   async (server) => {
-    logger.info(
-      `🚀 Initializing PrivMX MCP Server with ${tools.length} Centralized Tools`
-    );
-    await ensureInitialized();
+    try {
+      logger.info('🔌 MCP Server handler starting...');
 
-    tools.forEach((tool) => {
-      server.tool(
-        tool.name,
-        tool.description,
-        tool.schema,
-        async (args: Record<string, unknown>) => {
-          const startTime = Date.now();
-          logger.tool(tool.name, args);
-          try {
-            // Cast args to any to handle the flexible tool parameter types
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await tool.handler(args as any);
-            logger.performance(tool.name, startTime);
-            return result as unknown as {
-              [x: string]: unknown;
-              content: Array<{
+      // Get properly initialized controller (handles race conditions)
+      const controller = await getMCPController();
+      const tools = await controller.getTools();
+
+      logger.info(`🎯 Registering ${tools.length} tools with MCP server`);
+
+      // Register tool handlers
+      tools.forEach((tool) => {
+        server.tool(
+          tool.name,
+          tool.description,
+          tool.schema,
+          async (args: Record<string, unknown>) => {
+            try {
+              // Use controller for tool execution (includes proper error handling)
+              const result = await controller.executeTool(tool.name, args);
+
+              return result as {
                 [x: string]: unknown;
-                type: 'text';
-                text: string;
-              }>;
-            };
-          } catch (error) {
-            return handleToolError(tool.name, error, args) as unknown as {
-              [x: string]: unknown;
-              content: Array<{
-                [x: string]: unknown;
-                type: 'text';
-                text: string;
-              }>;
-            };
+                content: Array<{
+                  [x: string]: unknown;
+                  type: 'text';
+                  text: string;
+                }>;
+              };
+            } catch (error) {
+              logger.error(`Tool execution error: ${tool.name}`, error);
+
+              // Return formatted error response
+              return {
+                content: [
+                  {
+                    type: 'text' as const,
+                    text: `❌ Error executing ${tool.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                  },
+                ],
+              };
+            }
           }
-        }
-      );
-    });
+        );
+      });
+
+      // Log initialization stats
+      const serviceStats = await controller.getServiceStats();
+      logger.info('📊 Service stats:', serviceStats.serviceManager);
+      logger.info('✅ MCP Server handler ready');
+    } catch (error) {
+      logger.error('Failed to initialize MCP Server handler', error);
+      throw error;
+    }
   },
   {
-    capabilities,
+    // Static capabilities - MCP adapter doesn't support dynamic capabilities
+    capabilities: serverCapabilities,
   },
   {
     basePath: '/api',
     verboseLogs: true,
-
     onEvent: (event) => {
       logger.info('MCP Server Event', event);
     },
@@ -184,3 +196,38 @@ const handler = createMcpHandler(
 );
 
 export { handler as GET, handler as POST, handler as DELETE };
+
+/**
+ * Development utilities (can be removed in production)
+ */
+export async function reinitializeServices(): Promise<void> {
+  try {
+    logger.info('🔄 Force re-initializing services...');
+
+    // Reset initialization state
+    mcpController = null;
+    initializationPromise = null;
+
+    // Get fresh controller
+    const controller = await getMCPController();
+    await controller.reinitialize();
+
+    logger.info('🔄 Services re-initialized for development');
+  } catch (error) {
+    logger.error('Failed to reinitialize services', error);
+    throw error;
+  }
+}
+
+export async function getServiceStatus(): Promise<any> {
+  try {
+    const controller = await getMCPController();
+    return await controller.getServiceStats();
+  } catch (error) {
+    logger.error('Failed to get service status', error);
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ready: false,
+    };
+  }
+}

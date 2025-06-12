@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Message } from 'ai';
 
 // Types
@@ -9,6 +9,18 @@ export interface Conversation {
   updatedAt: Date;
   model: string;
   mcpEnabled: boolean;
+  isGeneratingTitle?: boolean; // Track title generation state
+  streamState?: {
+    isStreaming: boolean;
+    lastStreamedAt: Date;
+    messageId?: string;
+  };
+}
+
+export interface ConversationState {
+  conversations: Conversation[];
+  currentConversationId: string | null;
+  isLoaded: boolean;
 }
 
 // LocalStorage utilities
@@ -24,15 +36,28 @@ const loadConversations = (): Conversation[] => {
     return conversations.map((conv: Conversation) => ({
       ...conv,
       updatedAt: new Date(conv.updatedAt),
+      isGeneratingTitle: false, // Reset on load
+      streamState: conv.streamState
+        ? {
+            ...conv.streamState,
+            isStreaming: false, // Reset streaming state on page load
+            lastStreamedAt: new Date(conv.streamState.lastStreamedAt),
+          }
+        : undefined,
     }));
-  } catch {
+  } catch (error) {
+    console.error('Error loading conversations from localStorage:', error);
     return [];
   }
 };
 
 const saveConversations = (conversations: Conversation[]) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+  try {
+    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+  } catch (error) {
+    console.error('Error saving conversations to localStorage:', error);
+  }
 };
 
 const loadCurrentConversationId = (): string | null => {
@@ -42,36 +67,60 @@ const loadCurrentConversationId = (): string | null => {
 
 const saveCurrentConversationId = (id: string) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(CURRENT_CONVERSATION_KEY, id);
+  try {
+    localStorage.setItem(CURRENT_CONVERSATION_KEY, id);
+  } catch (error) {
+    console.error('Error saving current conversation ID:', error);
+  }
 };
 
+// Improved title generation with better error handling
 const generateConversationTitle = async (
   messages: Message[]
 ): Promise<string> => {
-  // Only generate AI title if we have some meaningful conversation
-  if (messages.length < 2) {
+  // Need at least one user message and one assistant response
+  const userMessages = messages.filter((m) => m.role === 'user');
+  const assistantMessages = messages.filter((m) => m.role === 'assistant');
+
+  if (userMessages.length === 0 || assistantMessages.length === 0) {
+    return 'New Chat';
+  }
+
+  // Don't generate title for very short conversations
+  const totalLength = messages.reduce((acc, m) => acc + m.content.length, 0);
+  if (totalLength < 20) {
     return 'New Chat';
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     const response = await fetch('/api/generate-title', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages: messages.slice(0, 4) }), // Only send first 4 messages
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const { title } = await response.json();
-      return title;
+      if (title && title.trim() && title !== 'New Chat') {
+        return title.trim();
+      }
     }
   } catch (error) {
-    console.error('Failed to generate title:', error);
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('Failed to generate title:', error);
+    }
   }
 
-  // Fallback to old method
-  const firstUserMessage = messages.find((m) => m.role === 'user');
+  // Fallback: Use first user message
+  const firstUserMessage = userMessages[0];
   if (firstUserMessage) {
     const content = firstUserMessage.content.trim();
     if (content.length > 50) {
@@ -79,6 +128,7 @@ const generateConversationTitle = async (
     }
     return content;
   }
+
   return 'New Chat';
 };
 
@@ -87,12 +137,13 @@ const createInitialConversation = (
   mcpEnabled: boolean
 ): Conversation => {
   return {
-    id: Date.now().toString(),
+    id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // More unique ID
     title: 'New Chat',
     messages: [],
     updatedAt: new Date(),
     model,
     mcpEnabled,
+    isGeneratingTitle: false,
   };
 };
 
@@ -100,14 +151,27 @@ export function useConversations(
   initialModel: string,
   initialMcpEnabled: boolean
 ) {
-  // Initialize with empty state first to avoid hydration issues
-  const [state, setState] = useState(() => ({
-    conversations: [] as Conversation[],
-    currentConversationId: null as string | null,
+  const [state, setState] = useState<ConversationState>(() => ({
+    conversations: [],
+    currentConversationId: null,
     isLoaded: false,
   }));
 
-  // Load from localStorage after component mounts (client-side only)
+  // Track pending title generations to avoid duplicates
+  const pendingTitleGenerations = useRef<Set<string>>(new Set());
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced save function
+  const debouncedSave = useCallback((conversations: Conversation[]) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveConversations(conversations);
+    }, 300); // 300ms debounce
+  }, []);
+
+  // Load from localStorage after component mounts
   useEffect(() => {
     const savedConversations = loadConversations();
     const savedCurrentId = loadCurrentConversationId();
@@ -117,13 +181,14 @@ export function useConversations(
         initialModel,
         initialMcpEnabled
       );
-      saveConversations([newConversation]);
-      saveCurrentConversationId(newConversation.id);
+      const conversations = [newConversation];
       setState({
-        conversations: [newConversation],
+        conversations,
         currentConversationId: newConversation.id,
         isLoaded: true,
       });
+      saveConversations(conversations);
+      saveCurrentConversationId(newConversation.id);
     } else {
       const currentId = savedCurrentId || savedConversations[0].id;
       setState({
@@ -138,7 +203,7 @@ export function useConversations(
 
   // Derived state
   const currentConversation = useMemo(
-    () => conversations.find((c) => c.id === currentConversationId),
+    () => conversations.find((c) => c.id === currentConversationId) || null,
     [conversations, currentConversationId]
   );
 
@@ -151,23 +216,94 @@ export function useConversations(
     [conversations]
   );
 
+  // Generate title for conversation (separate function to avoid recursion)
+  const generateTitle = useCallback(
+    async (conversationId: string, messages: Message[]) => {
+      // Prevent duplicate title generations
+      if (pendingTitleGenerations.current.has(conversationId)) {
+        return;
+      }
+
+      pendingTitleGenerations.current.add(conversationId);
+
+      try {
+        // Mark as generating title
+        setState((prev) => ({
+          ...prev,
+          conversations: prev.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { ...conv, isGeneratingTitle: true }
+              : conv
+          ),
+        }));
+
+        const newTitle = await generateConversationTitle(messages);
+
+        if (newTitle && newTitle !== 'New Chat') {
+          setState((prev) => {
+            const updatedConversations = prev.conversations.map((conv) =>
+              conv.id === conversationId
+                ? {
+                    ...conv,
+                    title: newTitle,
+                    isGeneratingTitle: false,
+                    updatedAt: new Date(),
+                  }
+                : conv
+            );
+            debouncedSave(updatedConversations);
+            return {
+              ...prev,
+              conversations: updatedConversations,
+            };
+          });
+        } else {
+          // Just remove generating flag if no title was generated
+          setState((prev) => ({
+            ...prev,
+            conversations: prev.conversations.map((conv) =>
+              conv.id === conversationId
+                ? { ...conv, isGeneratingTitle: false }
+                : conv
+            ),
+          }));
+        }
+      } catch (error) {
+        console.error('Error generating title:', error);
+        setState((prev) => ({
+          ...prev,
+          conversations: prev.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { ...conv, isGeneratingTitle: false }
+              : conv
+          ),
+        }));
+      } finally {
+        pendingTitleGenerations.current.delete(conversationId);
+      }
+    },
+    [debouncedSave]
+  );
+
   const createNewConversation = useCallback(
     (model: string, mcpEnabled: boolean) => {
       const newConversation = createInitialConversation(model, mcpEnabled);
-      const updatedConversations = [newConversation, ...conversations];
 
-      setState((prev) => ({
-        ...prev,
-        conversations: updatedConversations,
-        currentConversationId: newConversation.id,
-      }));
+      setState((prev) => {
+        const updatedConversations = [newConversation, ...prev.conversations];
+        saveConversations(updatedConversations);
+        saveCurrentConversationId(newConversation.id);
 
-      saveConversations(updatedConversations);
-      saveCurrentConversationId(newConversation.id);
+        return {
+          ...prev,
+          conversations: updatedConversations,
+          currentConversationId: newConversation.id,
+        };
+      });
 
       return newConversation;
     },
-    [conversations]
+    []
   );
 
   const switchToConversation = useCallback((conversationId: string) => {
@@ -188,31 +324,44 @@ export function useConversations(
               ...updates,
               updatedAt: new Date(),
             };
-
-            // Auto-generate title if it's still "New Chat" and we have messages
-            if (conv.title === 'New Chat' && updates.messages) {
-              // Generate title asynchronously
-              generateConversationTitle(updates.messages).then((newTitle) => {
-                if (newTitle !== 'New Chat') {
-                  updateConversation(conversationId, { title: newTitle });
-                }
-              });
-            }
-
             return updatedConv;
           }
           return conv;
         });
 
-        saveConversations(updatedConversations);
+        debouncedSave(updatedConversations);
 
         return {
           ...prev,
           conversations: updatedConversations,
         };
       });
+
+      // Handle title generation separately and asynchronously
+      if (updates.messages) {
+        const conversation = conversations.find((c) => c.id === conversationId);
+        if (
+          conversation &&
+          conversation.title === 'New Chat' &&
+          !conversation.isGeneratingTitle &&
+          updates.messages.length >= 2
+        ) {
+          // Check if we have at least one user message and one assistant message
+          const userMessages = updates.messages.filter(
+            (m) => m.role === 'user'
+          );
+          const assistantMessages = updates.messages.filter(
+            (m) => m.role === 'assistant'
+          );
+
+          if (userMessages.length >= 1 && assistantMessages.length >= 1) {
+            // Generate title asynchronously without blocking
+            generateTitle(conversationId, updates.messages);
+          }
+        }
+      }
     },
-    []
+    [conversations, debouncedSave, generateTitle]
   );
 
   const deleteConversation = useCallback((conversationId: string) => {
@@ -221,22 +370,20 @@ export function useConversations(
         (c) => c.id !== conversationId
       );
 
-      // Save the updated conversations (even if empty)
-      saveConversations(updatedConversations);
-
       let newCurrentId = prev.currentConversationId;
       if (prev.currentConversationId === conversationId) {
-        // If we deleted the current conversation, switch to the first remaining one
-        // Or set to null if no conversations left
         newCurrentId =
           updatedConversations.length > 0 ? updatedConversations[0].id : null;
-        if (newCurrentId) {
-          saveCurrentConversationId(newCurrentId);
-        } else {
-          // Clear current conversation from localStorage when no conversations left
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem(CURRENT_CONVERSATION_KEY);
-          }
+      }
+
+      // Save immediately for deletions
+      saveConversations(updatedConversations);
+
+      if (newCurrentId) {
+        saveCurrentConversationId(newCurrentId);
+      } else {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(CURRENT_CONVERSATION_KEY);
         }
       }
 
@@ -248,15 +395,47 @@ export function useConversations(
     });
   }, []);
 
+  // Update stream state for a conversation
+  const updateStreamState = useCallback(
+    (conversationId: string, streamState: Conversation['streamState']) => {
+      setState((prev) => ({
+        ...prev,
+        conversations: prev.conversations.map((conv) =>
+          conv.id === conversationId
+            ? { ...conv, streamState, updatedAt: new Date() }
+            : conv
+        ),
+      }));
+    },
+    []
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return {
+    // State
     conversations,
     currentConversation,
     currentConversationId,
     sortedConversations,
+    isLoaded,
+
+    // Actions
     createNewConversation,
     switchToConversation,
     updateConversation,
     deleteConversation,
-    isLoaded,
+    updateStreamState,
+
+    // Utilities
+    generateTitle: (conversationId: string, messages: Message[]) =>
+      generateTitle(conversationId, messages),
   };
 }

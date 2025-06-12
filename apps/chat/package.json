@@ -13,6 +13,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^1.0.2",
     "@ai-sdk/react": "^1.2.12",
+    "@clerk/nextjs": "^6.21.0",
+    "@convex-dev/auth": "^0.0.87",
     "@heroicons/react": "^2.0.18",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@privmx/mcp-server": "workspace:*",
@@ -28,6 +30,7 @@
     "ai": "^4.3.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.24.8",
     "lucide-react": "^0.263.1",
     "motion": "^12.17.0",
     "next": "15.3.3",
