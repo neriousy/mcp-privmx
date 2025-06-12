@@ -3,7 +3,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "tsconfig.tsbuildinfo"]
+      "outputs": ["dist/**", ".next/**", "tsconfig.tsbuildinfo"],
+      "env": ["NODE_ENV"]
     },
     "dev": {
       "cache": false,
@@ -23,6 +24,16 @@
     },
     "clean": {
       "cache": false
+    }
+  },
+  "globalEnv": ["NODE_ENV"],
+  "pipeline": {
+    "@privmx/mcp-server#build": {
+      "outputs": ["dist/**"]
+    },
+    "@mcp-privmx/ai-chat#build": {
+      "dependsOn": ["@privmx/mcp-server#build"],
+      "outputs": [".next/**"]
     }
   }
 }

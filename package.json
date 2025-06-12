@@ -8,7 +8,9 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "turbo run build",
+    "build": "pnpm --filter @privmx/mcp-server build && turbo run build",
+    "build:packages": "pnpm --filter @privmx/mcp-server build",
+    "build:apps": "turbo run build --filter=@mcp-privmx/ai-chat",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
@@ -23,8 +25,7 @@
     "mcp-server:test": "pnpm --filter @privmx/mcp-server test",
     "setup": "pnpm install && pnpm build",
     "prepare": "husky",
-    "inspector": "npx @modelcontextprotocol/inspector@latest --config mcp.json --server default-server",
-    "prebuild": "pnpm --filter @privmx/mcp-server build"
+    "inspector": "npx @modelcontextprotocol/inspector@latest --config mcp.json --server default-server"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.33.1",

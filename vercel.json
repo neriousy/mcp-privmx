@@ -1,0 +1,10 @@
+{
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "devCommand": "pnpm --filter @mcp-privmx/ai-chat dev",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/chat",
+  "framework": null,
+  "outputDirectory": "apps/chat/.next",
+  "nodeVersion": "22",
+  "crons": []
+}
