@@ -193,7 +193,14 @@ class MCPManager {
       console.log(`🔌 [MCP] Connecting to ${baseUrl}/api/mcp`);
 
       await this.client.connect(
-        new StreamableHTTPClientTransport(new URL(`${baseUrl}/api/mcp`))
+        new StreamableHTTPClientTransport(new URL(`${baseUrl}/api/mcp`), {
+          requestInit: {
+            headers: {
+              'x-vercel-protection-bypass':
+                process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '',
+            },
+          },
+        })
       );
 
       return await this.loadTools();
