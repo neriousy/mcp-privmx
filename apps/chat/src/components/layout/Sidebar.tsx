@@ -1,6 +1,7 @@
 import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import { Conversation } from '../hooks/useConversations';
+import { SidebarFooter } from './SidebarFooter';
 
 interface ChatSidebarProps {
   conversations: Conversation[];
@@ -88,6 +89,9 @@ export function ChatSidebar({
           )}
         </div>
       </div>
+
+      {/* Footer - Now positioned at the bottom */}
+      <SidebarFooter />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
-import { MCPController } from '../../../lib/controllers/mcp-controller';
 import { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
+import { MCPController } from '@/lib/controllers/mcp-controller';
 
 /**
  * Refactored MCP Route Handler
@@ -186,7 +186,7 @@ const handler = createMcpHandler(
     capabilities: serverCapabilities,
   },
   {
-    basePath: '/api',
+    basePath: '/api/privmx',
     verboseLogs: true,
     onEvent: (event) => {
       logger.info('MCP Server Event', event);
@@ -219,7 +219,7 @@ export async function reinitializeServices(): Promise<void> {
   }
 }
 
-export async function getServiceStatus(): Promise<any> {
+export async function getServiceStatus() {
   try {
     const controller = await getMCPController();
     return await controller.getServiceStats();

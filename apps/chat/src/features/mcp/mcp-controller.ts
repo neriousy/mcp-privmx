@@ -1,4 +1,4 @@
-import { ServiceManager } from '../services/service-manager';
+import { ServiceManager } from '@/lib/services/service-manager';
 
 export interface MCPToolResponse {
   content: Array<{
@@ -93,6 +93,7 @@ export class MCPController {
       }
 
       // Execute the tool
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await tool.handler(args as any);
 
       const executionTime = Date.now() - execution.startTime;
@@ -196,7 +197,7 @@ export class MCPController {
    */
   async validateToolArgs(
     toolName: string,
-    args: Record<string, unknown>
+    _args: Record<string, unknown>
   ): Promise<{
     valid: boolean;
     errors?: string[];

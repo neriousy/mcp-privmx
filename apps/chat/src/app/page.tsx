@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useConversations } from '../hooks/useConversations';
-import { ChatSidebar } from '../components/Sidebar';
-import { ChatArea } from '../components/ChatArea';
-import { ChatInput } from '../components/ChatInput';
+import { useConversations } from '../features/chat/hooks/useConversations';
+import { ChatSidebar } from '../components/layout/Sidebar';
+import { ChatArea } from '../features/chat/components/ChatArea';
+import { ChatInput } from '../features/chat/components/ChatInput';
 
 // Type definitions
 export interface AttachedFile {

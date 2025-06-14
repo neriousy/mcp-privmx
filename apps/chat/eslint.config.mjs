@@ -10,6 +10,11 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Ignore patterns should come first
+  {
+    ignores: ['**/convex/_generated/**', '**/_generated/**'],
+  },
+  // Extend Next.js ESLint configs
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {

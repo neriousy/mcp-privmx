@@ -52,7 +52,7 @@ export async function GET(): Promise<NextResponse> {
     let lastUpdated: string | null = null;
 
     try {
-      const detailedStats = await serviceManager.getDetailedStats();
+      const _detailedStats = await serviceManager.getDetailedStats();
       // Use actual properties from the stats structure
       totalEmbeddings = stats.documentationStats?.totalDocuments || 0;
       lastUpdated = serviceStats.lastInitialized

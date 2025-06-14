@@ -1,5 +1,9 @@
 import { useState, useCallback } from 'react';
-import { UploadedFile, validateFiles, processFile } from '../lib/file-utils';
+import {
+  UploadedFile,
+  validateFiles,
+  processFile,
+} from '@/lib/utils/file-utils';
 
 interface UseFileUploadReturn {
   files: UploadedFile[];

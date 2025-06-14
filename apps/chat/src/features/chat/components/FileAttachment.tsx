@@ -1,12 +1,10 @@
 import { X, FileText, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  UploadedFile,
-  formatFileSize,
-  SUPPORTED_FILE_TYPES,
-} from '../lib/file-utils';
+
 import { motion } from 'motion/react';
 import Image from 'next/image';
+import { SUPPORTED_FILE_TYPES, formatFileSize } from '@/lib/utils/file-utils';
+import { UploadedFile } from '@/types';
 
 interface FileAttachmentProps {
   file: UploadedFile;

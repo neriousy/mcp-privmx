@@ -8,7 +8,6 @@
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import type {
   ParsedMDXDocument,
   DocumentationResult,
@@ -186,7 +185,10 @@ export class DocumentationIndexService {
     const topRelated = related.sort((a, b) => b.score - a.score).slice(0, 5);
 
     return topRelated.map((rel) => {
-      const doc = this.documents.get(rel.id)!;
+      const doc = this.documents.get(rel.id);
+      if (!doc) {
+        throw new Error(`Document not found: ${rel.id}`);
+      }
       return this.convertToDocumentationResult(doc, '');
     });
   }
@@ -328,10 +330,27 @@ export class DocumentationIndexService {
     for (const word of queryWords) {
       if (word.length < 3) continue; // Skip very short words
 
-      const regex = new RegExp(word, 'gi');
-      const matches = content.match(regex);
-      if (matches) {
-        score += matches.length;
+      try {
+        // Escape special regex characters to handle things like "C++"
+        const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedWord, 'gi');
+        const matches = content.match(regex);
+        if (matches) {
+          score += matches.length;
+        }
+      } catch (error) {
+        // If regex still fails, fall back to simple string matching
+        console.warn(
+          `Regex failed for word "${word}", using string matching:`,
+          error
+        );
+        const lowerWord = word.toLowerCase();
+        const lowerContent = content.toLowerCase();
+        let index = 0;
+        while ((index = lowerContent.indexOf(lowerWord, index)) !== -1) {
+          score++;
+          index += lowerWord.length;
+        }
       }
     }
 
@@ -421,16 +440,28 @@ export class DocumentationIndexService {
     doc: ParsedMDXDocument,
     query: string
   ): DocumentationResult {
+    // Safely access content properties with fallbacks
+    const content = doc.content || {
+      markdown: '',
+      codeBlocks: [],
+      apiReferences: [],
+      concepts: [],
+      internalLinks: [],
+      externalLinks: [],
+    };
+
     // Extract relevant code examples
-    const codeExamples: CodeExample[] = doc.content.codeBlocks.map((block) => ({
-      language: block.language,
-      code: block.code,
-      title: block.title,
-      complexity: this.determineComplexity(block.code),
-      isRunnable: block.isComplete || false,
-      prerequisites: [],
-      sourceDocument: doc.id,
-    }));
+    const codeExamples: CodeExample[] = (content.codeBlocks || []).map(
+      (block) => ({
+        language: block.language || 'text',
+        code: block.code || '',
+        title: block.title,
+        complexity: this.determineComplexity(block.code || ''),
+        isRunnable: block.isComplete || false,
+        prerequisites: [],
+        sourceDocument: doc.id,
+      })
+    );
 
     // Generate AI insights
     const aiInsights: AIInsights = {
@@ -444,14 +475,21 @@ export class DocumentationIndexService {
     // Create summary
     const summary = this.generateSummary(doc, query);
 
+    // Safely access markdown content
+    const markdownContent = content.markdown || '';
+    const contentPreview =
+      markdownContent.length > 500
+        ? markdownContent.substring(0, 500) + '...'
+        : markdownContent;
+
     return {
       id: doc.id,
-      title: doc.metadata.title,
+      title: doc.metadata?.title || 'Untitled Document',
       summary,
-      content: doc.content.markdown.substring(0, 500) + '...',
-      metadata: doc.metadata,
+      content: contentPreview,
+      metadata: doc.metadata || {},
       codeExamples,
-      relatedAPIs: doc.content.apiReferences,
+      relatedAPIs: content.apiReferences || [],
       relatedDocs: [], // Will be populated by getRelatedDocuments if needed
       score: 1.0, // Would be calculated based on search relevance
       aiInsights,
@@ -581,7 +619,7 @@ export class DocumentationIndexService {
   /**
    * Generate AI-friendly summary of document
    */
-  private generateSummary(doc: ParsedMDXDocument, query: string): string {
+  private generateSummary(doc: ParsedMDXDocument): string {
     const parts = [
       `${doc.metadata.title} documentation`,
       doc.metadata.language ? `for ${doc.metadata.language}` : '',

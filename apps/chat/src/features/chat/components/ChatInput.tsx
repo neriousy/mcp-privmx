@@ -19,16 +19,20 @@ import {
 import { Badge } from '@/ui/components/ui/badge';
 import { Alert, AlertDescription } from '@/ui/components/ui/alert';
 import { cn } from '@/ui/lib/utils';
-import { useFileUpload, useDragAndDrop } from '../hooks/useFileUpload';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { FileList } from './FileAttachment';
 import {
-  getAllSupportedTypes,
-  formatFileSize,
-  FILE_SIZE_LIMITS,
-  UploadedFile,
-} from '../lib/file-utils';
+  useFileUpload,
+  useDragAndDrop,
+} from '@/features/chat/hooks/useFileUpload';
+import { useSpeechRecognition } from '@/features/chat/hooks/useSpeechRecognition';
+
 import { AttachedFile } from '@/app/page';
+import {
+  FILE_SIZE_LIMITS,
+  formatFileSize,
+  getAllSupportedTypes,
+} from '@/lib/utils/file-utils';
+import { UploadedFile } from '@/types';
+import { FileList } from './FileAttachment';
 
 interface ChatInputProps {
   input: string;
