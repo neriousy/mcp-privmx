@@ -40,7 +40,7 @@ const schema = defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_user_updated', ['userId', 'updatedAt'])
-    .index('by_active_streams', ['hasActiveStream']),
+    .index('conversations_by_active_streams', ['hasActiveStream']),
 
   // Messages
   messages: defineTable({
@@ -54,8 +54,21 @@ const schema = defineSchema({
     content: v.string(),
 
     // Enhanced metadata for MCP and streaming
+    // WARNING: Keep metadata objects small to avoid Convex 16KB document limit
+    // For large payloads (toolCalls args/result, attachments), use messageMetadata table
     metadata: v.optional(
       v.object({
+        model: v.optional(v.string()),
+        tokens: v.optional(
+          v.object({
+            prompt: v.number(),
+            completion: v.number(),
+          })
+        ),
+        // Basic tool call info - full data goes in messageMetadata table
+        toolCallCount: v.optional(v.number()),
+        hasAttachments: v.optional(v.boolean()),
+        // Allow toolCalls array directly in metadata
         toolCalls: v.optional(
           v.array(
             v.object({
@@ -66,13 +79,7 @@ const schema = defineSchema({
             })
           )
         ),
-        model: v.optional(v.string()),
-        tokens: v.optional(
-          v.object({
-            prompt: v.number(),
-            completion: v.number(),
-          })
-        ),
+        // Allow attachments array directly in metadata
         attachments: v.optional(
           v.array(
             v.object({
@@ -104,7 +111,27 @@ const schema = defineSchema({
     .index('by_conversation', ['conversationId'])
     .index('by_conversation_created', ['conversationId', 'createdAt'])
     .index('by_streaming', ['isStreaming'])
-    .index('by_active_streams', ['conversationId', 'isStreaming']),
+    .index('messages_by_active_streams', ['conversationId', 'isStreaming']),
+
+  // Large metadata storage to avoid hitting 16KB document limit
+  messageMetadata: defineTable({
+    messageId: v.id('messages'),
+    conversationId: v.id('conversations'), // For efficient cleanup
+    userId: v.id('users'),
+    type: v.union(
+      v.literal('toolCalls'),
+      v.literal('attachments'),
+      v.literal('extended')
+    ),
+
+    // Large data that doesn't fit in main message
+    data: v.any(), // Store toolCalls array, attachments array, or other large objects
+
+    createdAt: v.number(),
+  })
+    .index('by_message', ['messageId'])
+    .index('by_message_type', ['messageId', 'type'])
+    .index('by_conversation', ['conversationId']),
 
   // Real-time stream chunks for recovery
   streamChunks: defineTable({

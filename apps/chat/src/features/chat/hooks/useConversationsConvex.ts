@@ -2,33 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import { Message as AiMessage } from 'ai';
-import { Conversation } from '@/types';
-
-// Define the shape of metadata from the backend
-interface BackendMessageMetadata {
-  toolCalls?: Array<{
-    toolName: string;
-    args: any;
-    result?: any;
-    timestamp: number;
-  }>;
-  model?: string;
-  tokens?: {
-    prompt: number;
-    completion: number;
-  };
-  attachments?: Array<{
-    name: string;
-    contentType: string;
-    url: string;
-  }>;
-}
-
-// Extend the AI Message type with our metadata
-type Message = AiMessage & {
-  metadata?: BackendMessageMetadata;
-};
+import { Conversation, ChatMessage, MessageMetadata } from '@/types';
 
 interface ConvexConversationDoc {
   _id: Id<'conversations'>;
@@ -37,12 +11,12 @@ interface ConvexConversationDoc {
   mcpEnabled: boolean;
   updatedAt: number;
   hasActiveStream: boolean;
-  messages: Array<{
+  messages?: Array<{
     _id: Id<'messages'>;
     role: 'user' | 'assistant' | 'system';
     content: string;
     createdAt: number;
-    metadata?: BackendMessageMetadata;
+    metadata?: MessageMetadata;
   }>;
   streamState?: {
     activeMessageId?: Id<'messages'>;
@@ -56,9 +30,9 @@ const convertConvexMessage = (msg: {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: number;
-  metadata?: BackendMessageMetadata;
-}): Message => ({
-  id: msg._id,
+  metadata?: MessageMetadata;
+}): ChatMessage => ({
+  id: String(msg._id),
   role: msg.role,
   content: msg.content,
   createdAt: new Date(msg.createdAt),
@@ -68,12 +42,12 @@ const convertConvexMessage = (msg: {
 const convertConvexConversation = (
   doc: ConvexConversationDoc
 ): Conversation => ({
-  id: doc._id,
+  id: String(doc._id),
   title: doc.title,
   model: doc.model,
   mcpEnabled: doc.mcpEnabled,
   updatedAt: new Date(doc.updatedAt),
-  messages: doc.messages.map(convertConvexMessage),
+  messages: (doc.messages || []).map(convertConvexMessage),
   streamState: doc.streamState
     ? {
         isStreaming: doc.hasActiveStream,
@@ -86,7 +60,7 @@ const convertConvexConversation = (
 export interface UseConversationsReturn {
   conversations: Conversation[];
   currentConversation: Conversation | null;
-  currentConversationId: Id<'conversations'> | null;
+  currentConversationId: string | null;
   sortedConversations: Conversation[];
   isLoaded: boolean;
 
@@ -94,7 +68,7 @@ export interface UseConversationsReturn {
     model: string,
     mcpEnabled: boolean
   ) => Promise<Conversation>;
-  switchConversation: (id: Id<'conversations'> | null) => void;
+  switchConversation: (id: string | null) => void;
   updateConversation: (
     id: Id<'conversations'>,
     updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
@@ -108,8 +82,9 @@ export function useConversationsConvex(): UseConversationsReturn {
   const updateConv = useMutation(api.conversations.update);
   const deleteConv = useMutation(api.conversations.remove);
 
-  const [currentConversationId, setCurrentConversationId] =
-    useState<Id<'conversations'> | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(null);
 
   const conversations = useMemo<Conversation[]>(() => {
     return convexConvs ? convexConvs.map(convertConvexConversation) : [];
@@ -132,21 +107,18 @@ export function useConversationsConvex(): UseConversationsReturn {
   const createConversation = useCallback(
     async (model: string, mcpEnabled: boolean) => {
       const title = 'New Chat';
-      const id = await createConv({ title, model, mcpEnabled });
-      setCurrentConversationId(id);
-      return {
-        id,
-        title,
-        model,
-        mcpEnabled,
-        updatedAt: new Date(),
-        messages: [],
-      } as Conversation;
+      const result = await createConv({ title, model, mcpEnabled });
+
+      // Convert the result to our Conversation type
+      const conversation = convertConvexConversation(result);
+      setCurrentConversationId(conversation.id);
+
+      return conversation;
     },
     [createConv]
   );
 
-  const switchConversation = useCallback((id: Id<'conversations'> | null) => {
+  const switchConversation = useCallback((id: string | null) => {
     setCurrentConversationId(id);
   }, []);
 
@@ -156,7 +128,7 @@ export function useConversationsConvex(): UseConversationsReturn {
       updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
     ) => {
       await updateConv({
-        conversationId: id as Id<'conversations'>,
+        conversationId: id,
         ...(updates.title !== undefined && { title: updates.title }),
         ...(updates.model !== undefined && { model: updates.model }),
         ...(updates.mcpEnabled !== undefined && {

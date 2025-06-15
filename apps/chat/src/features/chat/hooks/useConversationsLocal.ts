@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Conversation } from '@/types';
-import { Message } from 'ai';
+import { Message } from '@/types';
 
 const LS_KEY = 'privmx-local-conversations';
 

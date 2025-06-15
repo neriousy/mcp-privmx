@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, FileText, Image as ImageIcon } from 'lucide-react';
-import { Message } from 'ai';
+import { Message } from '@/types';
 import { ToolCallCard } from './ToolCallCard';
 import Image from 'next/image';
 

@@ -1,43 +1,24 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Message } from 'ai';
+import { Message, Conversation, StreamState } from '@/types';
 import { useMemo } from 'react';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface UnifiedConversation {
-  id: string;
-  title: string;
-  messages: Message[];
-  updatedAt: Date;
-  model: string;
-  mcpEnabled: boolean;
-  isGeneratingTitle?: boolean;
-  streamState?: {
-    isStreaming: boolean;
-    lastStreamedAt: Date;
-    messageId?: string;
-  };
-}
-
 export interface ConversationUpdates {
   messages?: Message[];
   title?: string;
   model?: string;
   mcpEnabled?: boolean;
-  streamState?: {
-    isStreaming: boolean;
-    lastStreamedAt: Date;
-    messageId?: string;
-  };
+  streamState?: StreamState;
 }
 
 // Store state interface
 interface ConversationState {
   // Data
-  conversations: UnifiedConversation[];
+  conversations: Conversation[];
   currentConversationId: string | null;
 
   // UI State
@@ -53,27 +34,21 @@ interface ConversationState {
 // Store actions interface
 interface ConversationActions {
   // State setters
-  setConversations: (conversations: UnifiedConversation[]) => void;
+  setConversations: (conversations: Conversation[]) => void;
   setCurrentConversationId: (id: string | null) => void;
   setAuthState: (isAuthenticated: boolean, isConvexMode: boolean) => void;
   setLoaded: (isLoaded: boolean) => void;
   setDefaults: (model: string, mcpEnabled: boolean) => void;
 
   // Conversation operations
-  createConversation: (
-    model?: string,
-    mcpEnabled?: boolean
-  ) => UnifiedConversation;
+  createConversation: (model?: string, mcpEnabled?: boolean) => Conversation;
   switchToConversation: (id: string) => void;
-  updateConversationLocal: (
-    id: string,
-    updates: Partial<UnifiedConversation>
-  ) => void;
+  updateConversationLocal: (id: string, updates: Partial<Conversation>) => void;
   deleteConversationLocal: (id: string) => void;
 
   // Utilities
   reset: () => void;
-  findConversation: (id: string) => UnifiedConversation | undefined;
+  findConversation: (id: string) => Conversation | undefined;
 }
 
 // Combined store type
@@ -86,7 +61,7 @@ type ConversationStore = ConversationState & ConversationActions;
 const createInitialConversation = (
   model: string,
   mcpEnabled: boolean
-): UnifiedConversation => ({
+): Conversation => ({
   id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
   title: 'New Chat',
   messages: [],

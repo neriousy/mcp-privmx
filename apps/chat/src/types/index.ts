@@ -1,6 +1,7 @@
 // ===== AI SDK TYPES (Re-export from @ai-sdk) =====
 
 import { Message } from 'ai';
+import { Id } from '../../convex/_generated/dataModel';
 
 // Import the types that are actually available from the AI SDK
 export type {
@@ -37,9 +38,37 @@ export interface MessageAttachment {
   url: string;
 }
 
+// ===== MESSAGE METADATA TYPES =====
+
+export interface MessageMetadata {
+  toolCalls?: Array<{
+    toolName: string;
+    args: unknown;
+    result?: unknown;
+    timestamp: number;
+  }>;
+  model?: string;
+  tokens?: {
+    prompt: number;
+    completion: number;
+  };
+  attachments?: MessageAttachment[];
+}
+
+// We extend the AI-SDK `Message` with optional metadata and timestamp used
+// throughout the application.
+export type ChatMessage = Message & {
+  /** Optional backend-provided metadata */
+  metadata?: MessageMetadata;
+  /** Creation timestamp */
+  createdAt?: Date;
+  /** Experimental attachments used by the UI */
+  experimental_attachments?: MessageAttachment[];
+};
+
 // Keep our custom conversation type as it includes app-specific fields
 export interface Conversation {
-  id: string;
+  id: string; // Convex document Id<'conversations'> when persisted, otherwise client-generated string
   title: string;
   messages: Message[]; // Use AI SDK Message type
   updatedAt: Date;
@@ -49,14 +78,14 @@ export interface Conversation {
   streamState?: StreamState;
 }
 
-// DEPRECATED: Throughout the refactor we migrate legacy `UnifiedConversation` usages
-// to the canonical `Conversation` interface. For backward-compatibility we expose
-// a type alias so we can update code incrementally without breaking the build.
-export type UnifiedConversation = Conversation;
+// NOTE: `Conversation` is now the single canonical type representing a chat
+// conversation throughout the codebase. Any previous `UnifiedConversation`
+// usages have been migrated and the alias has been removed to avoid
+// confusion.
 
 export interface ConversationState {
   conversations: Conversation[];
-  currentConversationId: string | null;
+  currentConversationId: Id<'conversations'> | null;
   isLoaded: boolean;
 }
 
@@ -64,7 +93,7 @@ export interface ConversationState {
 export interface StreamState {
   isStreaming: boolean;
   lastStreamedAt: Date;
-  messageId?: string;
+  messageId?: Id<'messages'>;
 }
 
 export interface StreamRecoveryData {
@@ -77,10 +106,10 @@ export interface StreamRecoveryData {
 }
 
 export interface StreamSession {
-  _id: string;
-  conversationId: string;
-  messageId: string;
-  userId: string;
+  _id: Id<'streamSessions'>;
+  conversationId: Id<'conversations'>;
+  messageId: Id<'messages'>;
+  userId: Id<'users'>;
   status: 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
   lastKnownPosition: number;
   totalContent: string;

@@ -26,7 +26,8 @@ export const list = query({
       .collect();
 
     // Group messages by conversation ID
-    const messagesByConversationId = new Map<string, typeof allUserMessages>();
+    type Message = (typeof allUserMessages)[number];
+    const messagesByConversationId = new Map<Id<'conversations'>, Message[]>();
     for (const message of allUserMessages) {
       const conversationId = message.conversationId;
       if (!messagesByConversationId.has(conversationId)) {
@@ -109,7 +110,16 @@ export const create = mutation({
       updatedAt: Date.now(),
     });
 
-    return conversationId;
+    // Return the full conversation object to avoid optimistic state drift
+    const conversation = await ctx.db.get(conversationId);
+    if (!conversation) {
+      throw new Error('Failed to retrieve created conversation');
+    }
+
+    return {
+      ...conversation,
+      messages: [], // New conversations have no messages
+    };
   },
 });
 
@@ -121,9 +131,9 @@ export const update = mutation({
     model: v.optional(v.string()),
     mcpEnabled: v.optional(v.boolean()),
     isArchived: v.optional(v.boolean()),
+    hasActiveStream: v.optional(v.boolean()),
     streamState: v.optional(
       v.object({
-        hasActiveStream: v.boolean(),
         activeMessageId: v.optional(v.id('messages')),
         streamStartedAt: v.optional(v.number()),
         lastActivity: v.number(),
@@ -152,8 +162,8 @@ export const update = mutation({
       model: string;
       mcpEnabled: boolean;
       isArchived: boolean;
+      hasActiveStream: boolean;
       streamState: {
-        hasActiveStream: boolean;
         activeMessageId?: Id<'messages'>;
         streamStartedAt?: number;
         lastActivity: number;
@@ -167,6 +177,8 @@ export const update = mutation({
     if (args.model !== undefined) updates.model = args.model;
     if (args.mcpEnabled !== undefined) updates.mcpEnabled = args.mcpEnabled;
     if (args.isArchived !== undefined) updates.isArchived = args.isArchived;
+    if (args.hasActiveStream !== undefined)
+      updates.hasActiveStream = args.hasActiveStream;
     if (args.streamState !== undefined) {
       updates.streamState = {
         ...conversation.streamState,

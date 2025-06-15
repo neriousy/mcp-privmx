@@ -110,7 +110,7 @@ export default function ChatPage() {
             });
           }
 
-          await updateConversation(convId, {
+          await updateConversation(convId as Id<'conversations'>, {
             model: selectedModel,
             mcpEnabled: mcpConnected,
           });
@@ -119,7 +119,9 @@ export default function ChatPage() {
           if (!generatedTitleSet.current.has(convId)) {
             const newTitle = await fetchGeneratedTitle([...messages, message]);
             if (newTitle && newTitle !== 'New Chat') {
-              await updateConversation(convId, { title: newTitle });
+              await updateConversation(convId as Id<'conversations'>, {
+                title: newTitle,
+              });
             }
             generatedTitleSet.current.add(convId);
           }
@@ -165,7 +167,7 @@ export default function ChatPage() {
   };
 
   const handleSwitchConversation = (conversationId: string) => {
-    switchConversation(conversationId);
+    switchConversation(conversationId as Id<'conversations'>);
     const conversation = sortedConversations.find(
       (c) => c.id === conversationId
     );
@@ -180,7 +182,9 @@ export default function ChatPage() {
     setSelectedModel(model);
     // Update current conversation with new model
     if (currentConversationId) {
-      updateConversation(currentConversationId, { model });
+      updateConversation(currentConversationId as Id<'conversations'>, {
+        model,
+      });
     }
   };
 
@@ -189,7 +193,9 @@ export default function ChatPage() {
     setMcpConnected(newMcpState);
     // Update current conversation with new MCP state
     if (currentConversationId) {
-      updateConversation(currentConversationId, { mcpEnabled: newMcpState });
+      updateConversation(currentConversationId as Id<'conversations'>, {
+        mcpEnabled: newMcpState,
+      });
     }
   };
 
@@ -310,7 +316,7 @@ export default function ChatPage() {
             content: messageContent,
           });
         }
-        await updateConversation(conversationId, {
+        await updateConversation(conversationId as Id<'conversations'>, {
           model: selectedModel,
           mcpEnabled: mcpConnected,
         });
@@ -340,7 +346,10 @@ export default function ChatPage() {
         currentConversationId={currentConversationId}
         onCreateNewConversation={handleCreateNewConversation}
         onSwitchConversation={handleSwitchConversation}
-        onDeleteConversation={deleteConversation}
+        onDeleteConversation={(id: string) => {
+          // Fire and forget deletion to match expected void return type
+          void deleteConversation(id as Id<'conversations'>);
+        }}
       />
 
       <div className="flex flex-col flex-1 bg-background relative">
@@ -348,7 +357,7 @@ export default function ChatPage() {
           {showCenteredLayout ? (
             <WelcomeLayout
               input={input}
-              isLoading={status === 'streaming'}
+              isLoading={status === 'streaming' || status === 'submitted'}
               selectedModel={selectedModel}
               mcpConnected={mcpConnected}
               onInputChange={handleInputChange}
@@ -360,7 +369,7 @@ export default function ChatPage() {
             <ChatLayout
               messages={messages}
               input={input}
-              isLoading={status === 'streaming'}
+              isLoading={status === 'streaming' || status === 'submitted'}
               selectedModel={selectedModel}
               mcpConnected={mcpConnected}
               onInputChange={handleInputChange}
