@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, FileText, Image as ImageIcon } from 'lucide-react';
-import { Message } from 'ai';
+import { Message } from '@/types';
 import { ToolCallCard } from './ToolCallCard';
 import Image from 'next/image';
 
@@ -54,8 +54,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
 
     return (
-      <div className="flex justify-end">
-        <div className="max-w-2xl bg-sidebar-accent text-sidebar-foreground rounded-lg px-3 py-2">
+      <div className="flex">
+        <div className="ml-auto max-w-2xl bg-sidebar-accent text-sidebar-foreground rounded-lg px-4 py-3 shadow-sm">
           {/* Main message content */}
           {cleanedContent && (
             <p className="text-sm leading-relaxed whitespace-pre-wrap mb-2">
@@ -124,9 +124,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }
 
   return (
-    <div className="flex gap-3">
-      <div className="w-6 h-6 bg-sidebar-accent rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-        <Sparkles className="w-3 h-3 text-muted-foreground" />
+    <div className="flex gap-4">
+      <div className="w-8 h-8 bg-sidebar-accent rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
+        <Sparkles className="w-4 h-4 text-muted-foreground" />
       </div>
       <div className="flex-1 max-w-2xl space-y-3">
         {/* Tool Calls */}

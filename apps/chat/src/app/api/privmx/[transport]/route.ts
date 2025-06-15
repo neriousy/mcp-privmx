@@ -1,6 +1,6 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
 import { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { MCPController } from '@/lib/controllers/mcp-controller';
+import { MCPController } from '@/features/mcp/mcp-controller';
 
 /**
  * Refactored MCP Route Handler
@@ -196,38 +196,3 @@ const handler = createMcpHandler(
 );
 
 export { handler as GET, handler as POST, handler as DELETE };
-
-/**
- * Development utilities (can be removed in production)
- */
-export async function reinitializeServices(): Promise<void> {
-  try {
-    logger.info('🔄 Force re-initializing services...');
-
-    // Reset initialization state
-    mcpController = null;
-    initializationPromise = null;
-
-    // Get fresh controller
-    const controller = await getMCPController();
-    await controller.reinitialize();
-
-    logger.info('🔄 Services re-initialized for development');
-  } catch (error) {
-    logger.error('Failed to reinitialize services', error);
-    throw error;
-  }
-}
-
-export async function getServiceStatus() {
-  try {
-    const controller = await getMCPController();
-    return await controller.getServiceStats();
-  } catch (error) {
-    logger.error('Failed to get service status', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ready: false,
-    };
-  }
-}
