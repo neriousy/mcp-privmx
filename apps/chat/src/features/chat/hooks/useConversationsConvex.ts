@@ -36,6 +36,8 @@ const convertConvexMessage = (msg: {
   role: msg.role,
   content: msg.content,
   createdAt: new Date(msg.createdAt),
+  // pass through any extra fields coming from the backend
+  ...('metadata' in msg ? { metadata: msg.metadata } : {}),
 });
 
 const convertConvexConversation = (
@@ -59,7 +61,7 @@ const convertConvexConversation = (
 export interface UseConversationsReturn {
   conversations: Conversation[];
   currentConversation: Conversation | null;
-  currentConversationId: string | null;
+  currentConversationId: Id<'conversations'> | null;
   sortedConversations: Conversation[];
   isLoaded: boolean;
 
@@ -67,12 +69,12 @@ export interface UseConversationsReturn {
     model: string,
     mcpEnabled: boolean
   ) => Promise<Conversation>;
-  switchConversation: (id: string | null) => void;
+  switchConversation: (id: Id<'conversations'> | null) => void;
   updateConversation: (
-    id: string,
+    id: Id<'conversations'>,
     updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
   ) => Promise<void>;
-  deleteConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: Id<'conversations'>) => Promise<void>;
 }
 
 export function useConversationsConvex(): UseConversationsReturn {
@@ -81,9 +83,8 @@ export function useConversationsConvex(): UseConversationsReturn {
   const updateConv = useMutation(api.conversations.update);
   const deleteConv = useMutation(api.conversations.remove);
 
-  const [currentConversationId, setCurrentConversationId] = useState<
-    string | null
-  >(null);
+  const [currentConversationId, setCurrentConversationId] =
+    useState<Id<'conversations'> | null>(null);
 
   const conversations = useMemo<Conversation[]>(() => {
     return convexConvs ? convexConvs.map(convertConvexConversation) : [];
@@ -107,10 +108,9 @@ export function useConversationsConvex(): UseConversationsReturn {
     async (model: string, mcpEnabled: boolean) => {
       const title = 'New Chat';
       const id = await createConv({ title, model, mcpEnabled });
-      const idStr = id as unknown as string;
-      setCurrentConversationId(idStr);
+      setCurrentConversationId(id);
       return {
-        id: idStr,
+        id,
         title,
         model,
         mcpEnabled,
@@ -121,29 +121,35 @@ export function useConversationsConvex(): UseConversationsReturn {
     [createConv]
   );
 
-  const switchConversation = useCallback((id: string | null) => {
+  const switchConversation = useCallback((id: Id<'conversations'> | null) => {
     setCurrentConversationId(id);
   }, []);
 
   const updateConversation = useCallback(
     async (
-      id: string,
+      id: Id<'conversations'>,
       updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
     ) => {
       await updateConv({
-        conversationId: id as unknown as Id<'conversations'>,
-        ...updates,
+        conversationId: id as Id<'conversations'>,
+        ...(updates.title !== undefined && { title: updates.title }),
+        ...(updates.model !== undefined && { model: updates.model }),
+        ...(updates.mcpEnabled !== undefined && {
+          mcpEnabled: updates.mcpEnabled,
+        }),
       });
     },
     [updateConv]
   );
 
   const deleteConversation = useCallback(
-    async (id: string) => {
+    async (id: Id<'conversations'>) => {
       await deleteConv({
-        conversationId: id as unknown as Id<'conversations'>,
+        conversationId: id,
       });
-      if (currentConversationId === id) setCurrentConversationId(null);
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+      }
     },
     [deleteConv, currentConversationId]
   );

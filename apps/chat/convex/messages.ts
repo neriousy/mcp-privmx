@@ -202,9 +202,7 @@ export const update = mutation({
     if (args.isStreaming !== undefined) updates.isStreaming = args.isStreaming;
     if (args.streamCompleted !== undefined) {
       updates.streamCompleted = args.streamCompleted;
-      if (args.streamCompleted) {
-        updates.completedAt = Date.now();
-      }
+      updates.completedAt = args.streamCompleted ? Date.now() : undefined;
     }
 
     await ctx.db.patch(args.messageId, updates);

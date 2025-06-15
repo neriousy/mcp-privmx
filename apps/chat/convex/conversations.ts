@@ -185,7 +185,7 @@ export const remove = mutation({
     // Delete all messages in the conversation
     const messages = await ctx.db
       .query('messages')
-      .withIndex('by_conversation', (q) =>
+      .withIndex('by_conversation_created', (q) =>
         q.eq('conversationId', args.conversationId)
       )
       .collect();

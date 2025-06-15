@@ -49,8 +49,8 @@ importers:
         specifier: ^15.2.10
         version: 15.5.2
       pnpm:
-        specifier: 9.0.0
-        version: 9.0.0
+        specifier: 10.12.1
+        version: 10.12.1
       prettier:
         specifier: ^3.5.3
         version: 3.5.3
@@ -219,7 +219,7 @@ importers:
     dependencies:
       '@langchain/community':
         specifier: ^0.3.0
-        version: 0.3.46(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.53.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(zod@3.25.62))(@ibm-cloud/watsonx-ai@1.6.7)(@langchain/core@0.3.58(openai@4.104.0(ws@8.18.2)(zod@3.25.62)))(@qdrant/js-client-rest@1.14.1(typescript@5.8.3))(axios@1.9.0)(convex@1.24.8(@clerk/clerk-react@5.31.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(handlebars@4.7.8)(ibm-cloud-sdk-core@5.4.0)(ignore@7.0.5)(jsonwebtoken@9.0.2)(lodash@4.17.21)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(playwright@1.53.0)(redis@4.7.1)(weaviate-client@3.6.1)(ws@8.18.2)
+        version: 0.3.46(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.53.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(zod@3.25.62))(@ibm-cloud/watsonx-ai@1.6.7)(@langchain/core@0.3.58(openai@4.104.0(ws@8.18.2)(zod@3.25.62)))(@qdrant/js-client-rest@1.14.1(typescript@5.8.3))(axios@1.9.0)(convex@1.24.8(@clerk/clerk-react@5.31.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(handlebars@4.7.8)(ibm-cloud-sdk-core@5.4.0)(ignore@5.3.2)(jsonwebtoken@9.0.2)(lodash@4.17.21)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(playwright@1.53.0)(redis@4.7.1)(weaviate-client@3.6.1)(ws@8.18.2)
       '@langchain/core':
         specifier: ^0.3.0
         version: 0.3.58(openai@4.104.0(ws@8.18.2)(zod@3.25.62))
@@ -5847,8 +5847,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  pnpm@9.0.0:
-    resolution: {integrity: sha512-tBBnB8ciWxdIthWVlTzL6/+XtUrQXQAqo2NfYzucU81mb3zpuLxEcE8foEi5pJtVNxqy2enWZ9Hv4u8VFLzVEw==}
+  pnpm@10.12.1:
+    resolution: {integrity: sha512-8N2oWA8O6UgcXHmh2Se5Fk8sR46QmSrSaLuyRlpzaYQ5HWMz0sMnkTV4soBK8zR0ylVLopwEqLEwYKcXZ1rjrA==}
     engines: {node: '>=18.12'}
     hasBin: true
 
@@ -8006,7 +8006,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@langchain/community@0.3.46(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.53.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(zod@3.25.62))(@ibm-cloud/watsonx-ai@1.6.7)(@langchain/core@0.3.58(openai@4.104.0(ws@8.18.2)(zod@3.25.62)))(@qdrant/js-client-rest@1.14.1(typescript@5.8.3))(axios@1.9.0)(convex@1.24.8(@clerk/clerk-react@5.31.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(handlebars@4.7.8)(ibm-cloud-sdk-core@5.4.0)(ignore@7.0.5)(jsonwebtoken@9.0.2)(lodash@4.17.21)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(playwright@1.53.0)(redis@4.7.1)(weaviate-client@3.6.1)(ws@8.18.2)':
+  '@langchain/community@0.3.46(@browserbasehq/sdk@2.6.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.53.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(zod@3.25.62))(@ibm-cloud/watsonx-ai@1.6.7)(@langchain/core@0.3.58(openai@4.104.0(ws@8.18.2)(zod@3.25.62)))(@qdrant/js-client-rest@1.14.1(typescript@5.8.3))(axios@1.9.0)(convex@1.24.8(@clerk/clerk-react@5.31.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(handlebars@4.7.8)(ibm-cloud-sdk-core@5.4.0)(ignore@5.3.2)(jsonwebtoken@9.0.2)(lodash@4.17.21)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(playwright@1.53.0)(redis@4.7.1)(weaviate-client@3.6.1)(ws@8.18.2)':
     dependencies:
       '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.53.0)(deepmerge@4.3.1)(dotenv@16.5.0)(openai@4.104.0(ws@8.18.2)(zod@3.25.62))(zod@3.25.62)
       '@ibm-cloud/watsonx-ai': 1.6.7
@@ -8027,7 +8027,7 @@ snapshots:
       '@browserbasehq/sdk': 2.6.0
       '@qdrant/js-client-rest': 1.14.1(typescript@5.8.3)
       convex: 1.24.8(@clerk/clerk-react@5.31.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
-      ignore: 7.0.5
+      ignore: 5.3.2
       jsonwebtoken: 9.0.2
       lodash: 4.17.21
       playwright: 1.53.0
@@ -10255,7 +10255,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.31.0)(eslint@9.28.0(jiti@1.21.7)))(eslint@9.28.0(jiti@1.21.7)):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.28.0(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -10277,7 +10277,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.28.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.31.0)(eslint@9.28.0(jiti@1.21.7)))(eslint@9.28.0(jiti@1.21.7))
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.28.0(jiti@1.21.7))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -12904,7 +12904,7 @@ snapshots:
       ora: 8.2.0
       v8flags: 4.0.1
 
-  pnpm@9.0.0: {}
+  pnpm@10.12.1: {}
 
   possible-typed-array-names@1.1.0: {}
 
