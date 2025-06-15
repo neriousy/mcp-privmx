@@ -1,6 +1,6 @@
 import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import { Conversation } from '../hooks/useConversations';
+import { Conversation } from '@/types';
 import { SidebarFooter } from './SidebarFooter';
 
 interface ChatSidebarProps {

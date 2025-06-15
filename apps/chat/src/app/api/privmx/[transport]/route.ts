@@ -1,6 +1,6 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
 import { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { MCPController } from '@/lib/controllers/mcp-controller';
+import { MCPController } from '@/features/mcp/mcp-controller';
 
 /**
  * Refactored MCP Route Handler

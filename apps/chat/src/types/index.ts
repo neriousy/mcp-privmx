@@ -49,6 +49,11 @@ export interface Conversation {
   streamState?: StreamState;
 }
 
+// DEPRECATED: Throughout the refactor we migrate legacy `UnifiedConversation` usages
+// to the canonical `Conversation` interface. For backward-compatibility we expose
+// a type alias so we can update code incrementally without breaking the build.
+export type UnifiedConversation = Conversation;
+
 export interface ConversationState {
   conversations: Conversation[];
   currentConversationId: string | null;

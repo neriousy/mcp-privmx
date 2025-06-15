@@ -438,7 +438,7 @@ export class DocumentationIndexService {
    */
   private convertToDocumentationResult(
     doc: ParsedMDXDocument,
-    query: string
+    _query: string
   ): DocumentationResult {
     // Safely access content properties with fallbacks
     const content = doc.content || {
@@ -473,7 +473,7 @@ export class DocumentationIndexService {
     };
 
     // Create summary
-    const summary = this.generateSummary(doc, query);
+    const summary = this.generateSummary(doc);
 
     // Safely access markdown content
     const markdownContent = content.markdown || '';
