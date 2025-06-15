@@ -18,6 +18,8 @@ import { getTools } from './tools.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z } from 'zod';
 import { MCPServerCapabilities } from './types/mcp-types.js';
+import { startSpan } from './common/otel.js';
+import { initMetricsServer } from './common/metrics.js';
 
 /**
  * PrivMX MCP Server
@@ -81,6 +83,9 @@ class PrivMXMCPServer {
     );
 
     this.setupHandlers();
+
+    // Start metrics endpoint early
+    initMetricsServer();
   }
 
   /**
@@ -156,26 +161,28 @@ class PrivMXMCPServer {
       }
 
       try {
-        logger.info(`🛠️ Executing tool: ${name}`);
+        return await startSpan(`tool.${name}`, async () => {
+          logger.info(`🛠️ Executing tool: ${name}`);
 
-        // Validate tool arguments against schema
-        const validationResult = z.object(tool.schema).safeParse(args);
-        if (!validationResult.success) {
-          logger.error(`Invalid arguments for tool ${name}`, {
-            errors: validationResult.error.flatten(),
-          });
-          throw new McpError(
-            -32602,
-            'Invalid arguments',
-            validationResult.error.flatten()
-          );
-        }
+          // Validate tool arguments against schema
+          const validationResult = z.object(tool.schema).safeParse(args);
+          if (!validationResult.success) {
+            logger.error(`Invalid arguments for tool ${name}`, {
+              errors: validationResult.error.flatten(),
+            });
+            throw new McpError(
+              -32602,
+              'Invalid arguments',
+              validationResult.error.flatten()
+            );
+          }
 
-        // Execute the tool with validated arguments
-        const result = await tool.handler(validationResult.data as never);
-        logger.info(`✅ Tool ${name} completed successfully`);
+          // Execute the tool with validated arguments
+          const result = await tool.handler(validationResult.data as never);
+          logger.info(`✅ Tool ${name} completed successfully`);
 
-        return result as unknown as { [x: string]: unknown };
+          return result as unknown as { [x: string]: unknown };
+        });
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'An unknown error occurred';

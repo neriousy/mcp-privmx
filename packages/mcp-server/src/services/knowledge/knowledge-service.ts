@@ -24,6 +24,7 @@ import type {
   SearchContext,
   CodeExample,
 } from '../../types/documentation-types.js';
+import { startSpan } from '../../common/otel.js';
 
 export class KnowledgeService {
   private knowledgeBuilder: KnowledgeBuilder;
@@ -32,6 +33,7 @@ export class KnowledgeService {
   private codeGenerationService: CodeGenerationService;
   private documentationIndexService: DocumentationIndexService;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     this.knowledgeBuilder = new KnowledgeBuilder();
@@ -45,8 +47,32 @@ export class KnowledgeService {
    * Initialize the knowledge service and build knowledge graph
    */
   async initialize(specPath: string = '/spec'): Promise<void> {
-    if (this.initialized) return;
+    return startSpan('knowledge.initialize', async () => {
+      // If already initialized, return immediately
+      if (this.initialized) return;
 
+      // If initialization is already in progress, wait for it to complete
+      if (this.initializationPromise) {
+        return this.initializationPromise;
+      }
+
+      // Start initialization and store the promise to prevent concurrent initializations
+      this.initializationPromise = this.performInitialization(specPath);
+
+      try {
+        await this.initializationPromise;
+      } catch (error) {
+        // Reset the promise on failure so initialization can be retried
+        this.initializationPromise = null;
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Perform the actual initialization work
+   */
+  private async performInitialization(specPath: string): Promise<void> {
     try {
       // Build knowledge graph from specifications
       const apiData =
@@ -82,7 +108,9 @@ export class KnowledgeService {
     language?: string
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.discoverAPI(functionality, language);
+    return startSpan('knowledge.discoverAPI', () =>
+      this.apiSearchService.discoverAPI(functionality, language)
+    );
   }
 
   /**
@@ -94,7 +122,9 @@ export class KnowledgeService {
     limit = 10
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.searchApiMethods(query, className, limit);
+    return startSpan('knowledge.searchApiMethods', () =>
+      this.apiSearchService.searchApiMethods(query, className, limit)
+    );
   }
 
   /**
@@ -106,7 +136,9 @@ export class KnowledgeService {
     limit = 10
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.searchClasses(query, namespace, limit);
+    return startSpan('knowledge.searchClasses', () =>
+      this.apiSearchService.searchClasses(query, namespace, limit)
+    );
   }
 
   /**
@@ -117,7 +149,9 @@ export class KnowledgeService {
     context: CodeContext
   ): Promise<GeneratedCode> {
     this.ensureInitialized();
-    return this.codeGenerationService.generateCompleteCode(goal, context);
+    return startSpan('knowledge.generateCode', () =>
+      this.codeGenerationService.generateCompleteCode(goal, context)
+    );
   }
 
   /**
@@ -137,10 +171,8 @@ export class KnowledgeService {
     limit = 5
   ): Promise<DocumentationResult[]> {
     this.ensureInitialized();
-    return this.documentationIndexService.searchDocuments(
-      query,
-      filters,
-      limit
+    return startSpan('knowledge.searchDocs', () =>
+      this.documentationIndexService.searchDocuments(query, filters, limit)
     );
   }
 

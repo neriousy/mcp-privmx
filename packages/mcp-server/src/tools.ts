@@ -8,6 +8,7 @@ import {
   LanguageSchema,
   SkillLevelSchema,
   FrameworkSchema,
+  FeatureSchema,
 } from './common/schemas.js';
 import { SearchResult } from './types/index.js';
 import { MCPToolResponse, PrivMXAppRequest } from './types/mcp-types.js';
@@ -470,7 +471,7 @@ export const getTools = (services: ServiceContainer) =>
       schema: {
         language: LanguageSchema.describe('Programming language'),
         features: z
-          .array(z.string())
+          .array(FeatureSchema)
           .describe('List of features to include in setup'),
       },
       handler: async (params: GenerateSetupParams): Promise<ToolResponse> => {
@@ -503,7 +504,7 @@ export const getTools = (services: ServiceContainer) =>
           .enum(['javascript', 'typescript'])
           .describe('Programming language'),
         features: z
-          .array(z.string())
+          .array(FeatureSchema)
           .describe(
             'Features to include (messaging, file-sharing, notifications, auth)'
           ),
@@ -662,6 +663,86 @@ export const getTools = (services: ServiceContainer) =>
             ],
           };
         }
+      },
+    },
+    {
+      name: 'set_hybrid_search_weights',
+      description:
+        '⚖️ Adjust TEXT_WEIGHT and VECTOR_WEIGHT for hybrid search at runtime',
+      schema: {
+        textWeight: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe('Weight for lexical text search (0-1)'),
+        vectorWeight: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe(
+            'Weight for semantic vector search (defaults to 1 - textWeight)'
+          ),
+      },
+      handler: async (params: {
+        textWeight: number;
+        vectorWeight?: number;
+      }): Promise<ToolResponse> => {
+        const { textWeight, vectorWeight } = params;
+        const vec =
+          typeof vectorWeight === 'number'
+            ? vectorWeight
+            : Math.max(0, 1 - textWeight);
+
+        // Update in-process env so subsequent searches pick them up
+        process.env.TEXT_WEIGHT = textWeight.toString();
+        process.env.VECTOR_WEIGHT = vec.toString();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Hybrid search weights updated:\n• TEXT_WEIGHT = ${process.env.TEXT_WEIGHT}\n• VECTOR_WEIGHT = ${process.env.VECTOR_WEIGHT}`,
+            },
+          ],
+        };
+      },
+    },
+    {
+      name: 'set_api_hybrid_weights',
+      description:
+        '⚖️ Adjust API_TEXT_WEIGHT and API_VECTOR_WEIGHT for API hybrid search',
+      schema: {
+        textWeight: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe('Weight for lexical API search (0-1)'),
+        vectorWeight: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe('Weight for semantic API search'),
+      },
+      handler: async (params: {
+        textWeight: number;
+        vectorWeight?: number;
+      }): Promise<ToolResponse> => {
+        const vec =
+          typeof params.vectorWeight === 'number'
+            ? params.vectorWeight
+            : Math.max(0, 1 - params.textWeight);
+        process.env.API_TEXT_WEIGHT = params.textWeight.toString();
+        process.env.API_VECTOR_WEIGHT = vec.toString();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `API hybrid search weights updated:\n• API_TEXT_WEIGHT = ${process.env.API_TEXT_WEIGHT}\n• API_VECTOR_WEIGHT = ${process.env.API_VECTOR_WEIGHT}`,
+            },
+          ],
+        };
       },
     },
   ] as const;

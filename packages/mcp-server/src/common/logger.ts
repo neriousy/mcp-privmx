@@ -1,19 +1,24 @@
-import winston from 'winston';
+import pino from 'pino';
 import { config } from './config.js';
 
-const { combine, timestamp, printf, colorize, align } = winston.format;
-
-const logger = winston.createLogger({
+const logger = pino({
   level: config.LOG_LEVEL,
-  format: combine(
-    colorize({ all: true }),
-    timestamp({
-      format: 'YYYY-MM-DD hh:mm:ss.SSS A',
-    }),
-    align(),
-    printf((info) => `[${info.timestamp}] ${info.level}: ${info.message}`)
-  ),
-  transports: [new winston.transports.Console()],
+  timestamp: pino.stdTimeFunctions.isoTime,
+  formatters: {
+    level(label: string) {
+      return { level: label };
+    },
+  },
+  transport:
+    process.env.NODE_ENV === 'development'
+      ? {
+          target: 'pino-pretty',
+          options: {
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
+          },
+        }
+      : undefined,
 });
 
 export default logger;

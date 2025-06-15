@@ -10,7 +10,10 @@ import {
   APIType,
   APIReturnType,
   CodeExample,
+  APIConstant,
+  APITypeDefinition,
 } from './types.js';
+import { generateMethodKey } from './utils.js';
 
 /**
  * Raw JSON API structure (as parsed from spec files)
@@ -112,6 +115,8 @@ export class APIParser {
   ): Promise<APINamespace> {
     const classes: APIClass[] = [];
     const functions: APIMethod[] = [];
+    const constants: APIConstant[] = [];
+    const types: APITypeDefinition[] = [];
 
     // Handle _meta namespace (skip it as it's metadata, not API content)
     if (name === '_meta') {
@@ -189,9 +194,11 @@ export class APIParser {
             functions.push(method);
           } else if (item.type === 'type') {
             typesFound++;
-            // TODO: Parse type definitions properly
+            const typeDef = this.parseTypeDefinition(item, name, language);
+            if (typeDef) types.push(typeDef);
           } else if (item.type === 'constant') {
-            // TODO: Parse constants
+            const constant = this.parseConstant(item, name, language);
+            if (constant) constants.push(constant);
           }
         }
       }
@@ -208,8 +215,8 @@ export class APIParser {
       language,
       classes,
       functions,
-      constants: [], // TODO: Parse constants
-      types: [], // TODO: Parse type definitions
+      constants,
+      types,
       commonPatterns: this.inferCommonPatterns(classes, functions),
     };
   }
@@ -259,7 +266,13 @@ export class APIParser {
       methods,
       staticMethods,
       constructors,
-      properties: [], // TODO: Parse properties from fields
+      properties: (classData.fields || []).map((f) => ({
+        name: f.name,
+        description: f.description,
+        type: this.parseType(f.type),
+        readonly: false,
+        static: false,
+      })),
       dependencies: this.inferDependencies(classData, language),
       usedWith: this.inferUsageRelationships(classData),
       creationPattern: this.generateCreationPattern(classData, language),
@@ -282,6 +295,16 @@ export class APIParser {
 
     return {
       name: methodData.name,
+      key: generateMethodKey({
+        language,
+        namespace,
+        className,
+        methodName: methodData.name,
+        parameters: parameters.map((p) => ({
+          type: p.type.name,
+          optional: p.optional,
+        })),
+      }),
       description: methodData.description,
       snippet:
         methodData.snippet || this.generateSnippet(methodData, parameters),
@@ -315,7 +338,7 @@ export class APIParser {
       description: param.description,
       type: this.parseType(param.type),
       optional: param.type.optional,
-      defaultValue: undefined, // TODO: Extract from description if available
+      defaultValue: this.extractDefaultValue(param.description),
     }));
   }
 
@@ -643,5 +666,56 @@ export class APIParser {
     }
 
     return workflows;
+  }
+
+  private parseTypeDefinition(
+    item: RawAPISpec[string][0]['content'][0],
+    namespace: string,
+    language: string
+  ): APITypeDefinition | null {
+    if (!item || item.type !== 'type') return null;
+
+    const def: APITypeDefinition = {
+      name: item.name,
+      description: item.description || `${item.name} type`,
+      definition: item.snippet || `type ${item.name} = any`,
+      language,
+    };
+
+    return def;
+  }
+
+  private parseConstant(
+    item: RawAPISpec[string][0]['content'][0],
+    namespace: string,
+    language: string
+  ): APIConstant | null {
+    if (!item || item.type !== 'constant') return null;
+
+    const constType: APIType = {
+      name: (item as any).valueType?.name || 'unknown',
+      optional: false,
+    } as APIType;
+
+    const constant: APIConstant = {
+      name: item.name,
+      description: item.description || `${item.name} constant`,
+      type: constType,
+      value: (item as any).value ?? null,
+    };
+
+    return constant;
+  }
+
+  private extractDefaultValue(desc: string): string | number | boolean | null {
+    if (!desc) return null;
+    const match = desc.match(/default[:=]\s*([\w\d\-_.]+)/i);
+    if (match) {
+      const val = match[1];
+      if (val === 'true' || val === 'false') return val === 'true';
+      const num = Number(val);
+      return isNaN(num) ? val : num;
+    }
+    return null;
   }
 }

@@ -5,6 +5,17 @@
 
 import { APINamespace, APIMethod, APIClass } from '../../api/types.js';
 import { SearchResult } from '../../types/index.js';
+// @ts-expect-error – wink-bm25 has no TS declarations yet
+import bm25Factory from 'wink-bm25-text-search';
+// @ts-expect-error – wink-tokenizer has no TS declarations yet
+import winkTokenizer from 'wink-tokenizer';
+
+// Select lexical scoring algorithm via env: bm25 (default) or tfidf
+const TEXT_ALGO =
+  process.env.TEXT_ALGO ||
+  (process.env.USE_BM25 === 'false' ? 'tfidf' : 'bm25');
+
+const USE_BM25 = TEXT_ALGO === 'bm25';
 
 interface SearchStats {
   namespaces: number;
@@ -21,6 +32,20 @@ export class SearchEngine {
   private classIndex: Map<string, APIClass[]> = new Map();
   private languageIndex: Map<string, APINamespace[]> = new Map();
   private keywordIndex: Map<string, SearchResult[]> = new Map();
+  // BM25 engine & doc map (optional)
+  private bm25 = USE_BM25 ? bm25Factory() : null;
+  private docMap: Map<string, SearchResult> = new Map();
+
+  constructor() {
+    if (this.bm25) {
+      const tokenizer = winkTokenizer();
+      this.bm25.defineConfig({ fldWeights: { text: 1 } });
+      this.bm25.definePrepTasks([
+        (t: string) => t.toLowerCase(),
+        tokenizer.tokenize,
+      ]);
+    }
+  }
 
   /**
    * Clear all indices
@@ -31,6 +56,10 @@ export class SearchEngine {
     this.classIndex.clear();
     this.languageIndex.clear();
     this.keywordIndex.clear();
+    this.docMap.clear();
+    if (this.bm25) {
+      this.bm25.reset();
+    }
   }
 
   /**
@@ -83,12 +112,34 @@ export class SearchEngine {
         }
       }
     }
+
+    if (this.bm25) {
+      this.bm25.consolidate();
+    }
   }
 
   /**
    * Search for APIs by functionality description
    */
   search(functionality: string, language?: string): SearchResult[] {
+    if (this.bm25) {
+      const hits = this.bm25.search(functionality, 15);
+      return hits
+        .map(({ id, score }: { id: string; score: number }) => {
+          const doc = this.docMap.get(id);
+          if (!doc) return null;
+          return { ...doc, score } as SearchResult;
+        })
+        .filter(Boolean)
+        .filter((result: SearchResult) => {
+          if (!language) return true;
+          return this.isLanguageCompatible(
+            language,
+            result.metadata.language as string
+          );
+        })
+        .slice(0, 10) as SearchResult[];
+    }
     const words = functionality.toLowerCase().split(/\s+/);
     const results = new Map<string, SearchResult>();
     const scores = new Map<string, number>();
@@ -191,13 +242,13 @@ export class SearchEngine {
     namespace: string,
     className?: string
   ): void {
-    const key = method.name.toLowerCase();
+    const methodKey = method.key;
 
-    if (!this.methodIndex.has(key)) {
-      this.methodIndex.set(key, []);
+    if (!this.methodIndex.has(methodKey)) {
+      this.methodIndex.set(methodKey, []);
     }
 
-    this.methodIndex.get(key)?.push(method);
+    this.methodIndex.get(methodKey)?.push(method);
 
     // Add to keyword index
     const searchResult: SearchResult = {
@@ -216,11 +267,24 @@ export class SearchEngine {
       score: 1.0,
     };
 
+    // Prevent duplicate IDs which cause winkBM25S to throw an error
+    if (this.docMap.has(searchResult.id)) {
+      // If a document with the same ID already exists we simply skip re-indexing it.
+      // This can happen when multiple languages share the same namespace/method names.
+      return;
+    }
+
     this.addToKeywordIndex(method.name, searchResult);
     this.addToKeywordIndex(method.description, searchResult);
 
     if (className) {
       this.addToKeywordIndex(className, searchResult);
+    }
+
+    // BM25 doc
+    this.docMap.set(searchResult.id, searchResult);
+    if (this.bm25) {
+      this.bm25.addDoc({ text: searchResult.content }, searchResult.id);
     }
   }
 
@@ -256,8 +320,19 @@ export class SearchEngine {
       score: 1.0,
     };
 
+    // Prevent duplicate IDs which cause winkBM25S to throw an error
+    if (this.docMap.has(searchResult.id)) {
+      return;
+    }
+
     this.addToKeywordIndex(apiClass.name, searchResult);
-    this.addToKeywordIndex(apiClass.description, searchResult);
+    this.addToKeywordIndex(apiClass.description || '', searchResult);
+
+    // BM25 doc
+    this.docMap.set(searchResult.id, searchResult);
+    if (this.bm25) {
+      this.bm25.addDoc({ text: searchResult.content }, searchResult.id);
+    }
   }
 
   /**

@@ -1,0 +1,34 @@
+/**
+ * Secure Stores (Encrypted File Sharing) API
+ */
+// snippet: {{methodSnippet "StoreApi" "createStore"}}
+{{jsDoc "StoreApi" "createStore"}}
+async createStore({{paramList "StoreApi" "createStore"}}) {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+
+  const store = await this.endpoint.store.createStore(
+    this.connectionId,
+    JSON.stringify(publicMeta),
+    JSON.stringify(privateMeta),
+    users,
+  );
+  return store;
+}
+
+// snippet: {{methodSnippet "StoreApi" "createFile"}}
+{{jsDoc "StoreApi" "createFile"}}
+async uploadFile({{paramList "StoreApi" "createFile"}}): {{returnType "StoreApi" "createFile"}} {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+
+  const file = await this.endpoint.store.createFile(
+    storeId,
+    JSON.stringify(meta),
+    new Uint8Array(fileData).length,
+  );
+
+  const handle = await this.endpoint.store.openFile(file.fileId);
+  await this.endpoint.store.writeToFile(handle, fileData);
+  await this.endpoint.store.closeFile(handle);
+
+  return file;
+} 

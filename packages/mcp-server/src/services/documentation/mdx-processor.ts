@@ -13,6 +13,14 @@ import { remark } from 'remark';
 import remarkMdx from 'remark-mdx';
 import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
+import type {
+  ParsedMDXDocument,
+  DocumentMetadata,
+  ProcessedContent,
+  CodeBlock,
+} from '../../types/documentation-types.js';
+import { FrontmatterSchema } from './frontmatter-schema.js';
+import { startSpan } from '../../common/otel.js';
 
 // Define minimal types for AST nodes we need (avoiding mdast dependency)
 interface CodeNode {
@@ -25,12 +33,6 @@ interface LinkNode {
   type: 'link';
   url: string;
 }
-import type {
-  ParsedMDXDocument,
-  DocumentMetadata,
-  ProcessedContent,
-  CodeBlock,
-} from '../../types/documentation-types.js';
 
 export class MDXProcessorService {
   private remarkProcessor: any; // Using any to avoid complex type issues
@@ -43,38 +45,53 @@ export class MDXProcessorService {
    * Parse a single MDX file and extract all relevant information
    */
   async parseMDXFile(filePath: string): Promise<ParsedMDXDocument> {
-    try {
-      const rawContent = await readFile(filePath, 'utf-8');
-      const { data: frontmatter, content: markdownContent } =
-        matter(rawContent);
+    return startSpan('docs.parseMDXFile', async () => {
+      try {
+        const rawContent = await readFile(filePath, 'utf-8');
+        const { data: frontmatter, content: markdownContent } =
+          matter(rawContent);
 
-      // Generate document ID from file path
-      const id = this.generateDocumentId(filePath);
+        // Validate frontmatter
+        const fmValidation = FrontmatterSchema.safeParse(frontmatter);
+        if (!fmValidation.success) {
+          console.warn(
+            `⚠️  Frontmatter validation failed for ${filePath}:`,
+            fmValidation.error.flatten().fieldErrors
+          );
+        }
 
-      // Extract metadata from frontmatter and file path
-      const metadata = this.extractMetadata(frontmatter, filePath);
+        const frontmatterValid = fmValidation.success
+          ? fmValidation.data
+          : frontmatter;
 
-      // Process markdown content
-      const processedContent =
-        await this.processMarkdownContent(markdownContent);
+        // Generate document ID from file path
+        const id = this.generateDocumentId(filePath);
 
-      // Generate content hash for change detection
-      const contentHash = this.generateContentHash(rawContent);
+        // Extract metadata from frontmatter and file path
+        const metadata = this.extractMetadata(frontmatterValid, filePath);
 
-      return {
-        id,
-        metadata,
-        content: processedContent,
-        frontmatter,
-        rawContent,
-        contentHash,
-      };
-    } catch (error) {
-      console.error(`Failed to parse MDX file ${filePath}:`, error);
-      throw new Error(
-        `MDX parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+        // Process markdown content
+        const processedContent =
+          await this.processMarkdownContent(markdownContent);
+
+        // Generate content hash for change detection
+        const contentHash = this.generateContentHash(rawContent);
+
+        return {
+          id,
+          metadata,
+          content: processedContent,
+          frontmatter: frontmatterValid,
+          rawContent,
+          contentHash,
+        };
+      } catch (error) {
+        console.error(`Failed to parse MDX file ${filePath}:`, error);
+        throw new Error(
+          `MDX parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    });
   }
 
   /**
