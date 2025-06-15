@@ -41,14 +41,15 @@
     "pnpm": "10.12.1",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
-    "typescript": "5.8.3",
-    "typedoc": "^0.25.7"
+    "typedoc": "^0.25.7",
+    "typescript": "5.8.3"
   },
   "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
+    "@opentelemetry/winston-transport": "^0.13.0",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-mdx": "^3.1.0",

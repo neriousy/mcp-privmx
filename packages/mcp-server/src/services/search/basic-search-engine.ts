@@ -267,6 +267,13 @@ export class SearchEngine {
       score: 1.0,
     };
 
+    // Prevent duplicate IDs which cause winkBM25S to throw an error
+    if (this.docMap.has(searchResult.id)) {
+      // If a document with the same ID already exists we simply skip re-indexing it.
+      // This can happen when multiple languages share the same namespace/method names.
+      return;
+    }
+
     this.addToKeywordIndex(method.name, searchResult);
     this.addToKeywordIndex(method.description, searchResult);
 
@@ -277,7 +284,7 @@ export class SearchEngine {
     // BM25 doc
     this.docMap.set(searchResult.id, searchResult);
     if (this.bm25) {
-      this.bm25.addDoc({ id: searchResult.id, text: searchResult.content });
+      this.bm25.addDoc({ text: searchResult.content }, searchResult.id);
     }
   }
 
@@ -313,13 +320,18 @@ export class SearchEngine {
       score: 1.0,
     };
 
+    // Prevent duplicate IDs which cause winkBM25S to throw an error
+    if (this.docMap.has(searchResult.id)) {
+      return;
+    }
+
     this.addToKeywordIndex(apiClass.name, searchResult);
     this.addToKeywordIndex(apiClass.description || '', searchResult);
 
     // BM25 doc
     this.docMap.set(searchResult.id, searchResult);
     if (this.bm25) {
-      this.bm25.addDoc({ id: searchResult.id, text: searchResult.content });
+      this.bm25.addDoc({ text: searchResult.content }, searchResult.id);
     }
   }
 

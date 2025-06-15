@@ -15,68 +15,20 @@ import { MCPController } from '@/features/mcp/mcp-controller';
  * - Fixed race conditions and initialization timing issues
  */
 
-// Singleton MCP controller instance
 let mcpController: MCPController | null = null;
-let initializationPromise: Promise<MCPController> | null = null;
+// Shared promise ensures initialization happens only once per module instance
+const initializationPromise: Promise<MCPController> = (async () => {
+  mcpController = mcpController ?? new MCPController();
+  await mcpController.initialize();
+  return mcpController;
+})();
 
 /**
  * Get or create the MCP controller singleton with proper initialization
  */
 async function getMCPController(): Promise<MCPController> {
-  // Return existing controller if already initialized
-  if (mcpController?.isReady()) {
-    return mcpController;
-  }
-
-  // Return existing initialization promise if in progress
-  if (initializationPromise) {
-    return initializationPromise;
-  }
-
-  // Start new initialization
-  initializationPromise = initializeController();
-
-  try {
-    mcpController = await initializationPromise;
-    return mcpController;
-  } catch (error) {
-    // Reset promise on failure to allow retry
-    initializationPromise = null;
-    throw error;
-  }
-}
-
-/**
- * Initialize the MCP controller (called once)
- */
-async function initializeController(): Promise<MCPController> {
-  const startTime = Date.now();
-  logger.info('🚀 Initializing PrivMX MCP Server (Singleton)...');
-
-  try {
-    if (!mcpController) {
-      mcpController = new MCPController();
-    }
-
-    // Initialize services (this will use cached instances if already initialized)
-    await mcpController.initialize();
-
-    // Verify controller is ready
-    if (!mcpController.isReady()) {
-      throw new Error('MCP Controller failed to initialize properly');
-    }
-
-    const tools = await mcpController.getTools();
-    logger.info(`🎯 MCP Server ready with ${tools.length} tools`);
-    logger.performance('MCP Server initialization', startTime);
-
-    return mcpController;
-  } catch (error) {
-    logger.error('Failed to initialize MCP Controller', error);
-    // Reset controller on failure
-    mcpController = null;
-    throw error;
-  }
+  if (mcpController?.isReady()) return mcpController;
+  return initializationPromise;
 }
 
 /**
