@@ -443,11 +443,24 @@ export const getTools = (services: ServiceContainer) =>
         params: SearchApiMethodsParams
       ): Promise<ToolResponse> => {
         const { query, className, limit = 10 } = params;
-        const results = await services.searchService.searchApiMethods(
-          query,
-          className,
-          limit
-        );
+
+        let results: SearchResult[];
+
+        if (services.knowledgeService) {
+          // Prefer using KnowledgeService as it guarantees underlying search is initialized
+          results = await services.knowledgeService.searchApiMethods(
+            query,
+            className,
+            limit
+          );
+        } else {
+          // Fallback for legacy callers that provide only SearchService
+          results = await services.searchService.searchApiMethods(
+            query,
+            className,
+            limit
+          );
+        }
         return {
           content: [
             {
