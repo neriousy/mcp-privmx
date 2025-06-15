@@ -11,7 +11,8 @@ function loadConversations(): Conversation[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Conversation[];
     return parsed.map((c) => ({ ...c, updatedAt: new Date(c.updatedAt) }));
-  } catch {
+  } catch (err) {
+    console.warn('[useConversationsLocal] localStorage error', err);
     return [];
   }
 }

@@ -2,8 +2,33 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import { Message } from 'ai';
+import { Message as AiMessage } from 'ai';
 import { Conversation } from '@/types';
+
+// Define the shape of metadata from the backend
+interface BackendMessageMetadata {
+  toolCalls?: Array<{
+    toolName: string;
+    args: any;
+    result?: any;
+    timestamp: number;
+  }>;
+  model?: string;
+  tokens?: {
+    prompt: number;
+    completion: number;
+  };
+  attachments?: Array<{
+    name: string;
+    contentType: string;
+    url: string;
+  }>;
+}
+
+// Extend the AI Message type with our metadata
+type Message = AiMessage & {
+  metadata?: BackendMessageMetadata;
+};
 
 interface ConvexConversationDoc {
   _id: Id<'conversations'>;
@@ -11,15 +36,15 @@ interface ConvexConversationDoc {
   model: string;
   mcpEnabled: boolean;
   updatedAt: number;
+  hasActiveStream: boolean;
   messages: Array<{
     _id: Id<'messages'>;
     role: 'user' | 'assistant' | 'system';
     content: string;
     createdAt: number;
-    metadata?: unknown;
+    metadata?: BackendMessageMetadata;
   }>;
   streamState?: {
-    hasActiveStream: boolean;
     activeMessageId?: Id<'messages'>;
     streamStartedAt?: number;
     lastActivity: number;
@@ -31,13 +56,13 @@ const convertConvexMessage = (msg: {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: number;
+  metadata?: BackendMessageMetadata;
 }): Message => ({
   id: msg._id,
   role: msg.role,
   content: msg.content,
   createdAt: new Date(msg.createdAt),
-  // pass through any extra fields coming from the backend
-  ...('metadata' in msg ? { metadata: msg.metadata } : {}),
+  ...(msg.metadata && { metadata: msg.metadata }),
 });
 
 const convertConvexConversation = (
@@ -51,7 +76,7 @@ const convertConvexConversation = (
   messages: doc.messages.map(convertConvexMessage),
   streamState: doc.streamState
     ? {
-        isStreaming: doc.streamState.hasActiveStream,
+        isStreaming: doc.hasActiveStream,
         lastStreamedAt: new Date(doc.streamState.lastActivity),
         messageId: doc.streamState.activeMessageId,
       }

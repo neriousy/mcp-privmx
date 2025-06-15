@@ -19,22 +19,32 @@ export const list = query({
       .order('desc')
       .collect();
 
-    // Get message counts for each conversation
-    const conversationsWithMessages = await Promise.all(
-      conversations.map(async (conversation) => {
-        const messages = await ctx.db
-          .query('messages')
-          .withIndex('by_conversation_created', (q) =>
-            q.eq('conversationId', conversation._id)
-          )
-          .collect();
+    // Get all messages for this user in a single query (fixes N+1 problem)
+    const allUserMessages = await ctx.db
+      .query('messages')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect();
 
-        return {
-          ...conversation,
-          messages,
-        };
-      })
-    );
+    // Group messages by conversation ID
+    const messagesByConversationId = new Map<string, typeof allUserMessages>();
+    for (const message of allUserMessages) {
+      const conversationId = message.conversationId;
+      if (!messagesByConversationId.has(conversationId)) {
+        messagesByConversationId.set(conversationId, []);
+      }
+      messagesByConversationId.get(conversationId)!.push(message);
+    }
+
+    // Sort messages by createdAt for each conversation
+    for (const messages of messagesByConversationId.values()) {
+      messages.sort((a, b) => a.createdAt - b.createdAt);
+    }
+
+    // Enrich conversations with their messages
+    const conversationsWithMessages = conversations.map((conversation) => ({
+      ...conversation,
+      messages: messagesByConversationId.get(conversation._id) || [],
+    }));
 
     return conversationsWithMessages;
   },
@@ -94,6 +104,7 @@ export const create = mutation({
       model: args.model,
       mcpEnabled: args.mcpEnabled,
       isArchived: false,
+      hasActiveStream: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -156,7 +167,12 @@ export const update = mutation({
     if (args.model !== undefined) updates.model = args.model;
     if (args.mcpEnabled !== undefined) updates.mcpEnabled = args.mcpEnabled;
     if (args.isArchived !== undefined) updates.isArchived = args.isArchived;
-    if (args.streamState !== undefined) updates.streamState = args.streamState;
+    if (args.streamState !== undefined) {
+      updates.streamState = {
+        ...conversation.streamState,
+        ...args.streamState,
+      };
+    }
 
     await ctx.db.patch(args.conversationId, updates);
     return args.conversationId;

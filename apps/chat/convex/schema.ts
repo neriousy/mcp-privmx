@@ -24,11 +24,11 @@ const schema = defineSchema({
     model: v.string(),
     mcpEnabled: v.boolean(),
     isArchived: v.boolean(),
+    hasActiveStream: v.boolean(), // Promoted to top-level for indexing
 
     // Stream State for the entire conversation
     streamState: v.optional(
       v.object({
-        hasActiveStream: v.boolean(),
         activeMessageId: v.optional(v.id('messages')),
         streamStartedAt: v.optional(v.number()),
         lastActivity: v.number(),
@@ -40,11 +40,12 @@ const schema = defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_user_updated', ['userId', 'updatedAt'])
-    .index('by_active_streams', ['streamState.hasActiveStream']),
+    .index('by_active_streams', ['hasActiveStream']),
 
   // Messages
   messages: defineTable({
     conversationId: v.id('conversations'),
+    userId: v.id('users'), // Add userId for efficient bulk queries
     role: v.union(
       v.literal('user'),
       v.literal('assistant'),
@@ -99,6 +100,7 @@ const schema = defineSchema({
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
   })
+    .index('by_user', ['userId']) // Add index for efficient user-based queries
     .index('by_conversation', ['conversationId'])
     .index('by_conversation_created', ['conversationId', 'createdAt'])
     .index('by_streaming', ['isStreaming'])

@@ -141,7 +141,7 @@ export class DocumentationIndexService {
           .slice(0, limit);
 
         return resultDocuments.map((doc) =>
-          this.convertToDocumentationResult(doc, query)
+          this.convertToDocumentationResult(doc)
         );
       } catch (error) {
         console.warn(
@@ -189,7 +189,7 @@ export class DocumentationIndexService {
       if (!doc) {
         throw new Error(`Document not found: ${rel.id}`);
       }
-      return this.convertToDocumentationResult(doc, '');
+      return this.convertToDocumentationResult(doc);
     });
   }
 
@@ -206,7 +206,7 @@ export class DocumentationIndexService {
       .slice(0, 20); // Limit to prevent overwhelming results
 
     return languageDocuments.map((doc) =>
-      this.convertToDocumentationResult(doc, '')
+      this.convertToDocumentationResult(doc)
     );
   }
 
@@ -317,7 +317,7 @@ export class DocumentationIndexService {
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map((item) => this.convertToDocumentationResult(item.doc, query));
+      .map((item) => this.convertToDocumentationResult(item.doc));
   }
 
   /**
@@ -437,8 +437,7 @@ export class DocumentationIndexService {
    * Convert parsed document to documentation result
    */
   private convertToDocumentationResult(
-    doc: ParsedMDXDocument,
-    _query: string
+    doc: ParsedMDXDocument
   ): DocumentationResult {
     // Safely access content properties with fallbacks
     const content = doc.content || {

@@ -94,6 +94,7 @@ export const add = mutation({
     // Create the message
     const messageId = await ctx.db.insert('messages', {
       conversationId: args.conversationId,
+      userId: userId,
       role: args.role,
       content: args.content,
       metadata: args.metadata,
