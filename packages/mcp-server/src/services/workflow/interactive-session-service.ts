@@ -12,6 +12,7 @@ import {
   UserResponse,
   UserContext,
 } from '../../types/mcp-types.js';
+import ServiceManager from '../../common/service-manager.js';
 
 interface SessionData {
   id: string;
@@ -302,26 +303,36 @@ export class InteractiveSessionService {
       `🏗️ Generating code for session ${sessionId}, step ${stepIndex}`
     );
 
-    // Basic implementation for now
+    // Use CodeGenerationService to generate code snippets per step
+    const codeGen = await ServiceManager.getCodeGenerationService();
+
+    // Simple heuristic: first step generates setup, subsequent steps placeholder workflow code
+    let code = '';
+    const files: Array<{ path: string; content: string; description: string }> =
+      [];
+
+    if (stepIndex === 1) {
+      // Initial setup code (threads + stores by default)
+      code = await codeGen.generateSetupCode('typescript', [
+        'threads',
+        'stores',
+      ]);
+      files.push({
+        path: 'setup.ts',
+        content: code,
+        description: 'PrivMX project setup',
+      });
+    } else {
+      code = `// Workflow step ${stepIndex} not yet implemented`;
+    }
+
     return {
-      code: `// Generated code for step ${stepIndex}\n// TODO: Implement step logic`,
-      files: [
-        {
-          path: `step-${stepIndex}.js`,
-          content: `// Step ${stepIndex} implementation`,
-          description: `Generated file for step ${stepIndex}`,
-        },
-      ],
+      code,
+      files,
       instructions: [
         `Step ${stepIndex} code generated`,
-        'Review the generated code',
-        'Test the implementation',
+        'Review and adapt as needed',
       ],
-      validationResults: {
-        isValid: true,
-        issues: [],
-        suggestions: ['Add error handling', 'Add input validation'],
-      },
     };
   }
 

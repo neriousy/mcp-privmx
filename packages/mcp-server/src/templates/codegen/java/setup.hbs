@@ -1,0 +1,41 @@
+/*
+ * PrivMX Endpoint Java Setup (Generated)
+ */
+package com.privmx.demo;
+
+import io.privmx.endpoint.Endpoint;
+{{#if (includes features "threads")}}
+import io.privmx.endpoint.ThreadApi;
+{{/if}}
+{{#if (includes features "stores")}}
+import io.privmx.endpoint.StoreApi;
+{{/if}}
+
+public class PrivMXManager {
+  private Endpoint endpoint;
+  private String connectionId;
+
+  public String initialize(String privKey, String solutionId, String url) throws Exception {
+    Endpoint.setup("/assets");
+    this.endpoint = new Endpoint();
+    this.connectionId = endpoint.connect(privKey, solutionId, url);
+    return connectionId;
+  }
+
+  public boolean isReady() {
+    return endpoint != null && connectionId != null;
+  }
+
+  /** Feature Implementations **/
+  {{#if (includes features "threads")}}
+  {{jsDoc "java" "ThreadApi" "createThread"}}
+  // snippet: {{methodSnippet "java" "ThreadApi" "createThread"}}
+  public String createThread(/* params */) { return ""; }
+  {{/if}}
+
+  {{#if (includes features "stores")}}
+  {{jsDoc "java" "StoreApi" "createStore"}}
+  // snippet: {{methodSnippet "java" "StoreApi" "createStore"}}
+  public String createStore(/* params */) { return ""; }
+  {{/if}}
+} 

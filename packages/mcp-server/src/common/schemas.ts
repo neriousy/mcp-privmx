@@ -16,3 +16,5 @@ export const SkillLevelSchema = z.enum([
 ]);
 
 export const FrameworkSchema = z.enum(['react', 'vue', 'vanilla', 'nodejs']);
+
+export const FeatureSchema = z.enum(['threads', 'stores', 'inboxes', 'crypto']);

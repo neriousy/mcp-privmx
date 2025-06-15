@@ -1,0 +1,26 @@
+/**
+ * Secure Threads (Messaging) API
+ */
+{{jsDoc "ThreadApi" "createThread"}}
+async createThread({{paramList "ThreadApi" "createThread"}}) {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  // snippet: {{methodSnippet "ThreadApi" "createThread"}}
+  const thread = await this.endpoint.thread.createThread(
+    this.connectionId,
+    JSON.stringify(publicMeta),
+    JSON.stringify(privateMeta),
+    users,
+  );
+  return thread;
+}
+
+{{jsDoc "ThreadApi" "sendMessage"}}
+async sendMessage({{paramList "ThreadApi" "sendMessage"}}): {{returnType "ThreadApi" "sendMessage"}} {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  // snippet: {{methodSnippet "ThreadApi" "sendMessage"}}
+  return this.endpoint.thread.sendMessage(
+    threadId,
+    JSON.stringify(meta),
+    new TextEncoder().encode(message),
+  );
+} 

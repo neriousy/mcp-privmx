@@ -14,15 +14,19 @@ import {
   WorkflowSuggestion,
   NextStepSuggestion,
 } from '../../types/index.js';
+import { ApiVectorService } from '../search/api-vector-service.js';
+import { setSpanAttributes, startSpan } from '../../common/otel.js';
 
 export class APISearchService {
   private searchService: SearchService;
   private apiData: Map<string, unknown>;
   private initialized = false;
+  private apiVectorService: ApiVectorService;
 
   constructor() {
     this.searchService = new SearchService();
     this.apiData = new Map();
+    this.apiVectorService = new ApiVectorService();
   }
 
   /**
@@ -35,6 +39,7 @@ export class APISearchService {
 
     this.apiData = apiData;
     await this.searchService.initialize(apiData);
+    await this.apiVectorService.initialize(apiData);
     this.initialized = true;
 
     const stats = this.searchService.getStats();
@@ -52,7 +57,7 @@ export class APISearchService {
     language?: string
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.searchService.search(functionality, language);
+    return this.hybridSearch(functionality, language);
   }
 
   /**
@@ -322,7 +327,7 @@ export class APISearchService {
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
 
-    const results = await this.searchService.search(query, options?.type);
+    const results = await this.hybridSearch(query, options?.type);
 
     // Apply additional filters
     let filteredResults = results;
@@ -399,5 +404,57 @@ export class APISearchService {
     const keyTerms = words.filter((word) => !commonWords.includes(word));
 
     return [...new Set(keyTerms)].slice(0, 5);
+  }
+
+  private async hybridSearch(
+    query: string,
+    language?: string
+  ): Promise<SearchResult[]> {
+    const lexicalWeight = Number(process.env.API_TEXT_WEIGHT ?? '0.5');
+    const vectorWeight = Number(
+      process.env.API_VECTOR_WEIGHT ?? 1 - lexicalWeight
+    );
+
+    return startSpan('api.hybridSearch', async () => {
+      // Lexical (BM25/text-only) – avoid counting vector score twice
+      const lexicalResults = this.searchService.lexicalSearch(query, language);
+
+      // Semantic
+      const semanticRes = await this.apiVectorService.semanticSearch(query, 20);
+
+      // Normalise lexical scores 0..1
+      const maxLex = lexicalResults.length > 0 ? lexicalResults[0].score : 1;
+      const combined = new Map<string, { res: SearchResult; score: number }>();
+
+      for (const r of lexicalResults) {
+        const norm = r.score / (maxLex || 1);
+        combined.set(r.id, { res: r, score: norm * lexicalWeight });
+      }
+
+      for (const s of semanticRes) {
+        const existing = combined.get(s.id);
+        if (existing) {
+          existing.score += s.score * vectorWeight;
+        } else {
+          // Need to fetch SearchResult for this ID
+          const lex = lexicalResults.find((r) => r.id === s.id);
+          if (lex)
+            combined.set(lex.id, { res: lex, score: s.score * vectorWeight });
+        }
+      }
+
+      const sorted = Array.from(combined.values())
+        .sort((a, b) => b.score - a.score)
+        .map((c) => c.res);
+
+      setSpanAttributes({
+        textWeight: lexicalWeight,
+        vectorWeight,
+        lexicalCandidates: lexicalResults.length,
+        semanticCandidates: semanticRes.length,
+      });
+
+      return sorted.slice(0, 10);
+    });
   }
 }

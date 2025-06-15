@@ -1,0 +1,29 @@
+/**
+ * Secure Inboxes (Anonymous Submissions) API
+ */
+// snippet: {{methodSnippet "InboxApi" "createInbox"}}
+{{jsDoc "InboxApi" "createInbox"}}
+async createInbox({{paramList "InboxApi" "createInbox"}}) {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  const inbox = await this.endpoint.inbox.createInbox(
+    this.connectionId,
+    JSON.stringify(publicMeta),
+    JSON.stringify(privateMeta),
+    managers,
+    JSON.stringify(filesConfig),
+  );
+  return inbox;
+}
+
+// snippet: {{methodSnippet "InboxApi" "sendEntry"}}
+{{jsDoc "InboxApi" "sendEntry"}}
+async sendToInbox({{paramList "InboxApi" "sendEntry"}}): {{returnType "InboxApi" "sendEntry"}} {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  return this.endpoint.inbox.sendEntry(
+    inboxId,
+    JSON.stringify(publicMeta),
+    JSON.stringify(privateMeta),
+    data,
+    files,
+  );
+} 

@@ -5,8 +5,9 @@
  * and intelligent workflow suggestions.
  */
 
-import { SearchEngine } from './basic-search-engine.js';
+import { SearchEngine } from './core-search-engine.js';
 import { APIAnalysisService } from '../api/api-analysis-service.js';
+import { ApiVectorService } from './api-vector-service.js';
 import {
   SearchResult,
   EnhancedSearchResult,
@@ -17,6 +18,12 @@ import {
   GeneratedCode,
   CodeExample,
 } from '../../types/index.js';
+import {
+  createMessagingWorkflow,
+  createFileStorageWorkflow,
+  createInboxWorkflow,
+  createEventHandlingWorkflow,
+} from './workflow-templates.js';
 
 interface CodeGeneratorOutput {
   main: string;
@@ -34,11 +41,14 @@ interface CodeGenerator {
 
 export class WorkflowSearchEngine extends SearchEngine {
   private relationshipAnalyzer: APIAnalysisService;
+  /** Semantic vector search for API entities */
+  private apiVectorService: ApiVectorService;
   private contextCache: Map<string, EnhancedSearchResult[]> = new Map();
 
   constructor() {
     super();
     this.relationshipAnalyzer = new APIAnalysisService();
+    this.apiVectorService = new ApiVectorService();
   }
 
   /**
@@ -59,15 +69,22 @@ export class WorkflowSearchEngine extends SearchEngine {
     );
     console.log(`   📋 ${stats.commonPatterns} common patterns identified`);
     console.log(`   ⚠️  ${stats.errorPatterns} error patterns catalogued`);
+
+    // Initialize vector search
+    try {
+      await this.apiVectorService.initialize(apiData);
+    } catch {
+      /* ignore unavailable vector store */
+    }
   }
 
   /**
    * Enhanced search with context awareness
    */
-  searchWithContext(
+  async searchWithContext(
     query: string,
     context?: SearchContext
-  ): EnhancedSearchResult[] {
+  ): Promise<EnhancedSearchResult[]> {
     const cacheKey = `${query}:${JSON.stringify(context)}`;
 
     // Check cache first
@@ -75,8 +92,11 @@ export class WorkflowSearchEngine extends SearchEngine {
       return this.contextCache.get(cacheKey) || [];
     }
 
-    // Get basic search results
-    const basicResults = this.search(query, context?.userContext?.language);
+    // Hybrid search results for better relevance
+    const basicResults = await this.hybridSearch(
+      query,
+      context?.userContext?.language
+    );
 
     // Enhance results with context intelligence
     const enhancedResults = basicResults.map((result) =>
@@ -303,103 +323,22 @@ export class WorkflowSearchEngine extends SearchEngine {
    * Create messaging workflow
    */
   private createMessagingWorkflow(_language?: string): WorkflowSuggestion {
-    return {
-      id: 'secure-messaging',
-      name: 'Secure Messaging Application',
-      description: 'Build a complete secure messaging app with PrivMX',
-      estimatedTime: '30-45 minutes',
-      difficulty: 'intermediate',
-      tags: ['messaging', 'threads', 'real-time'],
-      steps: [
-        {
-          id: 'setup-endpoint',
-          name: 'Initialize Endpoint',
-          description: 'Set up PrivMX endpoint',
-          apiMethod: 'Endpoint.setup',
-          parameters: { publicPath: 'string' },
-          prerequisites: [],
-        },
-        {
-          id: 'establish-connection',
-          name: 'Connect to Bridge',
-          description: 'Establish connection to PrivMX Bridge',
-          apiMethod: 'Endpoint.connect',
-          parameters: {
-            userPrivKey: 'string',
-            solutionId: 'string',
-            bridgeUrl: 'string',
-          },
-          prerequisites: ['setup-endpoint'],
-        },
-        {
-          id: 'create-thread-api',
-          name: 'Create Thread API',
-          description: 'Initialize Thread API instance',
-          apiMethod: 'Endpoint.createThreadApi',
-          parameters: { connection: 'Connection' },
-          prerequisites: ['establish-connection'],
-        },
-        {
-          id: 'create-thread',
-          name: 'Create Secure Thread',
-          description: 'Create a new thread for messaging',
-          apiMethod: 'ThreadApi.createThread',
-          parameters: {
-            contextId: 'string',
-            users: 'UserWithPubKey[]',
-            managers: 'UserWithPubKey[]',
-          },
-          prerequisites: ['create-thread-api'],
-        },
-        {
-          id: 'setup-events',
-          name: 'Set up Event Listeners',
-          description: 'Listen for real-time message events',
-          apiMethod: 'EventQueue.addEventListener',
-          parameters: { eventType: 'string', handler: 'function' },
-          prerequisites: ['create-thread'],
-        },
-      ],
-    };
+    return createMessagingWorkflow();
   }
 
   /**
    * Create workflow for other use cases
    */
   private createFileStorageWorkflow(): WorkflowSuggestion {
-    return {
-      id: 'file-storage',
-      name: 'Secure File Storage',
-      description: 'Build a secure file storage system',
-      estimatedTime: '20-30 minutes',
-      difficulty: 'beginner',
-      tags: ['files', 'storage', 'encryption'],
-      steps: [],
-    };
+    return createFileStorageWorkflow();
   }
 
   private createInboxWorkflow(): WorkflowSuggestion {
-    return {
-      id: 'inbox-system',
-      name: 'Inbox Notification System',
-      description: 'Build an inbox for notifications',
-      estimatedTime: '25-35 minutes',
-      difficulty: 'intermediate',
-      tags: ['inbox', 'notifications'],
-      steps: [],
-    };
+    return createInboxWorkflow();
   }
 
   private createEventHandlingWorkflow(): WorkflowSuggestion {
-    return {
-      id: 'event-handling',
-      name: 'Real-time Event Handling',
-      description: 'Set up real-time event processing',
-      estimatedTime: '15-25 minutes',
-      difficulty: 'beginner',
-      tags: ['events', 'real-time'],
-      steps: [],
-    };
+    return createEventHandlingWorkflow();
   }
 
   // Helper methods for code generation
@@ -428,24 +367,64 @@ export class WorkflowSearchEngine extends SearchEngine {
   }
 
   private findRelatedMethods(methodKey: string): string[] {
-    // TODO: Implement relationship graph analysis for related methods
     const graph = this.relationshipAnalyzer.getRelationshipGraph();
-    const patterns = graph.commonPatterns.get(methodKey) || [];
-    return patterns.map((pattern) => pattern.apiMethod);
+
+    // 1. Prerequisites
+    const prereqs = graph.prerequisites.get(methodKey) || [];
+
+    // 2. Common patterns (Workflow steps sharing the same prerequisites)
+    const patternSteps = graph.commonPatterns.get(methodKey) || [];
+    const patternApis = patternSteps.map((p) => p.apiMethod);
+
+    // 3. Usage frequency – choose top frequent APIs in same namespace
+    const usageSorted = Array.from(graph.usageFrequency.entries())
+      .filter(([k]) => k !== methodKey)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([k]) => k);
+
+    const combined = new Set<string>([
+      ...prereqs,
+      ...patternApis,
+      ...usageSorted,
+    ]);
+
+    return Array.from(combined).slice(0, 5);
   }
 
   private generateCodeExamples(
     result: SearchResult,
     language?: string
   ): CodeExample[] {
-    // TODO: Generate contextual code examples based on result and language
     if (!language) return [];
+
+    const methodName = result.title.split(' ')[0];
+    const className = result.metadata.className as string | undefined;
+    const callExpr = className
+      ? `${className}.${methodName}()`
+      : `${methodName}()`;
+
+    let snippet: string;
+    switch (language.toLowerCase()) {
+      case 'javascript':
+      case 'typescript':
+        snippet = `// ${result.title}\nawait ${callExpr};`;
+        break;
+      case 'java':
+        snippet = `// ${result.title}\n${callExpr};`;
+        break;
+      case 'csharp':
+        snippet = `// ${result.title}\nawait ${callExpr};`;
+        break;
+      default:
+        snippet = `// Usage for ${callExpr}`;
+    }
 
     return [
       {
         language,
-        code: `// Example usage for ${result.metadata.title || 'API method'}`,
-        description: 'Basic usage example',
+        code: snippet,
+        description: `Basic usage of ${result.title}`,
         difficulty: 'beginner' as const,
       },
     ];
@@ -592,5 +571,50 @@ ${steps}
       }
       return example as CodeExample;
     });
+  }
+
+  /**
+   * Combine lexical search (inherited SearchEngine) with vector similarity.
+   */
+  private async hybridSearch(
+    query: string,
+    language?: string,
+    limit = 20
+  ): Promise<SearchResult[]> {
+    const lexicalResults = super.search(query, language);
+
+    const semanticRes = await this.apiVectorService.semanticSearch(
+      query,
+      2 * limit
+    );
+
+    const lexicalWeight = Number(process.env.API_TEXT_WEIGHT ?? '0.5');
+    const vectorWeight = Number(
+      process.env.API_VECTOR_WEIGHT ?? 1 - lexicalWeight
+    );
+
+    const maxLex = lexicalResults.length > 0 ? lexicalResults[0].score : 1;
+    const combined = new Map<string, { res: SearchResult; score: number }>();
+
+    for (const r of lexicalResults) {
+      const norm = r.score / (maxLex || 1);
+      combined.set(r.id, { res: r, score: norm * lexicalWeight });
+    }
+
+    for (const s of semanticRes) {
+      const existing = combined.get(s.id);
+      if (existing) {
+        existing.score += s.score * vectorWeight;
+      } else {
+        const lex = lexicalResults.find((r) => r.id === s.id);
+        if (lex)
+          combined.set(lex.id, { res: lex, score: s.score * vectorWeight });
+      }
+    }
+
+    return Array.from(combined.values())
+      .sort((a, b) => b.score - a.score)
+      .map((c) => c.res)
+      .slice(0, limit);
   }
 }

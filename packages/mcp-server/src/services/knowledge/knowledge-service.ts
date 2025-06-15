@@ -24,6 +24,7 @@ import type {
   SearchContext,
   CodeExample,
 } from '../../types/documentation-types.js';
+import { startSpan } from '../../common/otel.js';
 
 export class KnowledgeService {
   private knowledgeBuilder: KnowledgeBuilder;
@@ -45,33 +46,35 @@ export class KnowledgeService {
    * Initialize the knowledge service and build knowledge graph
    */
   async initialize(specPath: string = '/spec'): Promise<void> {
-    if (this.initialized) return;
+    return startSpan('knowledge.initialize', async () => {
+      if (this.initialized) return;
 
-    try {
-      // Build knowledge graph from specifications
-      const apiData =
-        await this.knowledgeBuilder.buildFromSpecifications(specPath);
+      try {
+        // Build knowledge graph from specifications
+        const apiData =
+          await this.knowledgeBuilder.buildFromSpecifications(specPath);
 
-      // Store in repository
-      await this.knowledgeRepository.store(apiData);
+        // Store in repository
+        await this.knowledgeRepository.store(apiData);
 
-      // Initialize search service with API data
-      await this.apiSearchService.initialize(apiData);
+        // Initialize search service with API data
+        await this.apiSearchService.initialize(apiData);
 
-      // Initialize code generation service
-      await this.codeGenerationService.initialize();
+        // Initialize code generation service
+        await this.codeGenerationService.initialize();
 
-      // Initialize documentation index service with correct MDX path
-      const mdxPath = specPath.endsWith('/spec')
-        ? `${specPath}/mdx`
-        : `${specPath}/spec/mdx`;
-      await this.documentationIndexService.indexDocuments(mdxPath);
+        // Initialize documentation index service with correct MDX path
+        const mdxPath = specPath.endsWith('/spec')
+          ? `${specPath}/mdx`
+          : `${specPath}/spec/mdx`;
+        await this.documentationIndexService.indexDocuments(mdxPath);
 
-      this.initialized = true;
-    } catch (error) {
-      console.error('Failed to initialize KnowledgeService:', error);
-      throw error;
-    }
+        this.initialized = true;
+      } catch (error) {
+        console.error('Failed to initialize KnowledgeService:', error);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -82,7 +85,9 @@ export class KnowledgeService {
     language?: string
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.discoverAPI(functionality, language);
+    return startSpan('knowledge.discoverAPI', () =>
+      this.apiSearchService.discoverAPI(functionality, language)
+    );
   }
 
   /**
@@ -94,7 +99,9 @@ export class KnowledgeService {
     limit = 10
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.searchApiMethods(query, className, limit);
+    return startSpan('knowledge.searchApiMethods', () =>
+      this.apiSearchService.searchApiMethods(query, className, limit)
+    );
   }
 
   /**
@@ -106,7 +113,9 @@ export class KnowledgeService {
     limit = 10
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
-    return this.apiSearchService.searchClasses(query, namespace, limit);
+    return startSpan('knowledge.searchClasses', () =>
+      this.apiSearchService.searchClasses(query, namespace, limit)
+    );
   }
 
   /**
@@ -117,7 +126,9 @@ export class KnowledgeService {
     context: CodeContext
   ): Promise<GeneratedCode> {
     this.ensureInitialized();
-    return this.codeGenerationService.generateCompleteCode(goal, context);
+    return startSpan('knowledge.generateCode', () =>
+      this.codeGenerationService.generateCompleteCode(goal, context)
+    );
   }
 
   /**
@@ -137,10 +148,8 @@ export class KnowledgeService {
     limit = 5
   ): Promise<DocumentationResult[]> {
     this.ensureInitialized();
-    return this.documentationIndexService.searchDocuments(
-      query,
-      filters,
-      limit
+    return startSpan('knowledge.searchDocs', () =>
+      this.documentationIndexService.searchDocuments(query, filters, limit)
     );
   }
 

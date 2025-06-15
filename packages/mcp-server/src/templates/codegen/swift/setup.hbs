@@ -1,0 +1,32 @@
+// PrivMX Endpoint Swift Setup (Generated)
+import Foundation
+import PrivmxEndpoint
+
+class PrivMXManager {
+  private var endpoint: Endpoint?
+  private var connectionId: String?
+
+  func initialize(privKey: String, solutionId: String, url: String) throws {
+    try Endpoint.setup(path: "/assets")
+    let ep = Endpoint()
+    self.connectionId = try ep.connect(userPrivKey: privKey, solutionId: solutionId, platformUrl: url)
+    self.endpoint = ep
+  }
+
+  func isReady() -> Bool {
+    return endpoint != nil && connectionId != nil
+  }
+
+  // Feature Implementations
+  {{#if (includes features "threads")}}
+  {{jsDoc "swift" "ThreadApi" "createThread"}}
+  // snippet: {{methodSnippet "swift" "ThreadApi" "createThread"}}
+  func createThread(/* params */) {}
+  {{/if}}
+
+  {{#if (includes features "stores")}}
+  {{jsDoc "swift" "StoreApi" "createStore"}}
+  // snippet: {{methodSnippet "swift" "StoreApi" "createStore"}}
+  func createStore(/* params */) {}
+  {{/if}}
+} 

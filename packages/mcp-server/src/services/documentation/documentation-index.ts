@@ -8,6 +8,7 @@
 import { readdir, stat } from 'fs/promises';
 import { join } from 'path';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { HierarchicalTextSplitter } from './hierarchical-text-splitter.js';
 import type {
   ParsedMDXDocument,
   DocumentationResult,
@@ -20,22 +21,35 @@ import type {
 } from '../../types/documentation-types.js';
 import { MDXProcessorService } from './mdx-processor.js';
 import { VectorService } from './vector-service.js';
+import { createVectorAdapter } from '../vector/adapter-factory.js';
+import { startSpan, setSpanAttributes } from '../../common/otel.js';
 
 export class DocumentationIndexService {
   private mdxProcessor: MDXProcessorService;
   private vectorService: VectorService;
   private documents: Map<string, ParsedMDXDocument> = new Map();
-  private textSplitter: RecursiveCharacterTextSplitter;
+  private textSplitter:
+    | RecursiveCharacterTextSplitter
+    | HierarchicalTextSplitter;
   private initialized = false;
 
   constructor() {
     this.mdxProcessor = new MDXProcessorService();
-    this.vectorService = new VectorService();
-    this.textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-      separators: ['\n\n', '\n', ' ', ''],
-    });
+    const adapter = createVectorAdapter();
+    this.vectorService = new VectorService({}, adapter);
+    const useHier = process.env.USE_HIER_SPLITTER === 'true';
+    this.textSplitter = (
+      useHier
+        ? new HierarchicalTextSplitter({ chunkSize: 1000, chunkOverlap: 200 })
+        : new RecursiveCharacterTextSplitter({
+            chunkSize: 1000,
+            chunkOverlap: 200,
+            separators: ['\n\n', '\n', ' ', ''],
+          })
+    ) as any;
+    if (useHier) {
+      console.log('🔀 Using HierarchicalTextSplitter for MDX processing');
+    }
   }
 
   /**
@@ -124,35 +138,98 @@ export class DocumentationIndexService {
       candidateDocuments = this.applyFilters(candidateDocuments, filters);
     }
 
-    // If we have vector service available, use semantic search
+    // ----- Hybrid search: combine semantic (vector) and lexical (BM25-ish) -----
+
+    // 1. Semantic search (vector embeddings)
+    let semanticResults: {
+      documentId: string;
+      score: number;
+    }[] = [];
+
     if (this.vectorService.isAvailable() && candidateDocuments.length > 0) {
       try {
-        // Perform semantic search
-        const semanticResults = await this.vectorService.semanticSearch(
+        const vecRes = await this.vectorService.semanticSearch(
           query,
           filters,
-          limit
+          limit * 2 // fetch more to merge later
         );
-
-        // Map results back to our documents
-        const resultDocuments = semanticResults
-          .map((result) => this.documents.get(result.documentId))
-          .filter((doc): doc is ParsedMDXDocument => doc !== null)
-          .slice(0, limit);
-
-        return resultDocuments.map((doc) =>
-          this.convertToDocumentationResult(doc)
-        );
+        semanticResults = vecRes.map((r) => ({
+          documentId: r.documentId,
+          score: r.score,
+        }));
       } catch (error) {
         console.warn(
-          'Semantic search failed, falling back to text search:',
+          'Semantic search failed, proceeding with lexical only:',
           error
         );
       }
     }
 
-    // Fallback to text-based search
-    return this.performTextSearch(candidateDocuments, query, limit);
+    // 2. Lexical BM25-ish text search
+    const lowerQuery = query.toLowerCase();
+    const textScores = candidateDocuments.map((doc) => {
+      const content =
+        `${doc.metadata.title} ${doc.content.markdown}`.toLowerCase();
+      const score = this.calculateTextScore(content, lowerQuery);
+      return { doc, score };
+    });
+
+    const maxTextScore = Math.max(1, ...textScores.map((t) => t.score));
+
+    // 3. Combine scores
+    const lexicalWeight = Number(process.env.TEXT_WEIGHT ?? '0.5');
+    const semanticWeight = Number(
+      process.env.VECTOR_WEIGHT ?? 1 - lexicalWeight
+    );
+    // Ensure weights sum to 1 for stability
+    const weightSum = lexicalWeight + semanticWeight;
+    const lexW = weightSum === 0 ? 0.5 : lexicalWeight / weightSum;
+    const semW = weightSum === 0 ? 0.5 : semanticWeight / weightSum;
+
+    const combinedMap = new Map<
+      string,
+      { doc: ParsedMDXDocument; score: number }
+    >();
+
+    // Add lexical scores
+    for (const { doc, score } of textScores) {
+      if (score === 0) continue;
+      const normalized = score / maxTextScore; // 0..1
+      combinedMap.set(doc.id, { doc, score: normalized * lexW });
+    }
+
+    // Add semantic scores
+    for (const sem of semanticResults) {
+      const doc = this.documents.get(sem.documentId);
+      if (!doc) continue;
+      const current = combinedMap.get(doc.id)?.score ?? 0;
+      combinedMap.set(doc.id, {
+        doc,
+        score: current + sem.score * semW,
+      });
+    }
+
+    // Fallback: if semantic unavailable and no lexical results, run performTextSearch
+    if (combinedMap.size === 0) {
+      return this.performTextSearch(candidateDocuments, query, limit);
+    }
+
+    // Sort and return top
+    const combinedSorted = Array.from(combinedMap.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return startSpan('docs.hybridSearch', async () => {
+      setSpanAttributes({
+        textWeight: lexW,
+        vectorWeight: semW,
+        lexicalCandidates: textScores.length,
+        semanticCandidates: semanticResults.length,
+      });
+      return combinedSorted.map((item) =>
+        this.convertToDocumentationResult(item.doc, item.score)
+      );
+    });
   }
 
   /**
@@ -165,21 +242,6 @@ export class DocumentationIndexService {
     if (!document) return [];
 
     const related: RelatedDocument[] = [];
-
-    // Find documents with similar concepts
-    for (const [id, doc] of this.documents) {
-      if (id === docId) continue;
-
-      const score = this.calculateSimilarityScore(document, doc);
-      if (score > 0.3) {
-        related.push({
-          id,
-          title: doc.metadata.title,
-          relationshipType: this.determineRelationshipType(document, doc),
-          score,
-        });
-      }
-    }
 
     // Sort by score and return top results
     const topRelated = related.sort((a, b) => b.score - a.score).slice(0, 5);
@@ -317,7 +379,7 @@ export class DocumentationIndexService {
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map((item) => this.convertToDocumentationResult(item.doc));
+      .map((item) => this.convertToDocumentationResult(item.doc, item.score));
   }
 
   /**
@@ -437,7 +499,8 @@ export class DocumentationIndexService {
    * Convert parsed document to documentation result
    */
   private convertToDocumentationResult(
-    doc: ParsedMDXDocument
+    doc: ParsedMDXDocument,
+    score: number = 1.0
   ): DocumentationResult {
     // Safely access content properties with fallbacks
     const content = doc.content || {
@@ -490,7 +553,7 @@ export class DocumentationIndexService {
       codeExamples,
       relatedAPIs: content.apiReferences || [],
       relatedDocs: [], // Will be populated by getRelatedDocuments if needed
-      score: 1.0, // Would be calculated based on search relevance
+      score,
       aiInsights,
     };
   }

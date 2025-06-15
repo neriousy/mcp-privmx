@@ -1,0 +1,23 @@
+/**
+ * Crypto API for Key Management
+ */
+// snippet: {{methodSnippet "CryptoApi" "generateKeyPair"}}
+{{jsDoc "CryptoApi" "generateKeyPair"}}
+generateKeyPair() {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  return this.endpoint.crypto.generateKeyPair();
+}
+
+// snippet: {{methodSnippet "CryptoApi" "signData"}}
+{{jsDoc "CryptoApi" "signData"}}
+signData({{paramList "CryptoApi" "signData"}}): {{returnType "CryptoApi" "signData"}} {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  return this.endpoint.crypto.signData(data, privateKey);
+}
+
+// snippet: {{methodSnippet "CryptoApi" "verifySignature"}}
+{{jsDoc "CryptoApi" "verifySignature"}}
+verifySignature({{paramList "CryptoApi" "verifySignature"}}): {{returnType "CryptoApi" "verifySignature"}} {
+  if (!this.isReady()) throw new Error('PrivMX not initialized');
+  return this.endpoint.crypto.verifySignature(data, signature, publicKey);
+} 

@@ -25,6 +25,8 @@ export interface APIReturnType {
 
 export interface APIMethod {
   name: string;
+  /** Unique key (language.namespace.className.methodName(paramTypes)) */
+  key: string;
   description: string;
   snippet: string;
   methodType: 'method' | 'static' | 'constructor';

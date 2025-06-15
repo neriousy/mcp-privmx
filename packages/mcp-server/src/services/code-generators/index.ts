@@ -5,59 +5,72 @@
 
 import { BaseCodeGenerator } from './base-generator.js';
 import { JavaScriptGenerator } from './javascript-generator.js';
-import { JavaGenerator } from './java-generator.js';
-import { SwiftGenerator } from './swift-generator.js';
-import { CSharpGenerator } from './csharp-generator.js';
+import { JavaTemplateGenerator } from './java-template-generator.js';
+import { SwiftTemplateGenerator } from './swift-template-generator.js';
+import { CSharpTemplateGenerator } from './csharp-template-generator.js';
+import { TypeScriptGenerator } from './typescript-generator.js';
+import {
+  getCodeGenerator as getPluginGenerator,
+  registerCodeGeneratorPlugin,
+  getRegisteredLanguages,
+} from './plugin-registry.js';
 
-export type SupportedLanguage =
-  | 'javascript'
-  | 'typescript'
-  | 'java'
-  | 'swift'
-  | 'csharp';
+// Register built-in generators as plugins so external callers go through one registry
+registerCodeGeneratorPlugin({
+  language: 'javascript',
+  create: () => new JavaScriptGenerator(),
+});
+registerCodeGeneratorPlugin({
+  language: 'java',
+  create: () => new JavaTemplateGenerator(),
+});
+registerCodeGeneratorPlugin({
+  language: 'swift',
+  create: () => new SwiftTemplateGenerator(),
+});
+registerCodeGeneratorPlugin({
+  language: 'csharp',
+  create: () => new CSharpTemplateGenerator(),
+});
+registerCodeGeneratorPlugin({
+  language: 'typescript',
+  create: () => new TypeScriptGenerator(),
+});
+
+export type SupportedLanguage = string; // now dynamic based on plugin registry
 
 /**
  * Factory to create code generators for different languages
  */
-export function createCodeGenerator(
-  language: SupportedLanguage
-): BaseCodeGenerator {
-  switch (language) {
-    case 'javascript':
-    case 'typescript':
-      return new JavaScriptGenerator();
-    case 'java':
-      return new JavaGenerator();
-    case 'swift':
-      return new SwiftGenerator();
-    case 'csharp':
-      return new CSharpGenerator();
-    default:
-      throw new Error(`Unsupported language: ${language}`);
-  }
+export function createCodeGenerator(language: string): BaseCodeGenerator {
+  // allow external plugins first
+  const pluginGen = getPluginGenerator(language);
+  if (pluginGen) return pluginGen;
+
+  throw new Error(`Unsupported language: ${language}`);
 }
 
 /**
  * Get all supported languages
  */
-export function getSupportedLanguages(): SupportedLanguage[] {
-  return ['javascript', 'typescript', 'java', 'swift', 'csharp'];
+export function getSupportedLanguages(): string[] {
+  return getRegisteredLanguages();
 }
 
 /**
  * Check if a language is supported
  */
-export function isLanguageSupported(
-  language: string
-): language is SupportedLanguage {
-  return getSupportedLanguages().includes(language as SupportedLanguage);
+export function isLanguageSupported(language: string): boolean {
+  return getRegisteredLanguages().includes(language.toLowerCase());
 }
 
 // Export generators for direct use
 export {
   BaseCodeGenerator,
   JavaScriptGenerator,
-  JavaGenerator,
-  SwiftGenerator,
-  CSharpGenerator,
+  JavaTemplateGenerator,
+  SwiftTemplateGenerator,
+  CSharpTemplateGenerator,
+  TypeScriptGenerator,
+  registerCodeGeneratorPlugin,
 };

@@ -20,6 +20,9 @@ import {
   getVectorConfig,
   type VectorConfig,
 } from '../../config/vector-config.js';
+import { VectorStoreAdapter } from '../vector/vector-adapter.js';
+import eventBus from '../../common/event-bus.js';
+import { startSpan } from '../../common/otel.js';
 
 export interface VectorServiceConfig {
   openaiApiKey?: string;
@@ -39,15 +42,16 @@ export interface DocumentIndexStatus {
   contentHash?: string; // Add content hash for better change detection
 }
 
-export class VectorService {
+export class VectorService implements VectorStoreAdapter {
   private embeddings: any = null;
   private vectorStore: any = null;
+  private adapter?: VectorStoreAdapter;
   public config: VectorServiceConfig; // Made public for configuration access
   private initialized = false;
   private documentIndex: Map<string, DocumentIndexStatus> = new Map();
   private indexCacheFile: string;
 
-  constructor(config: VectorServiceConfig = {}) {
+  constructor(config: VectorServiceConfig = {}, adapter?: VectorStoreAdapter) {
     // Use the centralized configuration with fallback to passed config
     const defaultConfig = getVectorConfig();
 
@@ -68,6 +72,9 @@ export class VectorService {
       process.cwd(),
       this.config.indexCacheFile!
     );
+
+    // Save external adapter if provided (pluggable vector store)
+    this.adapter = adapter;
 
     // Log configuration for debugging
     console.log(`🔧 Vector service configured:`);
@@ -105,6 +112,7 @@ export class VectorService {
       });
 
       this.initialized = true;
+      eventBus.emit('vector.initialized');
       console.log(
         `✅ Vector service initialized with ${this.config.embeddingModel} embeddings and Qdrant`
       );
@@ -120,6 +128,9 @@ export class VectorService {
    * Check if vector service is available
    */
   isAvailable(): boolean {
+    if (this.adapter) {
+      return this.initialized; // trust adapter initialization status
+    }
     return (
       this.initialized && this.embeddings !== null && this.vectorStore !== null
     );
@@ -129,99 +140,111 @@ export class VectorService {
    * Index documents into Qdrant vector store with smart caching
    */
   async indexDocuments(documents: ParsedMDXDocument[]): Promise<void> {
-    if (!this.isAvailable()) {
-      console.warn('Vector service not available, skipping vector indexing');
-      return;
-    }
-
-    try {
-      // First, check what's already indexed (load from persistent storage)
-      await this.loadDocumentIndex();
-
-      // Check if Qdrant collection exists and has documents
-      const collectionExists = await this.checkCollectionExists();
-
-      // Determine which documents need indexing
-      const documentsToIndex = this.config.forceReindex
-        ? documents
-        : await this.filterDocumentsNeedingIndexing(
-            documents,
-            collectionExists
-          );
-
-      if (documentsToIndex.length === 0) {
-        console.log('✅ All documents are up to date, no re-indexing needed');
+    return startSpan('vector.indexDocuments', async () => {
+      // Delegate to adapter if present
+      if (this.adapter) {
+        eventBus.emit('vector.index.start', documents.length);
+        await this.adapter.indexDocuments(documents);
+        eventBus.emit('vector.index.complete', documents.length);
         return;
       }
 
-      console.log(
-        `📊 Creating vector embeddings for ${documentsToIndex.length}/${documents.length} documents...`
-      );
+      if (!this.isAvailable()) {
+        console.warn('Vector service not available, skipping vector indexing');
+        return;
+      }
 
-      // Convert documents to LangChain Document format
-      const langchainDocs: any[] = [];
+      try {
+        // First, check what's already indexed (load from persistent storage)
+        await this.loadDocumentIndex();
 
-      for (const doc of documentsToIndex) {
-        // Create main document chunk
-        const mainDoc = new Document({
-          pageContent: this.prepareContentForEmbedding(doc),
-          metadata: {
-            id: doc.id,
-            title: doc.metadata.title,
-            language: doc.metadata.language,
-            namespace: doc.metadata.namespace,
-            category: doc.metadata.category,
-            skillLevel: doc.metadata.skillLevel,
-            filePath: doc.metadata.filePath,
-            type: 'document',
-            hasCodeExamples: doc.content.codeBlocks.length > 0,
-            concepts: doc.content.concepts.join(','),
-            apiReferences: doc.content.apiReferences.join(','),
-          },
-        });
-        langchainDocs.push(mainDoc);
+        // Check if Qdrant collection exists and has documents
+        const collectionExists = await this.checkCollectionExists();
 
-        // Create separate embeddings for each code block
-        for (let i = 0; i < doc.content.codeBlocks.length; i++) {
-          const codeBlock = doc.content.codeBlocks[i];
-          const codeDoc = new Document({
-            pageContent: `${codeBlock.title || 'Code Example'}\n\n${codeBlock.code}`,
+        // Determine which documents need indexing
+        const documentsToIndex = this.config.forceReindex
+          ? documents
+          : await this.filterDocumentsNeedingIndexing(
+              documents,
+              collectionExists
+            );
+
+        if (documentsToIndex.length === 0) {
+          console.log('✅ All documents are up to date, no re-indexing needed');
+          return;
+        }
+
+        console.log(
+          `📊 Creating vector embeddings for ${documentsToIndex.length}/${documents.length} documents...`
+        );
+
+        // Convert documents to LangChain Document format
+        const langchainDocs: any[] = [];
+
+        for (const doc of documentsToIndex) {
+          // Create main document chunk
+          const mainDoc = new Document({
+            pageContent: this.prepareContentForEmbedding(doc),
             metadata: {
-              id: `${doc.id}_code_${i}`,
-              parentId: doc.id,
-              title: `${doc.metadata.title} - Code Example`,
-              language: codeBlock.language,
+              id: doc.id,
+              title: doc.metadata.title,
+              language: doc.metadata.language,
               namespace: doc.metadata.namespace,
               category: doc.metadata.category,
-              type: 'code',
-              codeLanguage: codeBlock.language,
-              complexity: this.determineComplexity(codeBlock.code),
-              isComplete: codeBlock.isComplete,
+              skillLevel: doc.metadata.skillLevel,
+              filePath: doc.metadata.filePath,
+              type: 'document',
+              hasCodeExamples: doc.content.codeBlocks.length > 0,
+              concepts: doc.content.concepts.join(','),
+              apiReferences: doc.content.apiReferences.join(','),
             },
           });
-          langchainDocs.push(codeDoc);
+          langchainDocs.push(mainDoc);
+
+          // Create separate embeddings for each code block
+          for (let i = 0; i < doc.content.codeBlocks.length; i++) {
+            const codeBlock = doc.content.codeBlocks[i];
+            const codeDoc = new Document({
+              pageContent: `${codeBlock.title || 'Code Example'}\n\n${codeBlock.code}`,
+              metadata: {
+                id: `${doc.id}_code_${i}`,
+                parentId: doc.id,
+                title: `${doc.metadata.title} - Code Example`,
+                language: codeBlock.language,
+                namespace: doc.metadata.namespace,
+                category: doc.metadata.category,
+                type: 'code',
+                codeLanguage: codeBlock.language,
+                complexity: this.determineComplexity(codeBlock.code),
+                isComplete: codeBlock.isComplete,
+              },
+            });
+            langchainDocs.push(codeDoc);
+          }
         }
+
+        // Remove old versions of updated documents
+        for (const doc of documentsToIndex) {
+          await this.removeDocumentFromIndex(doc.id);
+        }
+
+        // Index all documents in Qdrant
+        await this.vectorStore.addDocuments(langchainDocs);
+
+        // Update our document index and persist it
+        await this.updateDocumentIndex(documentsToIndex);
+        await this.saveDocumentIndex();
+
+        eventBus.emit('vector.index.complete', documentsToIndex.length);
+
+        console.log(
+          `✅ Successfully indexed ${langchainDocs.length} document chunks in Qdrant`
+        );
+      } catch (error) {
+        console.error('Failed to index documents in vector store:', error);
+        throw error;
       }
-
-      // Remove old versions of updated documents
-      for (const doc of documentsToIndex) {
-        await this.removeDocumentFromIndex(doc.id);
-      }
-
-      // Index all documents in Qdrant
-      await this.vectorStore.addDocuments(langchainDocs);
-
-      // Update our document index and persist it
-      await this.updateDocumentIndex(documentsToIndex);
-      await this.saveDocumentIndex();
-
-      console.log(
-        `✅ Successfully indexed ${langchainDocs.length} document chunks in Qdrant`
-      );
-    } catch (error) {
-      console.error('Failed to index documents in vector store:', error);
-      throw error;
-    }
+    });
   }
 
   /**
@@ -232,50 +255,48 @@ export class VectorService {
     filters?: DocumentationSearchFilters,
     limit: number = 5
   ): Promise<VectorSearchResult[]> {
-    if (!this.isAvailable()) {
-      throw new Error('Vector service not available');
-    }
-
-    try {
-      // Build Qdrant filter based on documentation filters
-      const qdrantFilter = this.buildQdrantFilter(filters);
-
-      // Perform similarity search
-      const results = await this.vectorStore.similaritySearchWithScore(
-        query,
-        limit * 2, // Get more results to filter and rank
-        qdrantFilter
-      );
-
-      // Convert results to our format
-      const vectorResults: VectorSearchResult[] = results.map(
-        ([doc, score]: [any, number]) => ({
-          documentId: doc.metadata.parentId || doc.metadata.id,
-          title: doc.metadata.title,
-          content: doc.pageContent,
-          metadata: doc.metadata,
-          score: 1 - score, // Convert distance to similarity score
-          type: doc.metadata.type || 'document',
-        })
-      );
-
-      // Group by document ID and take the best score for each document
-      const grouped = new Map<string, VectorSearchResult>();
-      for (const result of vectorResults) {
-        const existing = grouped.get(result.documentId);
-        if (!existing || result.score > existing.score) {
-          grouped.set(result.documentId, result);
-        }
+    return startSpan('vector.semanticSearch', async () => {
+      // Delegate to adapter if present
+      if (this.adapter) {
+        return this.adapter.semanticSearch(query, filters, limit);
       }
 
-      // Return top results sorted by score
-      return Array.from(grouped.values())
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-    } catch (error) {
-      console.error('Semantic search failed:', error);
-      throw error;
-    }
+      if (!this.isAvailable()) {
+        console.warn(
+          'Vector service not available, falling back to text search'
+        );
+        return [];
+      }
+
+      try {
+        eventBus.emit('vector.search.started', { query });
+
+        // Build optional filters for Qdrant
+        const qdrantFilter = this.buildQdrantFilter(filters);
+
+        const results = await (
+          this.vectorStore as QdrantVectorStore
+        ).similaritySearchWithScore(query, limit, qdrantFilter);
+
+        const mapped: VectorSearchResult[] = results.map(([doc, score]) => ({
+          documentId: doc.metadata.id as string,
+          title: doc.metadata.title as string,
+          content: doc.pageContent,
+          metadata: doc.metadata,
+          score,
+          type: doc.metadata.type as 'document' | 'code',
+        }));
+
+        eventBus.emit('vector.search.completed', {
+          query,
+          results: mapped.length,
+        });
+        return mapped;
+      } catch (error) {
+        console.error('Vector search failed:', error);
+        return [];
+      }
+    });
   }
 
   /**
@@ -285,53 +306,43 @@ export class VectorService {
     documentId: string,
     limit: number = 5
   ): Promise<VectorSearchResult[]> {
-    if (!this.isAvailable()) {
-      throw new Error('Vector service not available');
-    }
-
-    try {
-      // First, get the document content to use as query
-      const results = await this.vectorStore.similaritySearchWithScore(
-        '', // Empty query, we'll filter by document ID
-        1,
-        { must: [{ key: 'id', match: { value: documentId } }] }
-      );
-
-      if (results.length === 0) {
-        return [];
+    return startSpan('vector.findSimilar', async () => {
+      if (this.adapter) {
+        return this.adapter.findSimilarDocuments(documentId, limit);
       }
 
-      const [sourceDoc] = results[0];
-
-      // Now find similar documents
-      return this.semanticSearch(
-        sourceDoc.pageContent,
-        undefined,
-        limit + 1
-      ).then((results) => results.filter((r) => r.documentId !== documentId));
-    } catch (error) {
-      console.error('Failed to find similar documents:', error);
-      return [];
-    }
+      // Fallback to semantic search by using documentId as query text
+      return this.semanticSearch(documentId, undefined, limit);
+    });
   }
 
   /**
    * Get vector store statistics
    */
   async getStats(): Promise<{ totalVectors: number; isAvailable: boolean }> {
-    if (!this.isAvailable()) {
-      return { totalVectors: 0, isAvailable: false };
-    }
+    return startSpan('vector.stats', async () => {
+      if (this.adapter) {
+        return this.adapter.getStats();
+      }
 
-    try {
-      // Note: This is a simplified stat - Qdrant has more detailed collection info available
-      return {
-        totalVectors: 0, // Would need Qdrant client to get actual count
-        isAvailable: true,
-      };
-    } catch (error) {
-      return { totalVectors: 0, isAvailable: false };
-    }
+      if (!this.isAvailable()) {
+        return { totalVectors: 0, isAvailable: false };
+      }
+
+      try {
+        const info = await (this.vectorStore as any).client.getCollection(
+          this.config.collectionName
+        );
+
+        return {
+          totalVectors: info?.vectors_count || 0,
+          isAvailable: true,
+        };
+      } catch (error) {
+        console.warn('Failed to fetch vector stats:', error);
+        return { totalVectors: 0, isAvailable: false };
+      }
+    });
   }
 
   /**
@@ -434,6 +445,11 @@ export class VectorService {
    * Clear all documents from the vector store
    */
   async clearCollection(): Promise<void> {
+    if (this.adapter && (this.adapter as any).clearCollection) {
+      await (this.adapter as any).clearCollection();
+      return;
+    }
+
     if (!this.isAvailable()) {
       console.warn('Vector service not available, nothing to clear');
       return;

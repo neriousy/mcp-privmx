@@ -9,10 +9,10 @@ import { fileSharingTemplates } from './templates/file-sharing-templates.js';
 import { feedbackTemplates } from './templates/feedback-templates.js';
 import { collaborationTemplates } from './templates/collaboration-templates.js';
 import { BaseCodeGenerator } from '../code-generators/base-generator.js';
-import { JavaScriptGenerator } from '../code-generators/javascript-generator.js';
-import { JavaGenerator } from '../code-generators/java-generator.js';
-import { SwiftGenerator } from '../code-generators/swift-generator.js';
-import { CSharpGenerator } from '../code-generators/csharp-generator.js';
+import {
+  createCodeGenerator,
+  getSupportedLanguages,
+} from '../code-generators/index.js';
 
 export class WorkflowGeneratorFactory {
   private templates: WorkflowTemplate[];
@@ -26,13 +26,15 @@ export class WorkflowGeneratorFactory {
       ...collaborationTemplates,
     ];
 
-    this.codeGenerators = new Map([
-      ['javascript', new JavaScriptGenerator()],
-      ['typescript', new JavaScriptGenerator()], // TypeScript uses JS generator with TS flag
-      ['java', new JavaGenerator()],
-      ['swift', new SwiftGenerator()],
-      ['csharp', new CSharpGenerator()],
-    ]);
+    // Dynamically create generators for all registered languages
+    this.codeGenerators = new Map();
+    for (const lang of getSupportedLanguages()) {
+      try {
+        this.codeGenerators.set(lang, createCodeGenerator(lang));
+      } catch {
+        // ignore unsupported at this stage
+      }
+    }
   }
 
   /**

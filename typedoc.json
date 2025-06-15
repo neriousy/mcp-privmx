@@ -1,0 +1,8 @@
+{
+  "entryPoints": ["packages/mcp-server/src/index.ts"],
+  "out": "docs/api",
+  "tsconfig": "packages/mcp-server/tsconfig.json",
+  "exclude": ["**/__tests__/**", "**/*.spec.ts"],
+  "includeVersion": true,
+  "json": "docs/api.json"
+}
