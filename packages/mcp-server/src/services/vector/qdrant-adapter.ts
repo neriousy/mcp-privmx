@@ -5,6 +5,7 @@ import type {
 } from '../../types/documentation-types.js';
 import { QdrantVectorStore } from '@langchain/qdrant';
 import { Document } from '@langchain/core/documents';
+import { QdrantClient } from '@qdrant/js-client-rest';
 import { VectorStoreAdapter } from './vector-adapter.js';
 import { EmbeddingProvider } from './embedding-provider.js';
 import { OpenAIEmbeddingProvider } from './openai-embedding-provider.js';
@@ -22,6 +23,7 @@ export interface QdrantAdapterConfig {
 
 export class QdrantVectorAdapter implements VectorStoreAdapter {
   private vectorStore: QdrantVectorStore | null = null;
+  private qdrantClient: QdrantClient;
   private embeddings: EmbeddingProvider;
   private config: Required<QdrantAdapterConfig>;
   private initialized = false;
@@ -42,6 +44,12 @@ export class QdrantVectorAdapter implements VectorStoreAdapter {
     this.embeddings = new OpenAIEmbeddingProvider({
       apiKey: this.config.openaiApiKey,
       model: this.config.embeddingModel,
+    });
+
+    // Initialize Qdrant client for direct API access
+    this.qdrantClient = new QdrantClient({
+      url: this.config.url,
+      apiKey: this.config.apiKey,
     });
   }
 
@@ -100,7 +108,7 @@ export class QdrantVectorAdapter implements VectorStoreAdapter {
       title: doc.metadata.title as string,
       content: doc.pageContent,
       metadata: doc.metadata,
-      score,
+      score: 1 - score, // Convert distance to similarity (higher = better match)
       type: doc.metadata.type as 'document' | 'code',
     }));
   }
@@ -122,14 +130,19 @@ export class QdrantVectorAdapter implements VectorStoreAdapter {
       return { totalVectors: 0, isAvailable: false };
     }
 
-    const info = await (this.vectorStore as any).client.getCollection(
-      this.config.collectionName
-    );
+    try {
+      const info = await this.qdrantClient.getCollection(
+        this.config.collectionName
+      );
 
-    return {
-      totalVectors: info?.vectors_count || 0,
-      isAvailable: true,
-    };
+      return {
+        totalVectors: info.vectors_count || 0,
+        isAvailable: true,
+      };
+    } catch (error) {
+      console.warn('Failed to get Qdrant collection stats:', error);
+      return { totalVectors: 0, isAvailable: false };
+    }
   }
 
   async clearCollection(): Promise<void> {
@@ -159,5 +172,6 @@ export class QdrantVectorAdapter implements VectorStoreAdapter {
 
     // Mark adapter as un-initialised so next index recreates collection
     this.initialized = false;
+    this.vectorStore = null;
   }
 }

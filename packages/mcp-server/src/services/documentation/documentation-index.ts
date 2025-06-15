@@ -23,6 +23,7 @@ import { MDXProcessorService } from './mdx-processor.js';
 import { VectorService } from './vector-service.js';
 import { createVectorAdapter } from '../vector/adapter-factory.js';
 import { startSpan, setSpanAttributes } from '../../common/otel.js';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 
 export class DocumentationIndexService {
   private mdxProcessor: MDXProcessorService;
@@ -38,15 +39,13 @@ export class DocumentationIndexService {
     const adapter = createVectorAdapter();
     this.vectorService = new VectorService({}, adapter);
     const useHier = process.env.USE_HIER_SPLITTER === 'true';
-    this.textSplitter = (
-      useHier
-        ? new HierarchicalTextSplitter({ chunkSize: 1000, chunkOverlap: 200 })
-        : new RecursiveCharacterTextSplitter({
-            chunkSize: 1000,
-            chunkOverlap: 200,
-            separators: ['\n\n', '\n', ' ', ''],
-          })
-    ) as any;
+    this.textSplitter = useHier
+      ? new HierarchicalTextSplitter({ chunkSize: 1000, chunkOverlap: 200 })
+      : new RecursiveCharacterTextSplitter({
+          chunkSize: 1000,
+          chunkOverlap: 200,
+          separators: ['\n\n', '\n', ' ', ''],
+        });
     if (useHier) {
       console.log('🔀 Using HierarchicalTextSplitter for MDX processing');
     }
@@ -85,7 +84,7 @@ export class DocumentationIndexService {
 
       // Initialize and create vector embeddings for semantic search
       await this.vectorService.initialize();
-      if (this.vectorService.isAvailable()) {
+      if (await this.vectorService.isAvailable()) {
         // Pass forceReindex flag to vector service
         this.vectorService.config.forceReindex = forceReindex;
         await this.vectorService.indexDocuments(
@@ -139,93 +138,127 @@ export class DocumentationIndexService {
     }
 
     // ----- Hybrid search: combine semantic (vector) and lexical (BM25-ish) -----
-
-    // 1. Semantic search (vector embeddings)
-    let semanticResults: {
-      documentId: string;
-      score: number;
-    }[] = [];
-
-    if (this.vectorService.isAvailable() && candidateDocuments.length > 0) {
-      try {
-        const vecRes = await this.vectorService.semanticSearch(
-          query,
-          filters,
-          limit * 2 // fetch more to merge later
-        );
-        semanticResults = vecRes.map((r) => ({
-          documentId: r.documentId,
-          score: r.score,
-        }));
-      } catch (error) {
-        console.warn(
-          'Semantic search failed, proceeding with lexical only:',
-          error
-        );
-      }
-    }
-
-    // 2. Lexical BM25-ish text search
-    const lowerQuery = query.toLowerCase();
-    const textScores = candidateDocuments.map((doc) => {
-      const content =
-        `${doc.metadata.title} ${doc.content.markdown}`.toLowerCase();
-      const score = this.calculateTextScore(content, lowerQuery);
-      return { doc, score };
-    });
-
-    const maxTextScore = Math.max(1, ...textScores.map((t) => t.score));
-
-    // 3. Combine scores
-    const lexicalWeight = Number(process.env.TEXT_WEIGHT ?? '0.5');
-    const semanticWeight = Number(
-      process.env.VECTOR_WEIGHT ?? 1 - lexicalWeight
-    );
-    // Ensure weights sum to 1 for stability
-    const weightSum = lexicalWeight + semanticWeight;
-    const lexW = weightSum === 0 ? 0.5 : lexicalWeight / weightSum;
-    const semW = weightSum === 0 ? 0.5 : semanticWeight / weightSum;
-
-    const combinedMap = new Map<
-      string,
-      { doc: ParsedMDXDocument; score: number }
-    >();
-
-    // Add lexical scores
-    for (const { doc, score } of textScores) {
-      if (score === 0) continue;
-      const normalized = score / maxTextScore; // 0..1
-      combinedMap.set(doc.id, { doc, score: normalized * lexW });
-    }
-
-    // Add semantic scores
-    for (const sem of semanticResults) {
-      const doc = this.documents.get(sem.documentId);
-      if (!doc) continue;
-      const current = combinedMap.get(doc.id)?.score ?? 0;
-      combinedMap.set(doc.id, {
-        doc,
-        score: current + sem.score * semW,
-      });
-    }
-
-    // Fallback: if semantic unavailable and no lexical results, run performTextSearch
-    if (combinedMap.size === 0) {
-      return this.performTextSearch(candidateDocuments, query, limit);
-    }
-
-    // Sort and return top
-    const combinedSorted = Array.from(combinedMap.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-
     return startSpan('docs.hybridSearch', async () => {
+      // 1. Semantic search (vector embeddings)
+      let semanticResults: {
+        documentId: string;
+        score: number;
+      }[] = [];
+      let semanticSearchFailed = false;
+
+      if (
+        (await this.vectorService.isAvailable()) &&
+        candidateDocuments.length > 0
+      ) {
+        try {
+          const vecRes = await this.vectorService.semanticSearch(
+            query,
+            filters,
+            limit * 2 // fetch more to merge later
+          );
+          semanticResults = vecRes.map((r) => ({
+            documentId: r.documentId,
+            score: r.score,
+          }));
+        } catch (error) {
+          semanticSearchFailed = true;
+          console.warn(
+            'Semantic search failed, proceeding with lexical only:',
+            error
+          );
+          // Record the error in the span
+          const span = trace.getActiveSpan();
+          span?.recordException(
+            error instanceof Error ? error : new Error(String(error))
+          );
+          span?.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: 'Semantic search failed, using lexical fallback',
+          });
+        }
+      }
+
+      // 2. Lexical BM25-ish text search
+      const lowerQuery = query.toLowerCase();
+      const textScores = candidateDocuments.map((doc) => {
+        const content =
+          `${doc.metadata.title} ${doc.content.markdown}`.toLowerCase();
+        const score = this.calculateTextScore(content, lowerQuery);
+        return { doc, score };
+      });
+
+      const maxTextScore = Math.max(1, ...textScores.map((t) => t.score));
+
+      // Constants for default weights
+      const DEFAULT_LEXICAL_WEIGHT = 0.5;
+      const DEFAULT_SEMANTIC_WEIGHT = 0.5;
+
+      // 3. Combine scores
+      const lexicalWeight = Math.max(
+        0,
+        Math.min(1, Number(process.env.TEXT_WEIGHT ?? DEFAULT_LEXICAL_WEIGHT))
+      );
+      const semanticWeight = Math.max(
+        0,
+        Math.min(
+          1,
+          Number(process.env.VECTOR_WEIGHT ?? DEFAULT_SEMANTIC_WEIGHT)
+        )
+      );
+
+      // Ensure weights sum to 1 for stability
+      // Edge case: if both weights are 0 (user set both TEXT_WEIGHT and VECTOR_WEIGHT to 0),
+      // we fall back to equal weighting (0.5 each) to prevent division by zero and ensure
+      // the search still functions with balanced scoring
+      const weightSum = lexicalWeight + semanticWeight;
+      const lexW =
+        weightSum === 0 ? DEFAULT_LEXICAL_WEIGHT : lexicalWeight / weightSum;
+      const semW =
+        weightSum === 0 ? DEFAULT_SEMANTIC_WEIGHT : semanticWeight / weightSum;
+
+      const combinedMap = new Map<
+        string,
+        { doc: ParsedMDXDocument; score: number }
+      >();
+
+      // Add lexical scores
+      for (const { doc, score } of textScores) {
+        if (score === 0) continue;
+        const normalized = score / maxTextScore; // 0..1
+        combinedMap.set(doc.id, { doc, score: normalized * lexW });
+      }
+
+      // Add semantic scores
+      for (const sem of semanticResults) {
+        const doc = this.documents.get(sem.documentId);
+        if (!doc) continue;
+        const current = combinedMap.get(doc.id)?.score ?? 0;
+        combinedMap.set(doc.id, {
+          doc,
+          score: current + sem.score * semW,
+        });
+      }
+
+      // Fallback: if semantic unavailable and no lexical results, run performTextSearch
+      if (combinedMap.size === 0) {
+        return this.performTextSearch(candidateDocuments, query, limit);
+      }
+
+      // Sort and return top
+      const combinedSorted = Array.from(combinedMap.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+
+      // Set span attributes for observability
       setSpanAttributes({
         textWeight: lexW,
         vectorWeight: semW,
         lexicalCandidates: textScores.length,
         semanticCandidates: semanticResults.length,
+        semanticSearchFailed,
+        combinedResultsCount: combinedSorted.length,
       });
+
       return combinedSorted.map((item) =>
         this.convertToDocumentationResult(item.doc, item.score)
       );

@@ -69,7 +69,9 @@ export function createFileStorageWorkflow(): WorkflowSuggestion {
     estimatedTime: '20-30 minutes',
     difficulty: 'beginner',
     tags: ['files', 'storage', 'encryption'],
-    steps: [],
+    steps: [
+      // TODO: flesh out with real guidance or remove template until ready
+    ],
   };
 }
 
@@ -81,7 +83,9 @@ export function createInboxWorkflow(): WorkflowSuggestion {
     estimatedTime: '25-35 minutes',
     difficulty: 'intermediate',
     tags: ['inbox', 'notifications'],
-    steps: [],
+    steps: [
+      // TODO: flesh out with real guidance or remove template until ready
+    ],
   };
 }
 
@@ -93,6 +97,8 @@ export function createEventHandlingWorkflow(): WorkflowSuggestion {
     estimatedTime: '15-25 minutes',
     difficulty: 'beginner',
     tags: ['events', 'real-time'],
-    steps: [],
+    steps: [
+      // TODO: flesh out with real guidance or remove template until ready
+    ],
   };
 }

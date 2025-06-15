@@ -44,6 +44,7 @@ export class WorkflowSearchEngine extends SearchEngine {
   /** Semantic vector search for API entities */
   private apiVectorService: ApiVectorService;
   private contextCache: Map<string, EnhancedSearchResult[]> = new Map();
+  private isVectorAvailable = false;
 
   constructor() {
     super();
@@ -73,8 +74,10 @@ export class WorkflowSearchEngine extends SearchEngine {
     // Initialize vector search
     try {
       await this.apiVectorService.initialize(apiData);
+      this.isVectorAvailable = true;
     } catch {
       /* ignore unavailable vector store */
+      this.isVectorAvailable = false;
     }
   }
 
@@ -583,10 +586,10 @@ ${steps}
   ): Promise<SearchResult[]> {
     const lexicalResults = super.search(query, language);
 
-    const semanticRes = await this.apiVectorService.semanticSearch(
-      query,
-      2 * limit
-    );
+    // Only perform semantic search if vector service is available
+    const semanticRes = this.isVectorAvailable
+      ? await this.apiVectorService.semanticSearch(query, 2 * limit)
+      : [];
 
     const lexicalWeight = Number(process.env.API_TEXT_WEIGHT ?? '0.5');
     const vectorWeight = Number(

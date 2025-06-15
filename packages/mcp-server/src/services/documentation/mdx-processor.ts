@@ -81,7 +81,7 @@ export class MDXProcessorService {
           id,
           metadata,
           content: processedContent,
-          frontmatter,
+          frontmatter: frontmatterValid,
           rawContent,
           contentHash,
         };

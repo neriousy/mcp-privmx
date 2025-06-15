@@ -28,11 +28,15 @@ export class WorkflowGeneratorFactory {
 
     // Dynamically create generators for all registered languages
     this.codeGenerators = new Map();
-    for (const lang of getSupportedLanguages()) {
+    for (const langRaw of getSupportedLanguages()) {
+      const lang = langRaw.toLowerCase();
       try {
-        this.codeGenerators.set(lang, createCodeGenerator(lang));
+        const gen = createCodeGenerator(lang);
+        if (gen) {
+          this.codeGenerators.set(lang, gen);
+        }
       } catch {
-        // ignore unsupported at this stage
+        /* silent – unsupported plugin */
       }
     }
   }

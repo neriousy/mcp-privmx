@@ -1,5 +1,3 @@
-import type { Document } from '@langchain/core/documents';
-
 /**
  * EmbeddingProvider – abstraction over LLM embedding back-ends (OpenAI, Ollama, Cohere, etc.)
  */

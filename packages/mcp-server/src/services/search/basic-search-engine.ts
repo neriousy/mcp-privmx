@@ -131,6 +131,13 @@ export class SearchEngine {
           return { ...doc, score } as SearchResult;
         })
         .filter(Boolean)
+        .filter((result: SearchResult) => {
+          if (!language) return true;
+          return this.isLanguageCompatible(
+            language,
+            result.metadata.language as string
+          );
+        })
         .slice(0, 10) as SearchResult[];
     }
     const words = functionality.toLowerCase().split(/\s+/);

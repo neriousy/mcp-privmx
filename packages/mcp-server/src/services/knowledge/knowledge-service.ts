@@ -33,6 +33,7 @@ export class KnowledgeService {
   private codeGenerationService: CodeGenerationService;
   private documentationIndexService: DocumentationIndexService;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     this.knowledgeBuilder = new KnowledgeBuilder();
@@ -47,34 +48,56 @@ export class KnowledgeService {
    */
   async initialize(specPath: string = '/spec'): Promise<void> {
     return startSpan('knowledge.initialize', async () => {
+      // If already initialized, return immediately
       if (this.initialized) return;
 
+      // If initialization is already in progress, wait for it to complete
+      if (this.initializationPromise) {
+        return this.initializationPromise;
+      }
+
+      // Start initialization and store the promise to prevent concurrent initializations
+      this.initializationPromise = this.performInitialization(specPath);
+
       try {
-        // Build knowledge graph from specifications
-        const apiData =
-          await this.knowledgeBuilder.buildFromSpecifications(specPath);
-
-        // Store in repository
-        await this.knowledgeRepository.store(apiData);
-
-        // Initialize search service with API data
-        await this.apiSearchService.initialize(apiData);
-
-        // Initialize code generation service
-        await this.codeGenerationService.initialize();
-
-        // Initialize documentation index service with correct MDX path
-        const mdxPath = specPath.endsWith('/spec')
-          ? `${specPath}/mdx`
-          : `${specPath}/spec/mdx`;
-        await this.documentationIndexService.indexDocuments(mdxPath);
-
-        this.initialized = true;
+        await this.initializationPromise;
       } catch (error) {
-        console.error('Failed to initialize KnowledgeService:', error);
+        // Reset the promise on failure so initialization can be retried
+        this.initializationPromise = null;
         throw error;
       }
     });
+  }
+
+  /**
+   * Perform the actual initialization work
+   */
+  private async performInitialization(specPath: string): Promise<void> {
+    try {
+      // Build knowledge graph from specifications
+      const apiData =
+        await this.knowledgeBuilder.buildFromSpecifications(specPath);
+
+      // Store in repository
+      await this.knowledgeRepository.store(apiData);
+
+      // Initialize search service with API data
+      await this.apiSearchService.initialize(apiData);
+
+      // Initialize code generation service
+      await this.codeGenerationService.initialize();
+
+      // Initialize documentation index service with correct MDX path
+      const mdxPath = specPath.endsWith('/spec')
+        ? `${specPath}/mdx`
+        : `${specPath}/spec/mdx`;
+      await this.documentationIndexService.indexDocuments(mdxPath);
+
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize KnowledgeService:', error);
+      throw error;
+    }
   }
 
   /**

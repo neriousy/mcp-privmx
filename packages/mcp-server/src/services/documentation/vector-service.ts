@@ -127,13 +127,11 @@ export class VectorService implements VectorStoreAdapter {
   /**
    * Check if vector service is available
    */
-  isAvailable(): boolean {
+  async isAvailable(): Promise<boolean> {
     if (this.adapter) {
-      return this.initialized; // trust adapter initialization status
+      return this.initialized && (await this.adapter.getStats()).isAvailable;
     }
-    return (
-      this.initialized && this.embeddings !== null && this.vectorStore !== null
-    );
+    return this.initialized;
   }
 
   /**

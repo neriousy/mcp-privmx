@@ -30,6 +30,24 @@ function autoLoadExternalPlugins(): void {
   }
 
   for (const entry of entries) {
+    // Handle scoped packages first
+    if (entry.startsWith('@privmx')) {
+      const scopeDir = path.join(nodeModulesPath, entry);
+      for (const pkg of readdirSync(scopeDir)) {
+        if (pkg.startsWith('codegen-')) {
+          try {
+            require(path.join(scopeDir, pkg));
+            console.log(`[CodeGen] Loaded external plugin: ${entry}/${pkg}`);
+          } catch (err) {
+            console.warn(
+              `[CodeGen] Failed to load plugin ${entry}/${pkg}:`,
+              err
+            );
+          }
+        }
+      }
+      continue;
+    }
     if (
       entry.startsWith('@privmx/codegen-') ||
       entry.startsWith('privmx-codegen-')

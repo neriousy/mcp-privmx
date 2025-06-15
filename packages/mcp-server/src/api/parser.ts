@@ -708,7 +708,7 @@ export class APIParser {
   }
 
   private extractDefaultValue(desc: string): string | number | boolean | null {
-    if (!desc) return undefined as any;
+    if (!desc) return null;
     const match = desc.match(/default[:=]\s*([\w\d\-_.]+)/i);
     if (match) {
       const val = match[1];
@@ -716,6 +716,6 @@ export class APIParser {
       const num = Number(val);
       return isNaN(num) ? val : num;
     }
-    return undefined as any;
+    return null;
   }
 }

@@ -7,11 +7,7 @@
 
 import logger from '../../common/logger.js';
 import { InteractiveWorkflowBuilder } from '../workflow-builder/interactive-workflow-builder.js';
-import {
-  InteractiveSessionState,
-  UserResponse,
-  UserContext,
-} from '../../types/mcp-types.js';
+import { UserResponse, UserContext } from '../../types/mcp-types.js';
 import ServiceManager from '../../common/service-manager.js';
 
 interface SessionData {
@@ -321,6 +317,11 @@ export class InteractiveSessionService {
         path: 'setup.ts',
         content: code,
         description: 'PrivMX project setup',
+      });
+      session.generatedFiles.push({
+        path: 'setup.ts',
+        description: 'PrivMX project setup',
+        status: 'generated',
       });
     } else {
       code = `// Workflow step ${stepIndex} not yet implemented`;

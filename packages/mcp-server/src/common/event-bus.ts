@@ -7,13 +7,14 @@ import { EventEmitter } from 'events';
  *   eventBus.on('vector.index.complete', (payload) => { ... })
  */
 // Narrow known event names – extend as needed
-export type McpEvent =
-  | 'vector.initialized'
-  | 'vector.index.start'
-  | 'vector.index.complete'
-  | 'search.started'
-  | 'search.completed'
-  | string; // allow custom extensions
+export interface McpEvents {
+  'vector.initialized': void;
+  'vector.index.start': void;
+  'vector.index.complete': void;
+  'search.started': void;
+  'search.completed': void;
+  [key: string]: unknown;
+}
 
 const eventBus = new EventEmitter();
 

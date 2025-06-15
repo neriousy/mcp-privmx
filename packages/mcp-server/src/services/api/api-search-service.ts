@@ -438,8 +438,47 @@ export class APISearchService {
         } else {
           // Need to fetch SearchResult for this ID
           const lex = lexicalResults.find((r) => r.id === s.id);
-          if (lex)
+          if (lex) {
             combined.set(lex.id, { res: lex, score: s.score * vectorWeight });
+          } else {
+            // Handle purely semantic matches - create stub from available data
+            // Try to get metadata from the original API data if available
+            let title = `Semantic Match: ${s.id}`;
+            const content = '';
+            let type: 'api' | 'guide' | 'example' | 'class' | 'method' = 'api';
+            const metadata: Record<string, unknown> = {
+              source: 'vector_search',
+            };
+
+            // Extract information from the ID if it follows a pattern
+            if (s.id.includes(':')) {
+              const parts = s.id.split(':');
+              if (parts[0] === 'class') {
+                type = 'class';
+                title = parts[2] || parts[1] || s.id;
+                metadata.namespace = parts[1];
+                metadata.className = parts[2];
+              } else if (parts.length >= 2) {
+                type = 'method';
+                title = parts[parts.length - 1] || s.id;
+                metadata.namespace = parts[0];
+              }
+            }
+
+            const semanticResult: SearchResult = {
+              id: s.id,
+              title,
+              content,
+              type,
+              score: s.score,
+              metadata,
+            };
+
+            combined.set(s.id, {
+              res: semanticResult,
+              score: s.score * vectorWeight,
+            });
+          }
         }
       }
 

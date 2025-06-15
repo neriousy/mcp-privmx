@@ -46,7 +46,8 @@ export class HierarchicalTextSplitter extends TextSplitter {
         const joined = buffer.join('\n');
         if (joined.length >= this.chunkSize) {
           chunks.push(joined);
-          buffer = buffer.slice(-this.chunkOverlap / 2); // keep some overlap
+          const keep = Math.floor(this.chunkOverlap / 2);
+          buffer = buffer.slice(keep ? -keep : 0);
         }
       }
       if (buffer.length) chunks.push(buffer.join('\n'));

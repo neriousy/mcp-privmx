@@ -165,6 +165,31 @@ export class CodeGenerationService {
         codegenDuration.observe({ type: 'template' }, dur);
         return genCode;
       }
+
+      // No matching template found – generate a basic scaffold so we always
+      // fulfil the GeneratedCode contract instead of returning undefined.
+      const basicStart = Date.now();
+      const basicCode = this.generateBasicCode(goal, context.language);
+
+      const fallbackResult: GeneratedCode = {
+        code: basicCode,
+        imports: [],
+        dependencies: [],
+        explanation:
+          'No specific template matched the provided goal. Generated a basic setup/scaffold instead.',
+        warnings: [
+          'Fallback to basic code generation – functionality may be limited.',
+        ],
+        nextSteps: [
+          'Review the generated scaffold and adapt it to your requirements.',
+        ],
+      };
+
+      const basicDur = Date.now() - basicStart;
+      codegenCounter.inc({ type: 'basic' });
+      codegenDuration.observe({ type: 'basic' }, basicDur);
+
+      return fallbackResult;
     });
   }
 

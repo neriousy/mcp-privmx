@@ -1,9 +1,9 @@
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { Document } from '@langchain/core/documents';
 import { QdrantVectorStore } from '@langchain/qdrant';
-import { getVectorConfig } from '../documentation/../../config/vector-config.js';
 import type { APINamespace, APIMethod, APIClass } from '../../api/types.js';
 import { startSpan } from '../../common/otel.js';
+import { getVectorConfig } from '../../config/vector-config.js';
 
 export interface ApiVectorSearchResult {
   id: string;
@@ -68,12 +68,19 @@ export class ApiVectorService {
     if (this.vectorStore) {
       await this.vectorStore.addDocuments(docs);
     } else {
-      const vectors = await this.embeddings.embedDocuments(
-        docs.map((d) => d.pageContent)
-      );
-      vectors.forEach((vector, i) => {
-        this.inMemoryStore.push({ id: docs[i].metadata.id as string, vector });
-      });
+      const BATCH = 256;
+      for (let i = 0; i < docs.length; i += BATCH) {
+        const slice = docs.slice(i, i + BATCH);
+        const vectors = await this.embeddings.embedDocuments(
+          slice.map((d) => d.pageContent)
+        );
+        vectors.forEach((v, idx) => {
+          this.inMemoryStore.push({
+            id: slice[idx].metadata.id as string,
+            vector: v,
+          });
+        });
+      }
     }
 
     this.initialized = true;
