@@ -93,7 +93,7 @@ export interface ConversationState {
 export interface StreamState {
   isStreaming: boolean;
   lastStreamedAt: Date;
-  messageId?: Id<'messages'>;
+  messageId?: string;
 }
 
 export interface StreamRecoveryData {

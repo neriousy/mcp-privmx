@@ -89,45 +89,50 @@ export default function ChatPage() {
     },
     onFinish: async (message) => {
       const convId = conversationIdRef.current;
-      if (convId) {
-        try {
-          if (isSignedIn) {
-            await addMessage({
-              conversationId: convId as unknown as Id<'conversations'>,
-              role: message.role as 'user' | 'assistant' | 'system',
-              content: message.content,
-              metadata:
-                message.toolInvocations && message.toolInvocations.length > 0
-                  ? {
-                      toolCalls: message.toolInvocations.map((t) => ({
-                        toolName: t.toolName,
-                        args: t.args,
-                        timestamp: Date.now(),
-                      })),
-                      model: selectedModel,
-                    }
-                  : { model: selectedModel },
+      if (!convId) return;
+
+      if (!isValidConvexId(convId)) {
+        console.error('[ChatPage] Invalid conversation id, aborting:', convId);
+        return;
+      }
+
+      try {
+        if (isSignedIn) {
+          await addMessage({
+            conversationId: convId as unknown as Id<'conversations'>,
+            role: message.role as 'user' | 'assistant' | 'system',
+            content: message.content,
+            metadata:
+              message.toolInvocations && message.toolInvocations.length > 0
+                ? {
+                    toolCalls: message.toolInvocations.map((t) => ({
+                      toolName: t.toolName,
+                      args: t.args,
+                      timestamp: Date.now(),
+                    })),
+                    model: selectedModel,
+                  }
+                : { model: selectedModel },
+          });
+        }
+
+        await updateConversation(convId as Id<'conversations'>, {
+          model: selectedModel,
+          mcpEnabled: mcpConnected,
+        });
+
+        // modify onFinish block after persisting
+        if (!generatedTitleSet.current.has(convId)) {
+          const newTitle = await fetchGeneratedTitle([...messages, message]);
+          if (newTitle && newTitle !== 'New Chat') {
+            await updateConversation(convId as Id<'conversations'>, {
+              title: newTitle,
             });
           }
-
-          await updateConversation(convId as Id<'conversations'>, {
-            model: selectedModel,
-            mcpEnabled: mcpConnected,
-          });
-
-          // modify onFinish block after persisting
-          if (!generatedTitleSet.current.has(convId)) {
-            const newTitle = await fetchGeneratedTitle([...messages, message]);
-            if (newTitle && newTitle !== 'New Chat') {
-              await updateConversation(convId as Id<'conversations'>, {
-                title: newTitle,
-              });
-            }
-            generatedTitleSet.current.add(convId);
-          }
-        } catch (err) {
-          console.error('Failed to persist assistant message', err);
+          generatedTitleSet.current.add(convId);
         }
+      } catch (err) {
+        console.error('Failed to persist assistant message', err);
       }
     },
     onError: (error) => {
@@ -538,3 +543,12 @@ async function fetchGeneratedTitle(msgs: Message[]): Promise<string | null> {
     return null;
   }
 }
+
+// Utility to validate that a string looks like a Convex document Id. Convex
+// IDs are base32-ish strings (letters, numbers, dash, underscore) that are
+// typically at least 10 characters long. This is **not** a guarantee that the
+// ID actually exists on the backend – only that the format is plausible.
+// If you have access to a canonical validator from Convex in the future, use
+// that instead.
+const isValidConvexId = (id: string): id is string =>
+  typeof id === 'string' && /^[A-Za-z0-9_-]{10,}$/.test(id);

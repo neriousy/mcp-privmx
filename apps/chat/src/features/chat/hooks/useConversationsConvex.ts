@@ -52,7 +52,9 @@ const convertConvexConversation = (
     ? {
         isStreaming: doc.hasActiveStream,
         lastStreamedAt: new Date(doc.streamState.lastActivity),
-        messageId: doc.streamState.activeMessageId,
+        messageId: doc.streamState.activeMessageId
+          ? String(doc.streamState.activeMessageId)
+          : undefined,
       }
     : undefined,
 });
@@ -70,10 +72,10 @@ export interface UseConversationsReturn {
   ) => Promise<Conversation>;
   switchConversation: (id: string | null) => void;
   updateConversation: (
-    id: Id<'conversations'>,
+    id: string,
     updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
   ) => Promise<void>;
-  deleteConversation: (id: Id<'conversations'>) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
 }
 
 export function useConversationsConvex(): UseConversationsReturn {
@@ -124,11 +126,11 @@ export function useConversationsConvex(): UseConversationsReturn {
 
   const updateConversation = useCallback(
     async (
-      id: Id<'conversations'>,
+      id: string,
       updates: Partial<Pick<Conversation, 'title' | 'model' | 'mcpEnabled'>>
     ) => {
       await updateConv({
-        conversationId: id,
+        conversationId: id as Id<'conversations'>,
         ...(updates.title !== undefined && { title: updates.title }),
         ...(updates.model !== undefined && { model: updates.model }),
         ...(updates.mcpEnabled !== undefined && {
@@ -140,9 +142,9 @@ export function useConversationsConvex(): UseConversationsReturn {
   );
 
   const deleteConversation = useCallback(
-    async (id: Id<'conversations'>) => {
+    async (id: string) => {
       await deleteConv({
-        conversationId: id,
+        conversationId: id as Id<'conversations'>,
       });
       if (currentConversationId === id) {
         setCurrentConversationId(null);
